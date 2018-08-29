@@ -850,8 +850,6 @@ def getPistonLimits(){
 }
 //entry point for all events
 def handleEvents(event) {
-	//cancel all pending jobs, we'll handle them later
-	if(isHubitat()) unschedule(timeHandler)
     if (!state.active) return
 	def startTime = now()
     state.lastExecuted = startTime
@@ -870,10 +868,7 @@ def handleEvents(event) {
     	return;
     }
     checkVersion(rtData)
-    if(isHubitat()) {
-        runIn(rtData.pistonLimits.recovery.toInteger(), timeRecoveryHandler)        
-    }
-    else {
+    if(!isHubitat()) {
         setTimeoutRecoveryHandler('timeoutRecoveryHandler_webCoRE')
     }
 	   
@@ -1204,16 +1199,9 @@ private processSchedules(rtData, scheduleJob = false) {
         	t = (t < 1 ? 1 : t)
         	rtData.stats.nextSchedule = next.t
         	if (rtData.logging) info "Setting up scheduled job for ${formatLocalTime(next.t)} (in ${t}s)" + (schedules.size() > 1 ? ', with ' + (schedules.size() - 1).toString() + ' more job' + (schedules.size() > 2 ? 's' : '') + ' pending' : ''), rtData
-        	runIn(t.toInteger(), timeHandler, [data: next])
-            if(isHubitat()){
-                runIn((t + rtData.pistonLimits.recovery).toInteger(), timeRecoveryHandler, [data: next])
-            }            
+        	runIn(t.toInteger(), timeHandler, [data: next])     
     	} else {
 	    	rtData.stats.nextSchedule = 0
-            //remove the recovery
-            if(isHubitat()){
-                unschedule(timeRecoveryHandler)
-            }
 	    }
     }
     if (rtData.piston.o?.pep) atomicState.schedules = schedules

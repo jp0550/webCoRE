@@ -1759,10 +1759,11 @@ private api_execute() {
 def recoveryHandler() {
 	def t = now()
     def lastRecovered = state.lastRecovered
-    if (lastRecovered && (now() - lastRecovered < 30000)) return
+    long recoveryThreshold = isHubitat() ? 40000 : 30000    
+    if (lastRecovered && (now() - lastRecovered < recoveryThreshold)) return
     atomicState.lastRecovered = now()
     def name = handle() + ' Piston'
-    long threshold = now() - 30000
+    long threshold = now() - recoveryThreshold
 	def failedPistons = getChildApps().findAll{ it.name == name }.collect{ [ id: hashId(it.id, updateCache), 'name': it.label, 'meta': state[hashId(it.id, updateCache)] ] }.findAll{ it.meta && it.meta.a && it.meta.n && (it.meta.n < threshold) }
     if (failedPistons.size()) {
     	for (piston in failedPistons) {
@@ -2566,6 +2567,7 @@ private isCustomEndpoint(){
 /******************************************************************************/
 /*** DATABASE																***/
 /******************************************************************************/
+@groovy.transform.Field static Map capabilitesVariable
 
 private Map capabilities() {
     //n = name
@@ -2575,6 +2577,8 @@ private Map capabilities() {
     //m = momentary
     //s = number of subdevices
     //i = subdevice index in event data
+    if(capabilitesVariable != null) return capabilitiesVariable
+    
 	def capabilities = [
 		accelerationSensor			: [ n: "Acceleration Sensor",			d: "acceleration sensors",			a: "acceleration",																																																							],
 		actuator					: [ n: "Actuator", 						d: "actuators",																																																																	],
@@ -2658,11 +2662,15 @@ private Map capabilities() {
     if(isHubitat()){
      	capabilities.remove('button') 
     }
+    capabilitesVariable = capabilities
     
     return capabilities
 }
 
+@groovy.transform.Field static Map attributesVariable
 private Map attributes() {
+    if(attributesVariable != null)return attributesVariable
+    
 	def attrs = [
 		acceleration				: [ n: "acceleration",			t: "enum",		o: ["active", "inactive"],																			],
 		activities					: [ n: "activities", 			t: "object",																										],
@@ -2768,7 +2776,7 @@ private Map attributes() {
     	attrs.remove('button')
         attrs.remove('holdableButton')
     }
-    
+    attributesVariable = attrs    
     return attrs
 }
 
@@ -2780,8 +2788,10 @@ public Map commandOverrides(){
     ] : [:])
 }
 
+@groovy.transform.Field static Map commandsVariable
 private Map commands() {
-	return [
+    if(commandsVariable != null) return commandsVariable
+	def commands = [
 		auto						: [ n: "Set to Auto",																	a: "thermostatMode",				v: "auto",																																			],
 		beep						: [ n: "Beep",																																																																	],
 		both						: [ n: "Strobe and Siren",																a: "alarm",							v: "both",																																			],
@@ -2905,9 +2915,15 @@ private Map commands() {
             push						: [ n: "Push",							d: "Push button {0}",							a: "pushed",												p:[[n: "Button #", t: "integer"]]																																																										],
         	pushMomentary				: [ n: "Push"																																																																						]
         ] : [:])
+    
+    commandsVariable = commands
+    
+    return commands
 }
 
+@groovy.transform.Field static Map virtualCommandsVariable
 private Map virtualCommands() {
+    if(virtualCommandsVariable != null) return virtualCommandsVariable
 	//a = aggregate
     //d = display
 	//n = name
@@ -3007,14 +3023,17 @@ private Map virtualCommands() {
     	]
     }
     
+    virtualCommandsVariable = commands
+    
     return commands
 }
 
 
 
-
+@groovy.transform.Field static Map comparisonsVariable
 private static Map comparisons() {
-	return [
+    if(comparisonsVariable != null) return comparisonsVariable
+	def comparisons = [
     	conditions: [
         	changed							: [ d: "changed",																	g:"bdfis",						t: 1,	],
         	did_not_change					: [ d: "did not change",															g:"bdfis",						t: 1,	],
@@ -3099,10 +3118,16 @@ private static Map comparisons() {
 			stays_odd						: [ d: "stays odd",							dd: "stay odd",							g:"di",							t: 1,	],
         ]
 	]
+    
+    comparisonsVariable = comparisons
+    
+    return comparisons
 }
 
+@groovy.transform.Field static Map functionsVariable
 private static Map functions() {
-	return [
+    if(functionsVariable != null) return functionsVariable
+	def functions = [
       	age				: [ t: "integer",						],
       	previousage		: [ t: "integer",	d: "previousAge",	],
       	previousvalue	: [ t: "dynamic",	d: "previousValue",	],
@@ -3196,6 +3221,10 @@ private static Map functions() {
         urlencode		: [ t: "string",	d: "urlEncode"					],
         encodeuricomponent		: [ t: "string",	d: "encodeURIComponent"					],
 	]
+    
+    functionsVariable = functions
+    
+    return functions
 }
 
 def getIftttKey() {
@@ -3281,8 +3310,11 @@ private Map getEchoSistantOptions() {
 	return state.echoSistantProfiles ?: [null:"EchoSistant not installed - please install or open EchoSistant"]
 }
 
+@groovy.transform.Field static Map virtualDevicesVariable
 private Map virtualDevices(updateCache = false) {
-	return [
+    if(virtualDevicesVariable != null) return virtualDevicesVariable
+    
+	def devices = [
     	date:				[ n: 'Date',						t: 'date',		],
     	datetime:			[ n: 'Date & Time',					t: 'datetime',	],
     	time:				[ n: 'Time',						t: 'time',		],
@@ -3301,10 +3333,14 @@ private Map virtualDevices(updateCache = false) {
         alarmSystemAlert: 	[ n: 'Hubitat Safety Monitor alert',t: 'enum',		o: getAlarmSystemAlertOptions(),			m: true],
         alarmSystemRule: 	[ n: 'Hubitat Safety Monitor rule',t: 'enum',		o: getAlarmSystemRuleOptions(),			m: true]    
     ] : [:])
+    
+    virtualDevicesVariable = devices
+    return devices
 }
-
+@groovy.transform.Field static List colorsVariable
 public List getColors(){
-	return [
+    if(colorsVariable != null) return colorsVariable
+	def colors = [
 		[name:"Alice Blue",     rgb:"#F0F8FF",     h:208,     s:100,     l:97],
 		[name:"Antique White",     rgb:"#FAEBD7",     h:34,     s:78,     l:91],
 		[name:"Aqua",     rgb:"#00FFFF",     h:180,     s:100,     l:50],
@@ -3448,6 +3484,8 @@ public List getColors(){
 		[name:"Yellow",     rgb:"#FFFF00",     h:60,     s:100,     l:50],
 		[name:"Yellow Green",     rgb:"#9ACD32",     h:80,     s:61,     l:50]
     ]
+    colorsVariable = colors
+    return colors
 }
 
 private isHubitat(){
