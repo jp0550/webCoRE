@@ -96,7 +96,11 @@ private initialize() {
 /******************************************************************************/
 
 private subscribeToAttribute(devices, attribute) {
-    subscribe(devices.findAll{ it.hasAttribute(attribute) }, attribute, dashboardEventHandler)
+    //subscribe(devices.findAll{ it.hasAttribute(attribute) }, attribute, dashboardEventHandler)
+	def t0 = devices.findAll{ it.hasAttribute(attribute) }
+	if(t0) {
+		t0.each{ subscribe(it, attribute, dashboardEventHandler) }
+	}
 }
 
 /******************************************************************************/
@@ -111,7 +115,7 @@ public void start(devices, instanceId) {
     if (instanceId) state.instanceId = instanceId
     if (!state.instanceId) return
     state.region = apiServerUrl('/').contains('graph-eu') ? 'eu' : 'us';
-    atomicState.status = 'Subscribing'
+    state.status = 'Subscribing'
     unsubscribe()
     subscribeToAttribute(devices, 'switch')
     subscribeToAttribute(devices, 'level')
@@ -159,9 +163,9 @@ private void broadcastEvent(deviceId, eventName, eventValue, eventTime) {
     if(asynchttp_v1){
         asynchttp_v1.put(null, params)
     }
-    //else {
-    //    asynchttpPut((String)null, params)
-    //}
+    else {
+        asynchttpPut((String)null, params)
+    }
 }
 
 /******************************************************************************/
