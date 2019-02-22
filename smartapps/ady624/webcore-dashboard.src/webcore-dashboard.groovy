@@ -164,8 +164,12 @@ private void broadcastEvent(deviceId, eventName, eventValue, eventTime) {
         asynchttp_v1.put(null, params)
     }
     else {
-        asynchttpPut((String)null, params)
+        asynchttpPut('myDone', params, [bbb:0])
     }
+}
+
+def myDone(resp, data) {
+	//log.debug "resp: ${resp?.status}"
 }
 
 /******************************************************************************/
