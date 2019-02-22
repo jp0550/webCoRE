@@ -21,15 +21,14 @@
 public static String version() { return "v0.3.109.20181207" }
 /*
  *	12/07/2018 >>> v0.3.109.20181207 - BETA M3 - Dirty fix for dashboard timeouts: seems like ST has a lot of trouble reading the list of devices/commands/attributes/values these days, so giving up on reading values makes this much faster - temporarily?!
- *	09/06/2018 >>> v0.3.108.20180906 - BETA M3 - Restore pistons from backup file, hide "(unknown)" SHM status, fixed string to date across DST thanks @bangali, null routines, integer trailing zero cast, saving large pistons and disappearing variables on mobile
  */
 
 /******************************************************************************/
-/*** webCoRE DEFINITION														***/
+/*** webCoRE DEFINITION								***/
 /******************************************************************************/
 private static String handle() { return "webCoRE" }
 
-if(!isHubitat())include 'asynchttp_v1'
+//if(!isHubitat())include 'asynchttp_v1'
 
 definition(
 	name: "${handle()} Piston",
@@ -54,20 +53,22 @@ preferences {
 }
 
 /******************************************************************************/
-/*** 																		***/
-/*** CONFIGURATION PAGES													***/
-/*** 																		***/
+/*** CONFIGURATION PAGES							***/
 /******************************************************************************/
 def pageMain() {
 	//webCoRE Piston main page
-	return dynamicPage(name: "pageMain", title: "", install: isHubitat() ? true : false, uninstall: !!state.build) {
+	return dynamicPage(name: "pageMain", title: "", install: true, uninstall: !!state.build) {
 		if (!parent || !parent.isInstalled()) {
 			section() {
 				paragraph "Sorry, you cannot install a piston directly from the Marketplace, please use the webCoRE SmartApp instead."
 			}
 			section(sectionTitleStr("Installing webCoRE")) {
 				paragraph "If you are trying to install webCoRE, please go back one step and choose webCoRE, not webCoRE Piston. You can also visit wiki.webcore.co for more information on how to install and use webCoRE"
-				if (parent) href "", title: imgTitle("https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("More information")), description: parent.getWikiUrl(), style: "external", url: parent.getWikiUrl(), required: false
+				if (parent) {
+					def t0 = parent.getWikiUrl()
+					href "", title: imgTitle("https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("More information")), description: t0, style: "external", url: t0, required: false
+				}
+				//if (parent) href "", title: imgTitle("https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("More information")), description: parent.getWikiUrl(), style: "external", url: parent.getWikiUrl(), required: false
 			}
 		} else {
 			def currentState = state.currentState
@@ -100,12 +101,10 @@ def pageMain() {
 				href "pageClearAll", title: "Clear all data", description: "You will lose all data stored in any variables"
 			}
 
-			if(isHubitat()){
-				section(){
-					input "dev", "capability.*", title: "Devices", description: "Piston devices", multiple: true
-					input "maxStats", "number", title: "Max number of stats", description: "Max number of stats", defaultValue: getPistonLimits().maxStats
-					input "maxLogs", "number", title: "Max number of logs", description: "Max number of logs", defaultValue: getPistonLimits().maxLogs
-				}
+			section(){
+				input "dev", "capability.*", title: "Devices", description: "Piston devices", multiple: true
+				input "maxStats", "number", title: "Max number of stats", description: "Max number of stats", defaultValue: getPistonLimits().maxStats
+				input "maxLogs", "number", title: "Max number of logs", description: "Max number of logs", defaultValue: getPistonLimits().maxLogs
 			}
 		}
 	}
@@ -120,10 +119,10 @@ def pageRun() {
 	}
 }
 
-def sectionTitleStr(title)      { return "<h3>$title</h3>" }
-def inputTitleStr(title)        { return "<u>$title</u>" }
-def pageTitleStr(title)         { return "<h1>$title</h1>" }
-def paraTitleStr(title)         { return "<b>$title</b>" }
+def sectionTitleStr(title)	{ return "<h3>$title</h3>" }
+def inputTitleStr(title)	{ return "<u>$title</u>" }
+def pageTitleStr(title)		{ return "<h1>$title</h1>" }
+def paraTitleStr(title)		{ return "<b>$title</b>" }
 
 def imgTitle(imgSrc, titleStr, color=null, imgWidth=30, imgHeight=null) {
 	def imgStyle = ""
@@ -161,9 +160,9 @@ def pageClearAll() {
 }
 
 /******************************************************************************/
-/*** 																		***/
-/*** PUBLIC METHODS															***/
-/*** 																		***/
+/*** 										***/
+/*** PUBLIC METHODS								***/
+/*** 										***/
 /******************************************************************************/
 
 def isInstalled(){
@@ -171,7 +170,8 @@ def isInstalled(){
 }
 
 def installed() {
-	if(isHubitat() && !app.id) return
+	//if(isHubitat() && !app.id) return
+	if(!app.id) return
 	state.created = now()
 	state.modified = now()
 	state.build = 0
@@ -187,10 +187,8 @@ def updated() {
 	unsubscribe()
 	initialize()
 
-	if(isHubitat()){
-		if((settings.maxStats?.toInteger() ?: 0) < 1) app.updateSetting("maxStats", [type: "number", value: 1])
-		if((settings.maxLogs?.toInteger() ?: 0) < 1) app.updateSetting("maxLogs", [type: "number", value: 1])
-	}
+	if((settings.maxStats?.toInteger() ?: 0) < 1) app.updateSetting("maxStats", [type: "number", value: 1])
+	if((settings.maxLogs?.toInteger() ?: 0) < 1) app.updateSetting("maxLogs", [type: "number", value: 1])
 
 	return true
 }
@@ -238,14 +236,14 @@ def activity(lastLogTimestamp) {
 	index = index > 0 ? index : (llt ? 0 : logs.size())
 	return [
 		name: app.label,
-	state: state.state,
+		state: state.state,
 		logs: index ? logs[0..index-1] : [],
 		trace: state.trace,
-	localVars: state.vars,
-	memory: mem(),
-	lastExecuted: state.lastExecuted,
-	nextSchedule: state.nextSchedule,
-	schedules: state.schedules
+		localVars: state.vars,
+		memory: mem(),
+		lastExecuted: state.lastExecuted,
+		nextSchedule: state.nextSchedule,
+		schedules: state.schedules
 	]
 }
 
@@ -266,10 +264,10 @@ def setup(data, chunks) {
 		o: data.o ?: {},
 		r: data.r ?: [],
 		rn: !!data.rn,
-	rop: data.rop ?: 'and',
-	s: data.s ?: [],
-	v: data.v ?: [],
-	z: data.z ?: ''
+		rop: data.rop ?: 'and',
+		s: data.s ?: [],
+		v: data.v ?: [],
+		z: data.z ?: ''
 	]
 	if (data.n) app.updateLabel(data.n)
 	setIds(piston)
@@ -354,6 +352,12 @@ private int setIds(node, maxId = 0, existingIds = [:], requiringIds = [], level 
 }
 
 
+def settingsToState(myKey, settings) {
+	if(settings) {
+		atomicState."${myKey}" = settings
+	} else state.remove("${myKey}" as String)
+}
+
 
 def config(data) {
 	if (!data) {
@@ -392,7 +396,7 @@ Map pausePiston() {
 	unsubscribe()
 	unschedule()
 	app.updateSetting('dev', (Map) null)
-	app.updateSetting('contacts', (Map) null)
+	//app.updateSetting('contacts', (Map) null)
 	state.hash = null
 	state.trace = [:]
 	state.subscriptions = [:]
@@ -407,7 +411,7 @@ Map pausePiston() {
 Map resume() {
 	state.active = true;
 	def tempRtData = getTemporaryRunTimeData()
-	def msg = timer "Piston successfully started", null,  -1
+	def msg = timer "Piston successfully started", null, -1
 	if (tempRtData.logging) info "Starting piston... (${version()})", tempRtData, 0
 	def rtData = getRunTimeData(tempRtData, null, true)
 	checkVersion(rtData)
@@ -422,7 +426,6 @@ Map resume() {
 	atomicState.active = true
 	return rtData
 }
-
 
 def setLoggingLevel(level) {
 	def logging = "$level".toString()
@@ -457,7 +460,7 @@ def clickTile(index) {
 private getTemporaryRunTimeData() {
 	return [
 		temporary: true,
-	   	timestamp: now(),
+		timestamp: now(),
 		logging: state.logging ?: 0,
 		logs:[]
 	]
@@ -467,25 +470,55 @@ private getTemporaryRunTimeData() {
 private getCachedAtomicState(){
 	def atomStart = now()
 
-	try {
+//	try {
 		atomicState.loadState()
 		def atomState = atomicState.@backingMap
 		return atomState
-	} catch(e){
-	 	return atomicState
-	}
+//	} catch(e){
+//		return atomicState
+//	}
 	//debug "Atomic state generated in ${now() - atomStart}ms", rtData
+}
+
+private getLocalRunTimeData(timestamp, fetchWrappers = false) {
+	if(state.cVersion == null) parent.updatePistonsW(app)
+	def t0 = now()
+	def t1 = [:]
+	t1 = [
+		initGlobal: false,
+
+		enabled: !state.disabled,
+		semaphoreDelay: 0,
+		coreVersion: state.cVersion,
+		settings: state.settings,
+		region: 'us',
+		powerSource: 'mains',
+		started: timestamp,
+		ended: t0,
+		generatedIn: now() - timestamp,
+		instanceId: hashId(parent.id),
+		waitedAtSempahore: false,
+		logPistonExecutions: state.logPistonExecutions,
+		globalStore: [:]
+	]
+//debug "parent id: ${parent.id}"
+//debug "t1:  ${t1}"
+	return t1
 }
 
 private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 	def n = now()
-	try {
+//	try {
  		def timestamp = rtData?.timestamp ?: now()
 		def piston = state.piston
 		def appId = hashId(app.id)
 		def logs = (rtData && rtData.temporary) ? rtData.logs : null
 		//pep is parallel execution
-		rtData = (rtData && !rtData.temporary) ? rtData : parent.getRunTimeData((semaphore && !(piston.o?.pep)) ? appId : null, !!fetchWrappers)
+		if(piston.o?.pep || !!fetchWrappers) {
+			rtData = (rtData && !rtData.temporary) ? rtData : parent.getRunTimeData((semaphore && !(piston.o?.pep)) ? appId : null, !!fetchWrappers)
+		} else {
+			rtData = (rtData && !rtData.temporary) ? rtData : getLocalRunTimeData(timestamp, !!fetchWrappers)
+		}
 		rtData.timestamp = timestamp
 		rtData.logs = [[t: timestamp]]
 		if (logs && logs.size()) {
@@ -497,7 +530,8 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 		rtData.category = state.category;
 		rtData.stats = [nextScheduled: 0]
 		//we're reading the cache from atomicState because we might have waited at a semaphore
-		def atomState = (rtData.waitedAtSemaphore ?: true) ? (isHubitat() ? getCachedAtomicState() : atomicState) : state
+		//def atomState = (rtData.waitedAtSemaphore ?: true) ? (isHubitat() ? getCachedAtomicState() : atomicState) : state
+		def atomState = getCachedAtomicState()
 
 		rtData.cache = atomState.cache ?: [:]
 		rtData.newCache = [:]
@@ -507,7 +541,7 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 		def logging = "$state.logging".toString()
 		logging = logging.isInteger() ? logging.toInteger() : 0
 		rtData.logging = (int) logging
-		rtData.locationId = hashId(location.id + (isHubitat() ? '-L' : ''))
+		rtData.locationId = hashId(location.id + '-L')
 		rtData.locationModeId = hashId(location.getCurrentMode().id)
 		//flow control
 		//we're reading the old state from atomicState because we might have waited at a semaphore
@@ -525,13 +559,24 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 		state.schedules = atomState.schedules
 		if (!fetchWrappers) {
 			rtData.devices = (settings.dev && (settings.dev instanceof List) ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:])
-			rtData.contacts = (settings.contacts && (settings.contacts instanceof List) ? settings.contacts.collectEntries{[(hashId(it.id)): it]} : [:])
+			//rtData.contacts = (settings.contacts && (settings.contacts instanceof List) ? settings.contacts.collectEntries{[(hashId(it.id)): it]} : [:])
 		}
 		rtData.systemVars = getSystemVariables()
 		rtData.localVars = getLocalVariables(rtData, piston.v, atomState)
-	} catch(all) {
-			error "Error while getting runtime data:", rtData, null, all
-	}
+//ERS
+		if(!rtData.commands) {
+			//rtData.attributes = attributes()
+			//rtData.commands.physical = commands()
+			//rtData.commands.virtual = virtualCommands()
+			//rtData.commands.overrides = commandOverrides()
+			//rtData.commands = [ physical: commands(), virtual: virtualCommands(), overrides: commandOverrides() ]
+			//rtData.comparisons = comparisons()
+			//rtData.virtualDevices = virtualDevices()
+			//rtData.colors = getColors()
+		}
+//	} catch(all) {
+//			error "Error while getting runtime data:", rtData, null, all
+//	}
 	return rtData
 }
 
@@ -547,9 +592,7 @@ private checkVersion(rtData) {
 }
 
 /******************************************************************************/
-/*** 																		***/
-/*** EVENT HANDLING															***/
-/*** 																		***/
+/*** EVENT HANDLING								***/
 /******************************************************************************/
 def fakeHandler(event) {
 	def rtData = getRunTimeData()
@@ -562,11 +605,11 @@ def deviceHandler(event) {
 }
 
 def timeHandler(event, recovery = false) {
-	try {
+//	try {
 		handleEvents([date: new Date(event.t), device: location, name: 'time', value: event.t, schedule: event, recovery: recovery])
-	} catch (Exception e) {
-		error "Unexpected error:", null, null, e
-	}
+//	} catch (Exception e) {
+//		error "Unexpected error:", null, null, e
+//	}
 }
 
 /*
@@ -592,18 +635,19 @@ def executeHandler(event) {
 }
 
 def getPistonLimits(){
-	return isHubitat() ? [ // for HE the limits are per event
-		schedule: 3000,	// was 20000  required time remaining to do extra processing
-		scheduleVariance: 2000,  // was 3000
-		executionTime: 8000, // was 30000  after this time for a single event, we start doing pause()
+	return /* isHubitat() ? */ [ // for HE the limits are per event
+		schedule: 3000,	// was 20000 required time remaining to do extra processing
+		scheduleVariance: 2000, // was 3000
+		executionTime: 8000, // was 30000 after this time for a single event, we start doing pause()
 		taskShortDelay: 333,
 		taskLongDelay: 500,
 		taskRemaining: 3000,
 		taskMaxDelay: 3000, // was 5000
 		maxStats: settings.maxStats ?: 50,
 		maxLogs: settings.maxLogs ?: 50,
-		recovery: 45
-	] : [  // for ST, the schedule limits are a family of executions
+		recovery: 130
+/*
+	] : [	// for ST, the schedule limits are a family of executions
 		schedule: 15000,
 		scheduleVariance: 2000,
 		executionTime: 20000,
@@ -613,12 +657,14 @@ def getPistonLimits(){
 		taskMaxDelay: 5000,
 		maxStats: 500,
 		maxLogs: 500
+*/
 	]
 }
 //entry point for all events
 def handleEvents(event) {
 	//cancel all pending jobs, we'll handle them later
-	if(isHubitat()) unschedule(timeHandler)
+	//if(isHubitat()) unschedule(timeHandler)
+	unschedule(timeHandler)
 	if (!state.active) return
 	def startTime = now()
 	state.lastExecuted = startTime
@@ -637,9 +683,9 @@ def handleEvents(event) {
 		return;
 	}
 	checkVersion(rtData)
-	if(isHubitat()) {
+//	if(isHubitat()) {
 		runIn(rtData.pistonLimits.recovery.toInteger(), timeRecoveryHandler)
-	}
+//	}
 /*
 	else {
 		setTimeoutRecoveryHandler('timeoutRecoveryHandler_webCoRE')
@@ -720,7 +766,7 @@ def handleEvents(event) {
 			if (rtData.logging > 2) debug "Fast executing schedules, waiting for ${delay}ms to sync up", rtData
 			pause delay
 		}
-	   	success = executeEvent(rtData, event)
+		success = executeEvent(rtData, event)
 		syncTime = true
 		//if we waited at a semaphore, we don't want to process too many events
 		if (rtData.semaphoreDelay) break
@@ -753,14 +799,15 @@ private Boolean executeEvent(rtData, event) {
 		rtData.previousEvent = state.lastEvent
 		def index = 0
 		if (event.jsonData) {
-			def attribute = rtData.attributes[event.name]
+			//def attribute = rtData.attributes[event.name]
+			def attribute = Attributes[event.name]
 			if (attribute && attribute.i && event.jsonData[attribute.i]) {
 				index = event.jsonData[attribute.i]
 			}
 			if (!index) index = 1
 		}
 		def srcEvent = event && (event.name == 'time') && event.schedule && event.schedule.evt ? event.schedule.evt : null
-	   	rtData.args = event ? ((event.name == 'time') && event.schedule && event.schedule.args && (event.schedule.args instanceof Map) ? event.schedule.args : (event.jsonData ?: [:])) : [:]
+		rtData.args = event ? ((event.name == 'time') && event.schedule && event.schedule.args && (event.schedule.args instanceof Map) ? event.schedule.args : (event.jsonData ?: [:])) : [:]
 		if (event && (event.name == 'time') && event.schedule && event.schedule.stack) {
 			setSystemVariableValue(rtData, '$index', event.schedule.stack.index)
 			setSystemVariableValue(rtData, '$device', event.schedule.stack.device)
@@ -771,7 +818,8 @@ private Boolean executeEvent(rtData, event) {
 		rtData.currentEvent = [
 			date: event.date.getTime(),
 			delay: rtData.stats?.timing?.d ?: 0,
-			device: srcEvent ? srcEvent.device : hashId((event.device?:location).id + (isHubitat() ? !isDeviceLocation(device) ? '' : '-L' : '')),
+			//device: srcEvent ? srcEvent.device : hashId((event.device?:location).id + (isHubitat() ? !isDeviceLocation(device) ? '' : '-L' : '')),
+			device: srcEvent ? srcEvent.device : hashId((event.device?:location).id + (!isDeviceLocation(device) ? '' : '-L' )),
 			name: srcEvent ? srcEvent.name : event.name,
 			value: srcEvent ? srcEvent.value : event.value,
 			descriptionText: srcEvent ? srcEvent.descriptionText : event.descriptionText,
@@ -814,7 +862,7 @@ private Boolean executeEvent(rtData, event) {
 		def ended = false
 		try {
 			def allowed = !rtData.piston.r || !(rtData.piston.r.length) || evaluateConditions(rtData, rtData.piston, 'r', true)
-		   	rtData.restricted = !rtData.piston.o?.aps && !allowed
+			rtData.restricted = !rtData.piston.o?.aps && !allowed
 			if (allowed || !!rtData.fastForwardTo) {
 				if (rtData.fastForwardTo == -3) {
 					//device related time schedules
@@ -838,7 +886,7 @@ private Boolean executeEvent(rtData, event) {
 					processSchedules rtData
 				}
 			} else {
-		   	 	warn "Piston execution aborted due to restrictions in effect", rtData
+				warn "Piston execution aborted due to restrictions in effect", rtData
 				//we need to run through all to update stuff
 				rtData.fastForwardTo = -9
 				executeStatements(rtData, rtData.piston.s)
@@ -859,7 +907,6 @@ private Boolean executeEvent(rtData, event) {
 }
 
 private finalizeEvent(rtData, initialMsg, success = true) {
-
 
 	def startTime = now()
 	processSchedules(rtData, true)
@@ -883,6 +930,7 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 	stats.timing.push(rtData.stats.timing)
 	if (stats.timing.size() > rtData.pistonLimits.maxStats) stats.timing = stats.timing[stats.timing.size() - rtData.pistonLimits.maxStats..stats.timing.size() - 1]
 	rtData.trace.d = now() - rtData.trace.t
+/*
 	//temporary fix for migration from single to multiple tiles
 	if (rtData.state.i || rtData.state.t) {
 		rtData.state.i1 = rtData.state.i
@@ -896,6 +944,7 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 		rtData.state.remove('b')
 		rtData.state.remove('f')
 	}
+*/
 	state.state = rtData.state
 	state.stats = stats
 	state.trace = rtData.trace
@@ -976,15 +1025,15 @@ private processSchedules(rtData, scheduleJob = false) {
 			rtData.stats.nextSchedule = next.t
 			if (rtData.logging) info "Setting up scheduled job for ${formatLocalTime(next.t)} (in ${t}s)" + (schedules.size() > 1 ? ', with ' + (schedules.size() - 1).toString() + ' more job' + (schedules.size() > 2 ? 's' : '') + ' pending' : ''), rtData
 			runIn(t.toInteger(), timeHandler, [data: next])
-			if(isHubitat()){
+//			if(isHubitat()){
 				runIn((t + rtData.pistonLimits.recovery).toInteger(), timeRecoveryHandler, [data: next])
-			}
+//			}
 		} else {
 			rtData.stats.nextSchedule = 0
 			//remove the recovery
-			if(isHubitat()){
+//			if(isHubitat()){
 				unschedule(timeRecoveryHandler)
-			}
+//			}
 		}
 	}
 	if (rtData.piston.o?.pep) atomicState.schedules = schedules
@@ -1134,7 +1183,7 @@ private Boolean executeStatement(rtData, statement, async = false) {
 							case 'v':
 								if (rtData.event.name == operand.v) perform = true
 								break;
-						   	case 'x':
+							case 'x':
 								if ((rtData.event.value == operand.x) && (rtData.event.name == (operand.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId))) perform = true
 								break;
 							}
@@ -1311,7 +1360,7 @@ private Boolean executeStatement(rtData, statement, async = false) {
 			case 'exit':
 				if (!rtData.fastForwardTo) {
 					vcmd_setState(rtData, null, [cast(rtData, evaluateOperand(rtData, null, statement.lo).v, 'string')])
-				 	rtData.terminated = true
+					rtData.terminated = true
 				}
 				value = false
 				break
@@ -1340,7 +1389,7 @@ private Boolean executeStatement(rtData, statement, async = false) {
 				def mstr = "ExecuteStatement: Execution time exceeded ${overBy}ms, "
 				if(repeat && overBy > 80000) {
 					error "${mstr}Terminating", rtData
-				 	rtData.terminated = true
+					rtData.terminated = true
 					repeat = false
 				} else {
 					doPause("${mstr}Waiting for ${delay}ms", delay, rtData)
@@ -1396,13 +1445,15 @@ private doPause(mstr, delay, rtData) {
 	def actDelay
 	def t0 = now()
 	if(!rtData.lastPause || ( (t0 - rtData.lastPause) > 1000)) {
-		trace "${mstr}; lastPause: ${rtData.lastPause}", rtData
+		if(rtData.logging > 2) debug "${mstr}; lastPause: ${rtData.lastPause}", rtData
 		rtData.lastPause = t0
 		//if (delay > rtData.pistonLimits.taskMaxDelay) delay = rtData.pistonLimits.taskMaxDelay
 		pause(delay)
-		actDelay = delay
-		long t1 = state.pauses ?: 0L
-		state.pauses = t1 + 1
+		def t1 = now()
+		actDelay = t1 - t0 // delay
+		rtData.lastPause = t1
+		long t2 = state.pauses ?: 0L
+		state.pauses = t2 + 1
 	}
 	return actDelay
 }
@@ -1477,8 +1528,8 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 			//restore $device and $devices
 			rtData.resumed = true
 		}
-	   	//we're not doing anything, we're fast forwarding...
-	   	return true
+		//we're not doing anything, we're fast forwarding...
+		return true
 	}
 	if (task.m && (task.m instanceof List) && (task.m.size())) {
 		if (!(rtData.locationModeId in task.m)) {
@@ -1503,10 +1554,12 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 	}
 
 	//handle duplicate command "push" which was replaced with fake command "pushMomentary"
-	def override =  rtData.commands.overrides.find { it.value.r == task.c }
+	//def override = rtData.commands.overrides.find { it.value.r == task.c }
+	def override = CommandsOverrides.find { it.value.r == task.c }
 	def command = override ? override.value.c : task.c
 
- 	def vcmd = rtData.commands.virtual[command]
+ 	//def vcmd = rtData.commands.virtual[command]
+ 	def vcmd = VirtualCommands[command]
 	long delay = 0
 	for (device in (virtualDevice ? [virtualDevice] : devices)) {
 		if (!virtualDevice && device.hasCommand(command) && !(vcmd && vcmd.o /*virutal command overrides physical command*/)) {
@@ -1576,18 +1629,18 @@ private long executeVirtualCommand(rtData, devices, command, params)
 		if (rtData.logging > 1) trace msg, rtData
 	} catch(all) {
 		msg.m = "Error executing virtual command ${devices instanceof List ? "$devices" : "[$devices]"}.${command}:"
-	msg.e = all
-	error msg, rtData
+		msg.e = all
+		error msg, rtData
 	}
 	return delay
 }
 
 private executePhysicalCommand(rtData, device, command, params = [], delay = null, scheduleDevice = null, disableCommandOptimization = false) {
-	if(isHubitat() && (!!delay && !scheduleDevice)){
-		//delay without schedules is not supported in hubitat
-		scheduleDevice = hashId(device.id)
-	}
 	if (!!delay && !!scheduleDevice) {
+//		if(isHubitat() ) {
+			//delay without schedules is not supported in hubitat
+			scheduleDevice = hashId(device.id)
+//		}
 		//we're using schedules instead
 		def statement = rtData.currentAction
 		def cs = [] + ((statement.tcp == 'b') || (statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
@@ -1614,7 +1667,8 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 		def msg = timer ""
 		def skip = false
 		if (!rtData.piston.o?.dco && !disableCommandOptimization && !(command in ['setColorTemperature', 'setColor', 'setHue', 'setSaturation'])) {
-			def cmd = rtData.commands.physical[command]
+			//def cmd = rtData.commands.physical[command]
+			def cmd = PhysicalCommands[command]
 			if (cmd && cmd.a) {
 				if (cmd.v && !params.size()) {
 					//commands with no parameter that set an attribute to a preset value
@@ -1632,9 +1686,7 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 		if (skip) {
 			msg.m = "Skipped execution of physical command [${device.label ?: device.name}].$command($params) because it would make no change to the device."
 		} else {
-			//def myres = runWithDelay(device, command, params, delay)
 			if (params.size()) {
-				//if (myres && delay) { //not supported in hubitat
 				if (delay) { //not supported in hubitat
 					pause(delay)
 					//device."$command"((params as Object[]) + [delay: delay])
@@ -1643,10 +1695,8 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 					device."$command"(params as Object[])
 					msg.m = "Executed physical command [${device.label ?: device.name}].$command($params)"
 				}
-				//if(!myres) device."$command"(params as Object[])
 				device."$command"(params as Object[])
 			} else {
-				//if (myres && delay) { //not supported in hubitat
 				if (delay) { //not supported in hubitat
 					pause(delay)
 					//device."$command"([delay: delay])
@@ -1655,7 +1705,6 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 					//device."$command"()
 					msg.m = "Executed physical command [${device.label ?: device.name}].$command()"
 				}
-				//if(!myres) device."$command"()
 				device."$command"()
 			}
 		}
@@ -1669,43 +1718,6 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 	}
 	}
 }
-
-/*
-private runWithDelay(device, command, params=null, delay) {
-	def result = false
-	def useRunIn = (delay && delay >= 1000) ? true : false
-	long runInTime = delay ? ((delay + 500) / 1000) : null
-	if(useRunIn) {
-		def next = [:]
-		next.d = device
-		next.c = command
-		next.p = params
-		runIn(runInTime.toInteger(), commandParams, [overwrite: false, data: next])
-		result = true
-	} else {
-		if(delay) {
-			pause(delay)
-		}
-	}
-	return result
-}
-*/
-
-def commandParams(data) {
-	try {
-		def device = data.d
-		def command = data.c
-		def params = data.p
-		if (params.size()) {
-			device."$command"(params as Object[])
-		} else {
-			device."$command"()
-		}
-	} catch (Exception e) {
-		error "Unexpected error:", null, null, e
-	}
-}
-
 
 private scheduleTimer(rtData, timer, long lastRun = 0) {
 	//if already scheduled once during this run, don't do it again
@@ -1762,9 +1774,11 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 
 	//switch to local date/times
 	//hubitat timezone is already local
-	time = isHubitat() ? time : utcToLocalTime(time)
-	long rightNow = isHubitat() ? now() : utcToLocalTime(now())
-	lastRun = lastRun ? (isHubitat() ? lastRun : utcToLocalTime(lastRun)) : rightNow
+	//time = isHubitat() ? time : utcToLocalTime(time)
+	//long rightNow = isHubitat() ? now() : utcToLocalTime(now())
+	long rightNow = now()
+	//lastRun = lastRun ? (isHubitat() ? lastRun : utcToLocalTime(lastRun)) : rightNow
+	lastRun = lastRun ?: rightNow
 	long nextSchedule = lastRun
 
 	if (lastRun > rightNow) {
@@ -1785,7 +1799,7 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 				//we're behind, let's fast forward to where the next occurrence happens in the future
 				def count = Math.floor((rightNow - nextSchedule) / delta)
 				//if (rtData.logging > 2) debug "Timer fell behind by $count interval${count > 1 ? 's' : ''}, catching up...", rtData
-			   	nextSchedule = nextSchedule + delta * count
+				nextSchedule = nextSchedule + delta * count
 			}
 			nextSchedule = nextSchedule + delta
 		} else {
@@ -1880,7 +1894,7 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 
 	if (nextSchedule > lastRun) {
 		//convert back to UTC
-		nextSchedule = isHubitat() ? nextSchedule : localToUtcTime(nextSchedule)
+		//nextSchedule = isHubitat() ? nextSchedule : localToUtcTime(nextSchedule)
 		rtData.schedules.removeAll{ it.s == timer.$ }
 		requestWakeUp(rtData, timer, [$: -1], nextSchedule)
 	}
@@ -1890,10 +1904,12 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 private scheduleTimeCondition(rtData, condition) {
 	//if already scheduled once during this run, don't do it again
 	if (rtData.schedules.find{ (it.s == condition.$) && (it.i == 0) }) return
-	def comparison = rtData.comparisons.conditions[condition.co]
+	//def comparison = rtData.comparisons.conditions[condition.co]
+	def comparison = Comparisons.conditions[condition.co]
 	def trigger = false
 	if (!comparison) {
-		comparison = rtData.comparisons.triggers[condition.co]
+		//comparison = rtData.comparisons.triggers[condition.co]
+		comparison = Comparisons.triggers[condition.co]
 		if (!comparison) return
 		trigger = true
 	}
@@ -1925,7 +1941,7 @@ private scheduleTimeCondition(rtData, condition) {
 	//figure out the next time
 	v1 = (v1 < n) ? v2 : v1
 	v2 = (v2 < n) ? v1 : v2
-   	n = v1 < v2 ? v1 : v2
+ 	n = v1 < v2 ? v1 : v2
 	if (n > now()) {
 		if (rtData.logging > 2) debug "Requesting time schedule wake up at ${formatLocalTime(n)}", rtData
 		requestWakeUp(rtData, condition, [$:0], n)
@@ -1957,16 +1973,16 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 	def ms = (new Date(year, month, 1)).time - time
 		switch (level) {
 		case 2: //by second
-	  		result = interval * (Math.floor(ms / 1000 / interval) - 2) * 1000
-		break
+			result = interval * (Math.floor(ms / 1000 / interval) - 2) * 1000
+			break
 		case 3: //by minute
-	  		result = interval * (Math.floor(ms / 60000 / interval) - 2) * 60000
-		break
+			result = interval * (Math.floor(ms / 60000 / interval) - 2) * 60000
+			break
 	}
 		return (result > 0) ? result : -1
 	}
 
-   	//week of month restrictions
+ 	//week of month restrictions
 	if (owm) {
 		if (!((owm.indexOf(getWeekOfMonth(date)) >= 0) || (owm.indexOf(getWeekOfMonth(date, true)) >= 0))) {
 		switch (level) {
@@ -1981,7 +1997,7 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 	}
 	}
 
-   	//day of month restrictions
+ 	//day of month restrictions
 	if (odm) {
 		if (odm.indexOf(date.date) < 0) {
 		def lastDayOfMonth = (new Date(date.year, date.month + 1, 0)).date
@@ -2009,10 +2025,10 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 	if (odw && (odw.indexOf(date.day) < 0)) {
 		switch (level) {
 		case 2: //by second
-	  		result = interval * (Math.floor((((odw.sort{ it }.find{ it > date.day } ?: 7 + odw.sort{ it }[0]) - date.day) * 86400 - date.hours * 3600 - date.minutes * 60) / interval) - 2) * 1000
+			result = interval * (Math.floor((((odw.sort{ it }.find{ it > date.day } ?: 7 + odw.sort{ it }[0]) - date.day) * 86400 - date.hours * 3600 - date.minutes * 60) / interval) - 2) * 1000
 		break
 		case 3: //by minute
-	  		result = interval * (Math.floor((((odw.sort{ it }.find{ it > date.day } ?: 7 + odw.sort{ it }[0]) - date.day) * 1440 - date.hours * 60 - date.minutes) / interval) - 2) * 60000
+			result = interval * (Math.floor((((odw.sort{ it }.find{ it > date.day } ?: 7 + odw.sort{ it }[0]) - date.day) * 1440 - date.hours * 60 - date.minutes) / interval) - 2) * 60000
 		break
 	}
 		return (result > 0) ? result : -1
@@ -2022,10 +2038,10 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 	if (oh && (oh.indexOf(date.hours) < 0)) {
 		switch (level) {
 		case 2: //by second
-	  		result = interval * (Math.floor((((oh.sort{ it }.find{ it > date.hours } ?: 24 + oh.sort{ it }[0]) - date.hours) * 3600 - date.minutes * 60) / interval) - 2) * 1000
+			result = interval * (Math.floor((((oh.sort{ it }.find{ it > date.hours } ?: 24 + oh.sort{ it }[0]) - date.hours) * 3600 - date.minutes * 60) / interval) - 2) * 1000
 		break
 		case 3: //by minute
-	  		result = interval * (Math.floor((((oh.sort{ it }.find{ it > date.hours } ?: 24 + oh.sort{ it }[0]) - date.hours) * 60 - date.minutes) / interval) - 2) * 60000
+			result = interval * (Math.floor((((oh.sort{ it }.find{ it > date.hours } ?: 24 + oh.sort{ it }[0]) - date.hours) * 60 - date.minutes) / interval) - 2) * 60000
 		break
 	}
 		return (result > 0) ? result : -1
@@ -2063,20 +2079,20 @@ private requestWakeUp(rtData, statement, task, timeOrDelay, data = null) {
 	cs.removeAll{ it == 0 }
 	def schedule = [
 		t: time,
-	s: statement.$,
-	i: task?.$,
-	cs: cs,
-	ps: ps,
-	d: data,
-	evt: rtData.currentEvent,
-	args: rtData.args,
-	stack: [
-		index: getVariable(rtData, '$index').v,
-		device: getVariable(rtData, '$device').v,
-		devices: getVariable(rtData, '$devices').v,
-		json: rtData.json ?: [:],
-		response: rtData.response ?: [:]
-	]
+		s: statement.$,
+		i: task?.$,
+		cs: cs,
+		ps: ps,
+		d: data,
+		evt: rtData.currentEvent,
+		args: rtData.args,
+		stack: [
+			index: getVariable(rtData, '$index').v,
+			device: getVariable(rtData, '$device').v,
+			devices: getVariable(rtData, '$devices').v,
+			json: rtData.json ?: [:],
+			response: rtData.response ?: [:]
+		]
 	]
 	rtData.schedules.push(schedule)
 }
@@ -2258,7 +2274,7 @@ private long vcmd_setTileColor(rtData, device, params) {
 private long vcmd_setTileTitle(rtData, device, params) {
 	int index = cast(rtData, params[0], 'integer')
 	if ((index < 1) || (index > 16)) return 0
-   	rtData.state["i$index"] = params[1]
+ 	rtData.state["i$index"] = params[1]
 	return 0
 }
 
@@ -2272,16 +2288,16 @@ private long vcmd_setTileText(rtData, device, params) {
 private long vcmd_setTileFooter(rtData, device, params) {
 	int index = cast(rtData, params[0], 'integer')
 	if ((index < 1) || (index > 16)) return 0
-   	rtData.state["o$index"] = params[1]
+ 	rtData.state["o$index"] = params[1]
 	return 0
 }
 
 private long vcmd_setTile(rtData, device, params) {
 	int index = cast(rtData, params[0], 'integer')
 	if ((index < 1) || (index > 16)) return 0;
-   	rtData.state["i$index"] = params[1]
-   	rtData.state["t$index"] = params[2]
-   	rtData.state["o$index"] = params[3]
+ 	rtData.state["i$index"] = params[1]
+ 	rtData.state["t$index"] = params[2]
+ 	rtData.state["o$index"] = params[3]
 	rtData.state["c$index"] = getColor(rtData, params[4])?.hex
 	rtData.state["b$index"] = getColor(rtData, params[5])?.hex
 	rtData.state["f$index"] = !!params[6]
@@ -2291,8 +2307,8 @@ private long vcmd_setTile(rtData, device, params) {
 private long vcmd_clearTile(rtData, device, params) {
 	int index = cast(rtData, params[0], 'integer')
 	if ((index < 1) || (index > 16)) return 0;
-   	rtData.state["i$index"] = ''
-   	rtData.state["t$index"] = ''
+ 	rtData.state["i$index"] = ''
+ 	rtData.state["t$index"] = ''
 	rtData.state["c$index"] = ''
 	rtData.state["o$index"] = ''
 	rtData.state["b$index"] = ''
@@ -2314,12 +2330,15 @@ private long vcmd_setLocationMode(rtData, device, params) {
 
 private long vcmd_setAlarmSystemStatus(rtData, device, params) {
 	def statusIdOrName = params[0]
-	def dev = rtData.virtualDevices['alarmSystemStatus']
-	def options = isHubitat() ? dev?.ac : dev?.o
+	//def dev = rtData.virtualDevices['alarmSystemStatus']
+	def dev = VirtualDevices['alarmSystemStatus']
+	//def options = isHubitat() ? dev?.ac : dev?.o
+	def options = dev?.ac
 	def status = options?.find{ (it.key == statusIdOrName) || (it.value == statusIdOrName)}.collect{ [id: it.key, name: it.value] }
 
 	if (status && status.size()) {
-		sendLocationEvent(name: (isHubitat() ? 'hsmSetArm' : 'alarmSystemStatus'), value: status[0].id)
+		//sendLocationEvent(name: (isHubitat() ? 'hsmSetArm' : 'alarmSystemStatus'), value: status[0].id)
+		sendLocationEvent(name: 'hsmSetArm', value: status[0].id)
 	} else {
 		error "Error setting SmartThings Home Monitor status. Status '$statusIdOrName' does not exist.", rtData
 	}
@@ -2336,7 +2355,7 @@ private long vcmd_sendEmail(rtData, device, params) {
 	]
 
 	def requestParams = [
-		uri:  "https://api.webcore.co/email/send/${rtData.locationId}",
+		uri: "https://api.webcore.co/email/send/${rtData.locationId}",
 		query: null,
 		requestContentType: "application/json",
 		body: data
@@ -2600,7 +2619,7 @@ private long vcmd_internal_fade(Map rtData, device, String command, int startLev
 	for(def i = 1; i <= steps; i++) {
 		int newLevel = Math.round(startLevel + delta * i / steps)
 		if (oldLevel != newLevel) {
-		   	executePhysicalCommand(rtData, device, command, newLevel, i * interval, scheduleDevice, true)
+			executePhysicalCommand(rtData, device, command, newLevel, i * interval, scheduleDevice, true)
 		}
 		oldLevel = newLevel
 	}
@@ -2856,6 +2875,9 @@ private long vcmd_wolRequest(rtData, device, params) {
 }
 
 private long vcmd_iftttMaker(rtData, device, params) {
+	if(rtData.settings == null) { 
+		error "no settings"
+	}
 	def key = (rtData.settings.ifttt_url ?: "").trim().replace('https://', '').replace('http://', '').replace('maker.ifttt.com/use/', '')
 	if (!key) {
 		error "Failed to send IFTTT event, because the IFTTT integration is not properly set up. Please visit Settings in your dashboard and configure the IFTTT integration.", rtData
@@ -2870,7 +2892,7 @@ private long vcmd_iftttMaker(rtData, device, params) {
 	if (value2) body.value2 = value2
 	if (value3) body.value3 = value3
 	def requestParams = [
-		uri:  "https://maker.ifttt.com/trigger/${java.net.URLEncoder.encode(event, "UTF-8")}/with/key/" + key,
+		uri: "https://maker.ifttt.com/trigger/${java.net.URLEncoder.encode(event, "UTF-8")}/with/key/" + key,
 		requestContentType: "application/json",
 		body: body
 	]
@@ -2883,233 +2905,8 @@ private long vcmd_iftttMaker(rtData, device, params) {
 }
 
 
-
-private long vcmd_lifxScene(rtData, device, params) {
-	def token = rtData.settings?.lifx_token
-	if (!token) {
-		error "Sorry, you need to enable the LIFX integration in your dashboard's Settings section before trying to activate a LIFX scene.", rtData
-		return 0
-	}
-	def sceneId = params[0]
-	double duration = params.size() > 1 ? cast(rtData, params[1], 'long') / 1000 : 0
-	if (!rtData.lifx?.scenes) {
-		error "Sorry, there seems to be no available LIFX scenes, please ensure the LIFX integration is working.", rtData
-		return 0
-	}
-	sceneId = rtData.lifx.scenes.find{ (it.key == sceneId) || (it.value == sceneId) }?.key
-	if (!sceneId) {
-		error "Sorry, could not find the specified LIFX scene.", rtData
-		return 0
-	}
-	def requestParams = [
-		uri:  "https://api.lifx.com",
-		path: "/v1/scenes/scene_id:${sceneId}/activate",
-		headers: [
-			"Authorization": "Bearer $token"
-		],
-		body: duration ? [duration: duration] : null
-	]
-	try {
-		httpPut(requestParams) { response ->
-			if ((response.status >= 200) && (response.status < 300)) {
-				return 0;
-			}
-			error "Error while activating LIFX scene. Result status is ${response.status}.", rtData
-			return 0;
-		}
-	}
-	catch(all) {
-		error "Error while activating LIFX scene:", rtData, null, all
-	return 0
-	}
-	return duration * 1000
-}
-
-
-private getLifxSelector(rtData, selector) {
-	def selectorId = ''
-	if (selector == 'all') return 'all'
-	def obj = rtData.lifx.scenes?.find{ (it.key == selector) || (it.value == selector) }?.key
-	if (obj) {
-		selectorId = "scene_id:$obj"
-	} else {
-		obj = rtData.lifx.lights?.find{ (it.key == selector) || (it.value == selector) }?.key
-		if (obj) {
-			selectorId = "id:$obj"
-		} else {
-			obj = rtData.lifx.groups?.find{ (it.key == selector) || (it.value == selector) }?.key
-			if (obj) {
-				selectorId = "group_id:$obj"
-			} else {
-				obj = rtData.lifx.locations?.find{ (it.key == selector) || (it.value == selector) }?.key
-				if (obj) {
-					selectorId = "location_id:$obj"
-				}
-			}
-		}
-	}
-	return selectorId
-}
-
-private long vcmd_lifxState(rtData, device, params) {
-	def token = rtData.settings?.lifx_token
-	if (!token) {
-		error "Sorry, you need to enable the LIFX integration in your dashboard's Settings section before trying to activate a LIFX scene.", rtData
-		return 0
-	}
-	def selector = getLifxSelector(rtData, params[0])
-	if (!selector) {
-		error "Sorry, could not find the specified LIFX selector.", rtData
-		return 0
-	}
-	def power = params[1]
-	def color = getColor(rtData, params[2])
-	def level = params[3]
-	def infraredLevel = params[4]
-	double duration = cast(rtData, params[5], 'long') / 1000
-	def requestParams = [
-		uri:  "https://api.lifx.com",
-		path: "/v1/lights/${selector}/state",
-		headers: [
-			"Authorization": "Bearer $token"
-		],
-		body: [:] + (power ? ([power: power]) : [:]) + (color ? ([color: color.hex]) : [:]) + (level != null ? ([brightness: level / 100.0]) : [:]) + (infrared != null ? [infrared: infraredLevel] : [:]) + (duration != null ? [duration: duration] : [:])
-	]
-	try {
-		httpPut(requestParams) { response ->
-			if ((response.status >= 200) && (response.status < 300)) {
-				return 0;
-			}
-			error "Error while setting LIFX lights state. Result status is ${response.status}.", rtData
-			return 0;
-		}
-	}
-	catch(all) {
-		error "Error while setting LIFX lights state:", rtData, null, all
-	return 0
-	}
-	return duration * 1000
-}
-
-private long vcmd_lifxToggle(rtData, device, params) {
-	def token = rtData.settings?.lifx_token
-	if (!token) {
-		error "Sorry, you need to enable the LIFX integration in your dashboard's Settings section before trying to activate a LIFX scene.", rtData
-		return 0
-	}
-	def selector = getLifxSelector(rtData, params[0])
-	if (!selector) {
-		error "Sorry, could not find the specified LIFX selector.", rtData
-		return 0
-	}
-	double duration = cast(rtData, params[1], 'long') / 1000
-	def requestParams = [
-		uri:  "https://api.lifx.com",
-		path: "/v1/lights/${selector}/toggle",
-		headers: [
-			"Authorization": "Bearer $token"
-		],
-		body: [:] + (duration != null ? [duration: duration] : [:])
-		]
-	try {
-		httpPost(requestParams) { response ->
-			if ((response.status >= 200) && (response.status < 300)) {
-				return 0;
-			}
-			error "Error while toggling LIFX lights. Result status is ${response.status}.", rtData
-			return 0;
-		}
-	}
-	catch(all) {
-		error "Error while toggling LIFX lights:", rtData, null, all
-	return 0
-	}
-	return duration * 1000
-}
-
-private long vcmd_lifxBreathe(rtData, device, params) {
-	def token = rtData.settings?.lifx_token
-	if (!token) {
-		error "Sorry, you need to enable the LIFX integration in your dashboard's Settings section before trying to activate a LIFX scene.", rtData
-		return 0
-	}
-	def selector = getLifxSelector(rtData, params[0])
-	if (!selector) {
-		error "Sorry, could not find the specified LIFX selector.", rtData
-		return 0
-	}
-	def color = getColor(rtData, params[1])
-	def fromColor = (params[2] == null) ? null : getColor(rtData, params[2])
-	def period = (params[3] == null) ? null : cast(rtData, params[3], 'long') / 1000
-	def cycles = params[4]
-	def peak = params[5]
-	def powerOn = (params[6] == null) ? null : cast(rtData, params[6], 'boolean')
-	def persist = (params[7] == null) ? null : cast(rtData, params[7], 'boolean')
-	def requestParams = [
-		uri:  "https://api.lifx.com",
-		path: "/v1/lights/${selector}/effects/breathe",
-		headers: [
-			"Authorization": "Bearer $token"
-		],
-		body: [color: color.hex] + (fromColor ? ([from_color: fromColor.hex]) : [:]) + (period != null ? ([period: period]) : [:]) + (cycles ? ([cycles: cycles]) : [:]) + (powerOn != null ? ([power_on: powerOn]) : [:]) + (persist != null ? ([persist: persist]) : [:]) + (peak != null ? ([peak: peak / 100]) : [:])
-		]
-	try {
-		httpPost(requestParams) { response ->
-			if ((response.status >= 200) && (response.status < 300)) {
-				return 0;
-			}
-			error "Error while breathing LIFX lights. Result status is ${response.status}.", rtData
-			return 0;
-		}
-	}
-	catch(all) {
-		error "Error while breathing LIFX lights:", rtData, null, all
-	return 0
-	}
-	return (period ? period : 1) * 1000 * (cycles ? cycles : 1)
-}
-
-private long vcmd_lifxPulse(rtData, device, params) {
-	def token = rtData.settings?.lifx_token
-	if (!token) {
-		error "Sorry, you need to enable the LIFX integration in your dashboard's Settings section before trying to activate a LIFX scene.", rtData
-		return 0
-	}
-	def selector = getLifxSelector(rtData, params[0])
-	if (!selector) {
-		error "Sorry, could not find the specified LIFX selector.", rtData
-		return 0
-	}
-	def color = getColor(rtData, params[1])
-	def fromColor = (params[2] == null) ? null : getColor(rtData, params[2])
-	def period = (params[3] == null) ? null : cast(rtData, params[3], 'long') / 1000
-	def cycles = params[4]
-	def powerOn =(params[5] == null)? null : cast(rtData, params[5], 'boolean')
-	def persist = (params[6] == null) ? null : cast(rtData, params[6], 'boolean')
-	def requestParams = [
-		uri:  "https://api.lifx.com",
-		path: "/v1/lights/${selector}/effects/pulse",
-		headers: [
-			"Authorization": "Bearer $token"
-		],
-		body: [color: color.hex] + (fromColor ? ([from_color: fromColor.hex]) : [:]) + (period != null ? ([period: period]) : [:]) + (cycles ? ([cycles: cycles]) : [:]) + (powerOn != null ? ([power_on: powerOn]) : [:]) + (persist != null ? ([persist: persist]) : [:])
-	]
-	try {
-		httpPost(requestParams) { response ->
-			if ((response.status >= 200) && (response.status < 300)) {
-				return 0;
-			}
-			error "Error while pulsing LIFX lights. Result status is ${response.status}.", rtData
-			return 0;
-		}
-	}
-	catch(all) {
-		error "Error while pulsing LIFX lights:", rtData, null, all
-	return 0
-	}
-	return (period ? period : 1) * 1000 * (cycles ? cycles : 1)
-}
-
+/*
+*/
 
 /*
 public localHttpRequestHandler(hubResponse) {
@@ -3204,7 +3001,7 @@ private long vcmd_httpRequest(rtData, device, params) {
 		data = requestBody
 	} else if (variables instanceof List) {
 		for(variable in variables.findAll{ !!it }) {
-		data  = data ?: [:]
+			data = data ?: [:]
 			data[variable] = getVariable(rtData, variable).v
 		}
 	}
@@ -3304,6 +3101,10 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 	def data = params[2]
 	def source = params[3]
 
+	if(rtData.useLocalFuelStreams == null){
+		rtData.useLocalFuelStreams = parent.useLocalFuelStreams()
+	}
+
 	def req = [
 		c: canister,
 		n: name,
@@ -3315,25 +3116,26 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 	if(rtData.useLocalFuelStreams){
 		parent.writeToFuelStream(req)
 	}
+/*
 	else if(!isHubitat()){
 		def requestParams = [
 			uri:  "https://api-${rtData.region}-${rtData.instanceId[32]}.webcore.co:9247",
 			path: "/fuelStream/write",
 			headers: [
 				'ST' : rtData.instanceId
-			],
+	],
 			body: [
 				c: canister,
 				n: name,
 				s: source,
 				d: data,
 				i: rtData.instanceId
-			],
+	],
 			requestContentType: "application/json"
 		]
 		if (asynchttp_v1) asynchttp_v1.put(null, requestParams)
-	} else {
-	 	log.error "Fuel stream app is not installed. Install it to write to local fuel streams"
+	} */ else {
+		log.error "Fuel stream app is not installed. Install it to write to local fuel streams"
 	}
 
 	return 0
@@ -3426,7 +3228,8 @@ private long vcmd_loadStateLocally(rtData, device, params, global = false) {
 		if (value == null) continue
 		def exactCommand = null
 		def fuzzyCommand = null
-		for (command in rtData.commands.physical) {
+		//for (command in rtData.commands.physical) {
+		for (command in PhysicalCommands) {
 			if (command.value.a == attr) {
 				if (command.value.v == null) {
 					fuzzyCommand = command.key
@@ -3519,7 +3322,7 @@ private evaluateConditions(rtData, conditions, collection, async) {
 				if (condition.wt == 'n') {
 					if (value) {
 						value = false
-				   	} else {
+					} else {
 						value = null
 					}
 				}
@@ -3604,7 +3407,8 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		break
 	case "p": //physical device
 		def j = 0;
-		def attribute = rtData.attributes[operand.a]
+		//def attribute = rtData.attributes[operand.a]
+		def attribute = Attributes[operand.a]
 		for(deviceId in expandDeviceList(rtData, operand.d)) {
 			def value = [i: "${deviceId}:${operand.a}", v:getDeviceAttribute(rtData, deviceId, operand.a, operand.i, trigger) + (operand.vt ? [vt: operand.vt] : [:]) + (attribute && attribute.p ? [p: operand.p] : [:])]
 		updateCache(rtData, value)
@@ -3644,8 +3448,8 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		break
 		case 'v': //virtual devices
 		switch (operand.v) {
-			case 'mode':
-			case 'alarmSystemStatus':
+		case 'mode':
+		case 'alarmSystemStatus':
 			values = [[i: "${node?.$}:v", v:getDeviceAttribute(rtData, rtData.locationId, operand.v)]];
 			break;
 		case 'alarmSystemAlert':
@@ -3657,28 +3461,28 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		case 'alarmSystemRule':
 			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == 'hsmRules' ? rtData.event.value : null)]]]
 			break;
-			case 'powerSource':
+		case 'powerSource':
 			values = [[i: "${node?.$}:v", v:[t: 'enum', v:rtData.powerSource]]];
 			break;
-				case 'time':
-				case 'date':
-				case 'datetime':
+		case 'time':
+		case 'date':
+		case 'datetime':
 			values = [[i: "${node?.$}:v", v:[t: operand.v, v: cast(rtData, now(), operand.v, 'long')]]];
 			break;
-				case 'routine':
+		case 'routine':
 			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == 'routineExecuted' ? hashId(rtData.event.value) : null)]]];
 			break;
 		case 'tile':
-				case 'ifttt':
+		case 'ifttt':
 			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == operand.v ? rtData.event.value : null)]]];
 			break;
-				case 'email':
+		case 'email':
 			values = [[i: "${node?.$}:v", v:[t: 'email', v: (rtData.event.name == operand.v ? rtData.event.value : null)]]];
 			break;
-				case 'askAlexa':
+		case 'askAlexa':
 			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == 'askAlexaMacro' ? hashId(rtData.event.value) : null)]]];
 			break;
-				case 'echoSistant':
+		case 'echoSistant':
 			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == 'echoSistantProfile' ? hashId(rtData.event.value) : null)]]];
 			break;
 		}
@@ -3695,11 +3499,11 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 			case 'sunset': v = getSunsetTime(rtData); break;
 			}
 			values = [[i: "${node?.$}:$index:0", v:[t:operand.vt, v:v]]]
-					break
-				default:
-					values = [[i: "${node?.$}:$index:0", v:[t:operand.vt, v:operand.s]]]
-					break
-			}
+			break
+		default:
+			values = [[i: "${node?.$}:$index:0", v:[t:operand.vt, v:operand.s]]]
+			break
+		}
 		break
 	case "x": //variable
 		if ((operand.vt == 'device') && (operand.x instanceof List)) {
@@ -3720,12 +3524,12 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		break
 	case "c": //constant
 		switch (operand.vt) {
-			case 'time':
+		case 'time':
 			def offset = cast(rtData, operand.c, 'integer')
 			values = [[i: "${node?.$}:$index:0", v: [t: 'time', v:(offset % 1440) * 60000]]]
 			break
-			case 'date':
-			case 'datetime':
+		case 'date':
+		case 'datetime':
 			values = [[i: "${node?.$}:$index:0", v: [t: operand.vt, v:operand.c]]]
 			break
 		}
@@ -3763,9 +3567,11 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 		return evaluateConditions(rtData, condition, collection, async)
 	} else {
 	not = !!condition.n
-	def comparison = rtData.comparisons.triggers[condition.co]
+	//def comparison = rtData.comparisons.triggers[condition.co]
+	def comparison = Comparisons.triggers[condition.co]
 	def trigger = !!comparison
-	if (!comparison) comparison = rtData.comparisons.conditions[condition.co]
+	//if (!comparison) comparison = rtData.comparisons.conditions[condition.co]
+	if (!comparison) comparison = Comparisons.conditions[condition.co]
 	rtData.wakingUp = (rtData.event.name == 'time') && (!!rtData.event.schedule) && (rtData.event.schedule.s == condition.$)
 	if (rtData.fastForwardTo || comparison) {
 		if (!rtData.fastForwardTo || (rtData.fastForwardTo == -9 /*initial run*/)) {
@@ -3779,14 +3585,14 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 			def values = evaluateOperand(rtData, condition, operand, i, trigger)
 			switch (i) {
 			case 0:
-			lo = [operand: operand, values: values]
-			break
+				lo = [operand: operand, values: values]
+				break
 			case 1:
-			ro = [operand: operand, values: values]
-			break
+				ro = [operand: operand, values: values]
+				break
 			case 2:
-			ro2 = [operand: operand, values: values]
-			break
+				ro2 = [operand: operand, values: values]
+				break
 			}
 		}
 
@@ -3820,7 +3626,7 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 					def dev = value.v?.d
 					if (dev in options.devices.matched) {
 						//schedule one device schedule
-					if (!schedules.find{ (it.s == condition.$) && (it.d == dev)  }) {
+					if (!schedules.find{ (it.s == condition.$) && (it.d == dev) }) {
 						//schedule a wake up if there's none, otherwise just move on
 						if (rtData.logging > 2) debug "Adding a timed trigger schedule for device $dev for condition ${condition.$}", rtData
 								requestWakeUp(rtData, condition, condition, delay, dev)
@@ -3915,7 +3721,7 @@ private Boolean evaluateComparison(rtData, comparison, lo, ro = null, ro2 = null
 			if (!ro) {
 				def msg = timer ""
 				res = "$fn"(rtData, value, null, null, tvalue, tvalue2)
-				msg.m = "Comparison  (${value?.v?.t}) ${value?.v?.v} $comparison = $res"
+				msg.m = "Comparison (${value?.v?.t}) ${value?.v?.v} $comparison = $res"
 				if (rtData.logging > 2) debug msg, rtData
 			} else {
 				def rres
@@ -3926,7 +3732,7 @@ private Boolean evaluateComparison(rtData, comparison, lo, ro = null, ro2 = null
 					if (!ro2) {
 						def msg = timer ""
 						rres = "$fn"(rtData, value, rvalue, null, tvalue, tvalue2)
-						msg.m = "Comparison  (${value?.v?.t}) ${value?.v?.v} $comparison  (${rvalue?.v?.t}) ${rvalue?.v?.v} = $rres"
+						msg.m = "Comparison (${value?.v?.t}) ${value?.v?.v} $comparison  (${rvalue?.v?.t}) ${rvalue?.v?.v} = $rres"
 						if (rtData.logging > 2) debug msg, rtData
 					} else {
 						rres = (ro2.operand.g == 'any' ? false : true)
@@ -3954,7 +3760,8 @@ private Boolean evaluateComparison(rtData, comparison, lo, ro = null, ro2 = null
 				case 'time':
 			case 'date':
 			case 'datetime':
-				boolean pass = checkTimeRestrictions(rtData, lo.operand, isHubitat() ? now() : utcToLocalTime(), 5, 1) == 0
+				//boolean pass = checkTimeRestrictions(rtData, lo.operand, isHubitat() ? now() : utcToLocalTime(), 5, 1) == 0
+				boolean pass = checkTimeRestrictions(rtData, lo.operand, now(), 5, 1) == 0
 				if (rtData.logging > 2) debug "Time restriction check ${pass ? 'passed' : 'failed'}", rtData
 				if (!pass) res = false;
 			}
@@ -4194,7 +4001,7 @@ private traverseStatements(node, closure, parentNode = null, data = null) {
 	if (node instanceof List) {
 		for(def item in node) {
 			if (!item.di) {
-			   	boolean lastTimer = (data && data.timer)
+				boolean lastTimer = (data && data.timer)
 				if (data && (item.t == 'every')) {
 					data.timer = true
 				}
@@ -4295,7 +4102,9 @@ private traverseExpressions(node, closure, param, parentNode = null) {
 }
 
 private getRoutineById(routineId) {
-	if(isHubitat()) return [ id : routineId ]
+	//if(isHubitat()) return [ id : routineId ]
+	return [ id : routineId ]
+/*
 	def routines = location.helloHome?.getPhrases()
 	for(routine in routines) {
 		if (routine && routine?.label && (hashId(routine.id) == routineId)) {
@@ -4303,6 +4112,7 @@ private getRoutineById(routineId) {
 	}
 	}
 	return null
+*/
 }
 
 private void updateDeviceList(rtData, deviceIdList) {
@@ -4310,10 +4120,11 @@ private void updateDeviceList(rtData, deviceIdList) {
 	app.updateSetting('dev', [type: isHubitat() ? 'capability' : 'capability.device', value: deviceIdList.unique()])
 }
 
+/*
 private void updateContactList(contactIdList) {
 	app.updateSetting('contacts', [type: 'contact', value: contactIdList.unique()])
 }
-
+*/
 
 private void subscribeAll(rtData) {
 	try {
@@ -4329,7 +4140,7 @@ private void subscribeAll(rtData) {
 	if (rtData.logging > 1) trace "Subscribing to devices...", rtData, 1
 	Map devices = [:]
 	Map rawDevices = [:]
-	Map rawContacts = [:]
+	//Map rawContacts = [:]
 	Map subscriptions = [:]
 	def count = 0
 	def hasTriggers = false
@@ -4366,7 +4177,7 @@ private void subscribeAll(rtData) {
 			subscriptions[subscriptionId] = [d: deviceId, a: attribute, t: ct, c: (subscriptions[subscriptionId] ? subscriptions[subscriptionId].c : []) + [condition]]
 			if ((deviceId != rtData.locationId) && (deviceId.startsWith(':'))) {
 				rawDevices[deviceId] = rtData.devices[deviceId]
-				devices[deviceId] =  [c: (comparisonType ? 1 : 0) + (devices[deviceId]?.c ?: 0)]
+				devices[deviceId] = [c: (comparisonType ? 1 : 0) + (devices[deviceId]?.c ?: 0)]
 			}
 		}
 	}
@@ -4398,27 +4209,27 @@ private void subscribeAll(rtData) {
 			switch (operand.v) {
 			case 'alarmSystemStatus':
 				subscriptionId = "$deviceId${operand.v}"
-			   	attribute = isHubitat() ? "hsmStatus" : operand.v
+				attribute = isHubitat() ? "hsmStatus" : operand.v
 				break;
 			case 'alarmSystemAlert':
 				subscriptionId = "$deviceId${operand.v}"
-			   	attribute = "hsmAlert"
+				attribute = "hsmAlert"
 				break;
 			case 'alarmSystemEvent':
 				subscriptionId = "$deviceId${operand.v}"
-			   	attribute = "hsmSetArm"
+				attribute = "hsmSetArm"
 				break;
 			case 'alarmSystemRule':
 				subscriptionId = "$deviceId${operand.v}"
-			   	attribute = "hsmRules"
+				attribute = "hsmRules"
 				break;
-						case 'time':
+			case 'time':
 			case 'date':
 			case 'datetime':
 			case 'mode':
 			case 'powerSource':
-			   		subscriptionId = "$deviceId${operand.v}"
-			   	attribute = operand.v
+				subscriptionId = "$deviceId${operand.v}"
+				attribute = operand.v
 				break
 			case 'routine':
 				if (value && (value.t == 'c') && (value.c)) {
@@ -4437,7 +4248,8 @@ private void subscribeAll(rtData) {
 			case 'askAlexa':
 			case 'echoSistant':
 				if (value && (value.t == 'c') && (value.c)) {
-					def options = rtData.virtualDevices[operand.v]?.o
+					//def options = rtData.virtualDevices[operand.v]?.o
+					def options = VirtualDevices[operand.v]?.o
 					def item = options ? options[value.c] : value.c
 					if (item) {
 						subscriptionId = "$deviceId${operand.v}${item}"
@@ -4494,12 +4306,14 @@ private void subscribeAll(rtData) {
 	}
 	conditionTraverser = { condition, parentCondition ->
 		if (condition.co) {
-			def comparison = rtData.comparisons.conditions[condition.co]
+			//def comparison = rtData.comparisons.conditions[condition.co]
+			def comparison = Comparisons.conditions[condition.co]
 			def comparisonType = 'condition'
 			if (!comparison) {
 				hasTriggers = true
 				comparisonType = downgradeTriggers || (condition.sm == 'never') ? 'condition' : 'trigger'
-				comparison = rtData.comparisons.triggers[condition.co]
+				//comparison = rtData.comparisons.triggers[condition.co]
+				comparison = Comparisons.triggers[condition.co]
 			}
 			if (comparison) {
 				condition.ct = comparisonType.take(1)
@@ -4516,12 +4330,14 @@ private void subscribeAll(rtData) {
 	}
 	restrictionTraverser = { restriction, parentRestriction ->
 		if (restriction.co) {
-			def comparison = rtData.comparisons.conditions[restriction.co]
+			//def comparison = rtData.comparisons.conditions[restriction.co]
+			def comparison = Comparisons.conditions[restriction.co]
 			def comparisonType = 'condition'
 			if (!comparison) {
 				//hasTriggers = true
 				//comparisonType = downgradeTriggers ? 'condition' : 'trigger'
-				comparison = rtData.comparisons.triggers[restriction.co]
+				//comparison = rtData.comparisons.triggers[restriction.co]
+				comparison = Comparisons.triggers[restriction.co]
 			}
 			if (comparison) {
 				def paramCount = comparison.p ?: 0
@@ -4545,6 +4361,7 @@ private void subscribeAll(rtData) {
 		switch( node.t ) {
 		case 'action':
 			//we need to get a list of used contacts in tasks...
+/*
 			if (node.k) {
 				for (k in node.k) {
 					for (operand in k.p) {
@@ -4556,6 +4373,7 @@ private void subscribeAll(rtData) {
 					}
 				}
 			}
+*/
 			break
 		case 'if':
 			if (node.ei) {
@@ -4640,10 +4458,12 @@ private void subscribeAll(rtData) {
 	List deviceIdList = rawDevices.collect{ it && it.value ? it.value.id : null }
 	deviceIdList.removeAll{ it == null }
 	updateDeviceList(rtData, deviceIdList)
+
 	//save contacts
-	List contactIdList = rawContacts.collect{ it && it.value ? it.value.id : null }
-	contactIdList.removeAll{ it == null }
-	updateContactList(contactIdList)
+//	List contactIdList = rawContacts.collect{ it && it.value ? it.value.id : null }
+//	contactIdList.removeAll{ it == null }
+//	updateContactList(contactIdList)
+
 	//fake subscriptions for controlled devices to force the piston being displayed in those devices' Smart Apps tabs
 	for (d in devices.findAll{ ((it.value.c <= 0) || (rtData.piston.o.des)) && (it.key != rtData.locationId) }) {
 		def device = d.key.startsWith(':') ? getDevice(rtData, d.key) : null
@@ -4765,15 +4585,18 @@ private Map getDeviceAttribute(rtData, deviceId, attributeName, subDeviceIndex =
 			def mode = location.getCurrentMode();
 			return [t: 'string', v: hashId(mode.getId()), n: mode.getName()]
 		case 'alarmSystemStatus':
-				def v = isHubitat() ? (rtData.hsmStatus) : location.currentState("alarmSystemStatus")?.value
-		def n = rtData.virtualDevices['alarmSystemStatus']?.o[v]
-				return [t: 'string', v: v, n: n]
+			//def v = isHubitat() ? (rtData.hsmStatus) : location.currentState("alarmSystemStatus")?.value
+			def v = location.hsmStatus
+			//def n = rtData.virtualDevices['alarmSystemStatus']?.o[v]
+			def n = VirtualDevices['alarmSystemStatus']?.o[v]
+			return [t: 'string', v: v, n: n]
 		}
 		return [t: 'string', v: location.getName().toString()]
 	}
 	def device = getDevice(rtData, deviceId)
 	if (device) {
-		def attribute = rtData.attributes[attributeName ?: '']
+		//def attribute = rtData.attributes[attributeName ?: '']
+		def attribute = Attributes[attributeName ?: '']
 		if (!attribute) {
 			attribute = [t: 'string', m: false]
 		}
@@ -4989,9 +4812,11 @@ private Map getWeather(rtData, name) {
 	rtData.weather = rtData.weather ?: [:]
 	if (parts.size() > 0) {
 		def dataFeature = parts[0]
-	if (rtData.weather[dataFeature] == null) {
-		rtData.weather[dataFeature] = app.getWeatherFeature(dataFeature)
-	}
+		if (rtData.weather[dataFeature] == null) {
+			rtData.weather[dataFeature] = app.getWeatherFeature(dataFeature) // getTwcConditions()  dataFeature == "conditions"
+			// getTwcForecast() dataFeature == "forecast"
+			// getTwcPwsConditions(station) dataFeature == "conditions"
+		}
 	}
 	return getJsonData(rtData, rtData.weather, name)
 }
@@ -5018,9 +4843,9 @@ private Map getNFL(rtData, name) {
 	rtData.nfl = rtData.nfl ?: [:]
 	if (parts.size() > 0) {
 		def dataFeature = parts[0].tokenize('[')[0]
-	if (rtData.nfl[dataFeature] == null) {
-		rtData.nfl[dataFeature] = getNFLDataFeature(dataFeature)
-	}
+		if (rtData.nfl[dataFeature] == null) {
+			rtData.nfl[dataFeature] = getNFLDataFeature(dataFeature)
+		}
 	}
 	return getJsonData(rtData, rtData.nfl, name, 'NFL')
 }
@@ -5034,7 +4859,8 @@ private Map getIncidents(rtData, name) {
 private initIncidents(rtData) {
 	if (rtData.incidents instanceof List) return;
 	def incidentThreshold = now() - 604800000
-	rtData.incidents = isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold }
+	//rtData.incidents = isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold }
+	rtData.incidents = []
 }
 
 private Map getVariable(rtData, name) {
@@ -5043,6 +4869,10 @@ private Map getVariable(rtData, name) {
 	if (!name) return [t: "error", v: "Invalid empty variable name"]
 	def result
 	if (name.startsWith("@")) {
+		if(!rtData.initGlobal) {
+			rtData.globalVars = parent.listAvailableVariables()
+			rtData.initGlobal = true
+		}
 		result = rtData.globalVars[name]
 		result.v = cast(rtData, result.v, result.t)
 		if (!(result instanceof Map)) result = [t: "error", v: "Variable '$name' not found"]
@@ -5127,42 +4957,46 @@ private Map setVariable(rtData, name, value) {
 	name = sanitizeVariableName(var.name)
 	if (!name) return [t: "error", v: "Invalid empty variable name"]
 	if (name.startsWith("@")) {
+		if(!rtData.initGlobal) {
+			rtData.globalVars = parent.listAvailableVariables()
+			rtData.initGlobal = true
+		}
 		def variable = rtData.globalVars[name]
 		if (variable instanceof Map) {
-		//set global var
-		variable.v = cast(rtData, value, variable.t)
-		Map cache = rtData.gvCache ?: [:]
-		cache[name] = variable
-		rtData.gvCache = cache
-		return variable
-	}
+			//set global var
+			variable.v = cast(rtData, value, variable.t)
+			Map cache = rtData.gvCache ?: [:]
+			cache[name] = variable
+			rtData.gvCache = cache
+			return variable
+		}
 	} else {
 		def variable = rtData.localVars[var.name]
-	if (variable instanceof Map) {
-		//set value
-		if (variable.t.endsWith(']')) {
-			//we're dealing with a list
-		variable.v = (variable.v instanceof Map) ? variable.v : [:]
-		Map indirectVar = getVariable(rtData, var.index)
-		//indirect variable addressing
-		if (indirectVar && (indirectVar.t != 'error')) {
-			var.index = cast(rtData, indirectVar.v, 'string', indirectVar.t)
-		}
-		variable.v[var.index] = cast(rtData, value, variable.t.replace('[]', ''))
-		} else {
-			variable.v = cast(rtData, value, variable.t)
-		}
-		if (!variable.f) {
-			def vars = state.vars
-		vars[name] = variable.v
-		state.vars = vars
-		atomicState.vars = vars
-		}
-		return variable
+		if (variable instanceof Map) {
+			//set value
+			if (variable.t.endsWith(']')) {
+				//we're dealing with a list
+				variable.v = (variable.v instanceof Map) ? variable.v : [:]
+				Map indirectVar = getVariable(rtData, var.index)
+				//indirect variable addressing
+				if (indirectVar && (indirectVar.t != 'error')) {
+					var.index = cast(rtData, indirectVar.v, 'string', indirectVar.t)
+				}
+				variable.v[var.index] = cast(rtData, value, variable.t.replace('[]', ''))
+			} else {
+				variable.v = cast(rtData, value, variable.t)
+			}
+			if (!variable.f) {
+				def vars = state.vars
+				vars[name] = variable.v
+				state.vars = vars
+				atomicState.vars = vars
+			}
+			return variable
 
 		}
 	}
-   	result = [t: 'error', v: 'Invalid variable']
+ 	result = [t: 'error', v: 'Invalid variable']
 }
 
 def setLocalVariable(name, value) {
@@ -5175,9 +5009,9 @@ def setLocalVariable(name, value) {
 }
 
 /******************************************************************************/
-/*** 																		***/
-/*** EXPRESSION FUNCTIONS													***/
-/*** 																		***/
+/*** 										***/
+/*** EXPRESSION FUNCTIONS							***/
+/*** 										***/
 /******************************************************************************/
 
 def Map proxyEvaluateExpression(rtData, expression, dataType = null) {
@@ -5185,7 +5019,8 @@ def Map proxyEvaluateExpression(rtData, expression, dataType = null) {
 	rtData = getRunTimeData(rtData)
 	def result = evaluateExpression(rtData, expression, dataType)
 	if ((result.t == 'device') && (result.a)) {
-		def attr  = rtData.attributes[result.a]
+		//def attr = rtData.attributes[result.a]
+		def attr = Attributes[result.a]
 		result = evaluateExpression(rtData, result, attr && attr.t ? attr.t : 'string')
 	}
 	return result
@@ -5249,7 +5084,7 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 		break
 	case "variable":
 		//get variable as {n: name, t: type, v: value}
-	   	result = [t: 'error', v: 'Invalid variable']
+		result = [t: 'error', v: 'Invalid variable']
 		result = getVariable(rtData, expression.x + (expression.xi != null ? '[' + expression.xi + ']' : ''))
 		break
 	case "device":
@@ -5409,9 +5244,9 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 			items[0].o = null;
 			break
 		}
-		   	//order of operations :D
+			//order of operations :D
 		idx = 0
-		//#2 	 !   !!   ~   - 	Logical negation, logical double-negation, bitwise NOT, and numeric negation unary operators
+		//#2 	!   !!   ~   - 	Logical negation, logical double-negation, bitwise NOT, and numeric negation unary operators
 		for (item in items) {
 			if (((item.o) == '!') || ((item.o) == '!!') || ((item.o) == '~') || (item.t == null && item.o == '-')) break;
 			secondary = true
@@ -5533,11 +5368,12 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 		//fix-ups
 		//integer with decimal gives decimal, also *, / require decimals
 		if ((t1 == 'device') && a1) {
-			def attr = rtData.attributes[a1]
+			//def attr = rtData.attributes[a1]
+			def attr = Attributes[a1]
 			t1 = attr ? attr.t : 'string'
 		}
 		if ((t2 == 'device') && a2) {
-			def attr = rtData.attributes[a2]
+			def attr = Attributes[a2]
 			t2 = attr ? attr.t : 'string'
 		}
 		if ((t1 == 'device') && (t2 == 'device') && ((o == '+') || (o == '-'))) {
@@ -5864,8 +5700,8 @@ private func_float(rtData, params) { return func_decimal(rtData, params) }
 private func_number(rtData, params) { return func_decimal(rtData, params) }
 
 /******************************************************************************/
-/*** string converts an value to it's string value							***/
-/*** Usage: string(anything)												***/
+/*** string converts an value to it's string value				***/
+/*** Usage: string(anything)							***/
 /******************************************************************************/
 private func_string(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5881,8 +5717,8 @@ private func_concat(rtData, params) { return func_string(rtData, params) }
 private func_text(rtData, params) { return func_string(rtData, params) }
 
 /******************************************************************************/
-/*** boolean converts a value to it's boolean value							***/
-/*** Usage: boolean(anything)												***/
+/*** boolean converts a value to it's boolean value				***/
+/*** Usage: boolean(anything)							***/
 /******************************************************************************/
 private func_boolean(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5962,8 +5798,8 @@ private func_ceil(rtData, params) { return func_ceiling(rtData, params) }
 
 
 /******************************************************************************/
-/*** sprintf converts formats a series of values into a string				***/
-/*** Usage: sprintf(format, arguments)										***/
+/*** sprintf converts formats a series of values into a string			***/
+/*** Usage: sprintf(format, arguments)						***/
 /******************************************************************************/
 private func_sprintf(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -5983,8 +5819,8 @@ private func_sprintf(rtData, params) {
 private func_format(rtData, params) { return func_sprintf(rtData, params) }
 
 /******************************************************************************/
-/*** left returns a substring of a value									***/
-/*** Usage: left(string, count)												***/
+/*** left returns a substring of a value					***/
+/*** Usage: left(string, count)							***/
 /******************************************************************************/
 private func_left(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -5997,8 +5833,8 @@ private func_left(rtData, params) {
 }
 
 /******************************************************************************/
-/*** right returns a substring of a value									***/
-/*** Usage: right(string, count)												***/
+/*** right returns a substring of a value					***/
+/*** Usage: right(string, count)						***/
 /******************************************************************************/
 private func_right(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -6011,8 +5847,8 @@ private func_right(rtData, params) {
 }
 
 /******************************************************************************/
-/*** strlen returns the length of a string value							***/
-/*** Usage: strlen(string)													***/
+/*** strlen returns the length of a string value				***/
+/*** Usage: strlen(string)							***/
 /******************************************************************************/
 private func_strlen(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 1)) {
@@ -6025,8 +5861,8 @@ private func_length(rtData, params) { return func_strlen(rtData, params) }
 
 
 /******************************************************************************/
-/*** coalesce returns the first non-empty parameter							***/
-/*** Usage: coalesce(value1[, value2[, ..., valueN]])						***/
+/*** coalesce returns the first non-empty parameter				***/
+/*** Usage: coalesce(value1[, value2[, ..., valueN]])				***/
 /******************************************************************************/
 private func_coalesce(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6043,8 +5879,8 @@ private func_coalesce(rtData, params) {
 
 
 /******************************************************************************/
-/*** trim removes leading and trailing spaces from a string					***/
-/*** Usage: trim(value)														***/
+/*** trim removes leading and trailing spaces from a string			***/
+/*** Usage: trim(value)								***/
 /******************************************************************************/
 private func_trim(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 1)) {
@@ -6055,8 +5891,8 @@ private func_trim(rtData, params) {
 }
 
 /******************************************************************************/
-/*** trimleft removes leading spaces from a string							***/
-/*** Usage: trimLeft(value)													***/
+/*** trimleft removes leading spaces from a string				***/
+/*** Usage: trimLeft(value)							***/
 /******************************************************************************/
 private func_trimleft(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 1)) {
@@ -6068,8 +5904,8 @@ private func_trimleft(rtData, params) {
 private func_ltrim(rtData, params) { return func_trimleft(rtData, params) }
 
 /******************************************************************************/
-/*** trimright removes trailing spaces from a string						***/
-/*** Usage: trimRight(value)												***/
+/*** trimright removes trailing spaces from a string				***/
+/*** Usage: trimRight(value)							***/
 /******************************************************************************/
 private func_trimright(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 1)) {
@@ -6090,13 +5926,13 @@ private func_substring(rtData, params) {
 	}
 	def value = evaluateExpression(rtData, params[0], 'string').v
 	def start = evaluateExpression(rtData, params[1], 'integer').v
-   	def count = params.size() > 2 ? evaluateExpression(rtData, params[2], 'integer').v : null
+ 	def count = params.size() > 2 ? evaluateExpression(rtData, params[2], 'integer').v : null
 	def end = null
 	def result = ''
 	if ((start < value.size()) && (start > -value.size())) {
 	if (count != null) {
 		if (count < 0) {
-	   		//reverse
+			//reverse
 		start = start < 0 ? -start : value.size() - start
 		count = - count
 		value = value.reverse()
@@ -6249,8 +6085,8 @@ private func_lastindexof(rtData, params) {
 
 
 /******************************************************************************/
-/*** lower returns a lower case value of a string							***/
-/*** Usage: lower(string)													***/
+/*** lower returns a lower case value of a string				***/
+/*** Usage: lower(string)							***/
 /******************************************************************************/
 private func_lower(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6264,8 +6100,8 @@ private func_lower(rtData, params) {
 }
 
 /******************************************************************************/
-/*** upper returns a upper case value of a string							***/
-/*** Usage: upper(string)													***/
+/*** upper returns a upper case value of a string				***/
+/*** Usage: upper(string)							***/
 /******************************************************************************/
 private func_upper(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6279,8 +6115,8 @@ private func_upper(rtData, params) {
 }
 
 /******************************************************************************/
-/*** title returns a title case value of a string							***/
-/*** Usage: title(string)													***/
+/*** title returns a title case value of a string				***/
+/*** Usage: title(string)							***/
 /******************************************************************************/
 private func_title(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6294,8 +6130,8 @@ private func_title(rtData, params) {
 }
 
 /******************************************************************************/
-/*** avg calculates the average of a series of numeric values				***/
-/*** Usage: avg(values)														***/
+/*** avg calculates the average of a series of numeric values			***/
+/*** Usage: avg(values)								***/
 /******************************************************************************/
 private func_avg(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6309,8 +6145,8 @@ private func_avg(rtData, params) {
 }
 
 /******************************************************************************/
-/*** median returns the value in the middle of a sorted array				***/
-/*** Usage: median(values)													***/
+/*** median returns the value in the middle of a sorted array			***/
+/*** Usage: median(values)							***/
 /******************************************************************************/
 private func_median(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6326,7 +6162,7 @@ private func_median(rtData, params) {
 
 /******************************************************************************/
 /*** least returns the value that is least found a series of numeric values	***/
-/*** Usage: least(values)													***/
+/*** Usage: least(values)							***/
 /******************************************************************************/
 private func_least(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6343,7 +6179,7 @@ private func_least(rtData, params) {
 
 /******************************************************************************/
 /*** most returns the value that is most found a series of numeric values	***/
-/*** Usage: most(values)													***/
+/*** Usage: most(values)							***/
 /******************************************************************************/
 private func_most(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6359,8 +6195,8 @@ private func_most(rtData, params) {
 }
 
 /******************************************************************************/
-/*** sum calculates the sum of a series of numeric values					***/
-/*** Usage: sum(values)														***/
+/*** sum calculates the sum of a series of numeric values			***/
+/*** Usage: sum(values)								***/
 /******************************************************************************/
 private func_sum(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6375,7 +6211,7 @@ private func_sum(rtData, params) {
 
 /******************************************************************************/
 /*** variance calculates the standard deviation of a series of numeric values */
-/*** Usage: stdev(values)													***/
+/*** Usage: stdev(values)							***/
 /******************************************************************************/
 private func_variance(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -6390,7 +6226,7 @@ private func_variance(rtData, params) {
 	}
 	double avg = sum / values.size()
 	sum = 0
-	for(int i  = 0; i < values.size(); i++) {
+	for(int i = 0; i < values.size(); i++) {
 		sum += (values[i] - avg) ** 2
 	}
 	return [t: "decimal", v: sum / values.size()]
@@ -6398,7 +6234,7 @@ private func_variance(rtData, params) {
 
 /******************************************************************************/
 /*** stdev calculates the standard deviation of a series of numeric values	***/
-/*** Usage: stdev(values)													***/
+/*** Usage: stdev(values)							***/
 /******************************************************************************/
 private func_stdev(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -6410,7 +6246,7 @@ private func_stdev(rtData, params) {
 
 /******************************************************************************/
 /*** min calculates the minimum of a series of numeric values				***/
-/*** Usage: min(values)														***/
+/*** Usage: min(values)								***/
 /******************************************************************************/
 private func_min(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6425,7 +6261,7 @@ private func_min(rtData, params) {
 
 /******************************************************************************/
 /*** max calculates the maximum of a series of numeric values				***/
-/*** Usage: max(values)														***/
+/*** Usage: max(values)								***/
 /******************************************************************************/
 private func_max(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6440,7 +6276,7 @@ private func_max(rtData, params) {
 
 /******************************************************************************/
 /*** abs calculates the absolute value of a number							***/
-/*** Usage: abs(number)														***/
+/*** Usage: abs(number)								***/
 /******************************************************************************/
 private func_abs(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 1)) {
@@ -6467,7 +6303,7 @@ private func_hsltohex(rtData, params) {
 
 /******************************************************************************/
 /*** count calculates the number of true/non-zero/non-empty items in a series of numeric values		***/
-/*** Usage: count(values)														***/
+/*** Usage: count(values)								***/
 /******************************************************************************/
 private func_count(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6489,7 +6325,7 @@ private func_count(rtData, params) {
 
 /******************************************************************************/
 /*** size returns the number of values provided								***/
-/*** Usage: size(values)													***/
+/*** Usage: size(values)							***/
 /******************************************************************************/
 private func_size(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -6529,7 +6365,7 @@ private func_age(rtData, params) {
 
 /******************************************************************************/
 /*** previousAge returns the number of milliseconds an attribute had the 	***/
-/*** previous value															***/
+/*** previous value								***/
 /*** Usage: previousAge([device:attribute])									***/
 /******************************************************************************/
 private func_previousage(rtData, params) {
@@ -6543,16 +6379,16 @@ private func_previousage(rtData, params) {
 		def states = device.statesSince(param.a, new Date(now() - 604500000), [max: 5])
 		if (states.size() > 1) {
 			def newValue = states[0].getValue()
-		//some events get duplicated, so we really want to look for the last "different valued" state
-		for(int i = 1; i < states.size(); i++) {
-			if (states[i].getValue() != newValue) {
+			//some events get duplicated, so we really want to look for the last "different valued" state
+			for(int i = 1; i < states.size(); i++) {
+				if (states[i].getValue() != newValue) {
 					def result = now() - states[i].getDate().getTime()
-				return [t: "long", v: result]
+					return [t: "long", v: result]
+				}
 			}
 		}
-		}
 		//we're saying 7 days, though it may be wrong - but we have no data
-		 return [t: "long", v: 604800000]
+		return [t: "long", v: 604800000]
 	}
 	}
 	return [t: "error", v: "Invalid device"]
@@ -6568,32 +6404,33 @@ private func_previousvalue(rtData, params) {
 	}
 	def param = evaluateExpression(rtData, params[0], 'device')
 	if ((param.t == 'device') && (param.a) && param.v.size()) {
-		def attribute = rtData.attributes[param.a]
-	if (attribute) {
+		//def attribute = rtData.attributes[param.a]
+		def attribute = Attributes[param.a]
+		if (attribute) {
 			def device = getDevice(rtData, param.v[0])
-		if (device && !isDeviceLocation(device)) {
-		def states = device.statesSince(param.a, new Date(now() - 604500000), [max: 5])
-		if (states.size() > 1) {
-			def newValue = states[0].getValue()
-			//some events get duplicated, so we really want to look for the last "different valued" state
-			for(int i = 1; i < states.size(); i++) {
-			def result = states[i].getValue()
-			if (result != newValue) {
-				return [t: attribute.t, v: cast(rtData, result, attribute.t)]
-			}
+			if (device && !isDeviceLocation(device)) {
+				def states = device.statesSince(param.a, new Date(now() - 604500000), [max: 5])
+				if (states.size() > 1) {
+					def newValue = states[0].getValue()
+					//some events get duplicated, so we really want to look for the last "different valued" state
+					for(int i = 1; i < states.size(); i++) {
+						def result = states[i].getValue()
+						if (result != newValue) {
+							return [t: attribute.t, v: cast(rtData, result, attribute.t)]
+						}
+					}
+				}
+				//we're saying 7 days, though it may be wrong - but we have no data
+				return [t: 'string', v: '']
 			}
 		}
-		//we're saying 7 days, though it may be wrong - but we have no data
-		return [t: 'string', v: '']
-		}
-	}
 	}
 	return [t: "error", v: "Invalid device"]
 }
 
 /******************************************************************************/
 /*** newer returns the number of devices whose attribute had the current    ***/
-/*** value for less than the specified number of milliseconds			    ***/
+/*** value for less than the specified number of milliseconds		  ***/
 /*** Usage: newer([device:attribute] [,.., [device:attribute]], threshold)	***/
 /******************************************************************************/
 private func_newer(rtData, params) {
@@ -6611,7 +6448,7 @@ private func_newer(rtData, params) {
 
 /******************************************************************************/
 /*** older returns the number of devices whose attribute had the current    ***/
-/*** value for more than the specified number of milliseconds			    ***/
+/*** value for more than the specified number of milliseconds		  ***/
 /*** Usage: older([device:attribute] [,.., [device:attribute]], threshold)	***/
 /******************************************************************************/
 private func_older(rtData, params) {
@@ -6697,7 +6534,7 @@ private func_matches(rtData, params) {
 
 /******************************************************************************/
 /*** eq returns true if two values are equal								***/
-/*** Usage: eq(value1, value2)												***/
+/*** Usage: eq(value1, value2)							***/
 /******************************************************************************/
 private func_eq(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 2)) {
@@ -6711,7 +6548,7 @@ private func_eq(rtData, params) {
 
 /******************************************************************************/
 /*** lt returns true if value1 < value2										***/
-/*** Usage: lt(value1, value2)												***/
+/*** Usage: lt(value1, value2)							***/
 /******************************************************************************/
 private func_lt(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 2)) {
@@ -6724,7 +6561,7 @@ private func_lt(rtData, params) {
 
 /******************************************************************************/
 /*** le returns true if value1 <= value2									***/
-/*** Usage: le(value1, value2)												***/
+/*** Usage: le(value1, value2)							***/
 /******************************************************************************/
 private func_le(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 2)) {
@@ -6737,7 +6574,7 @@ private func_le(rtData, params) {
 
 /******************************************************************************/
 /*** gt returns true if value1 > value2									***/
-/*** Usage: gt(value1, value2)												***/
+/*** Usage: gt(value1, value2)							***/
 /******************************************************************************/
 private func_gt(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 2)) {
@@ -6750,7 +6587,7 @@ private func_gt(rtData, params) {
 
 /******************************************************************************/
 /*** ge returns true if value1 >= value2									***/
-/*** Usage: ge(value1, value2)												***/
+/*** Usage: ge(value1, value2)							***/
 /******************************************************************************/
 private func_ge(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 2)) {
@@ -6763,7 +6600,7 @@ private func_ge(rtData, params) {
 
 /******************************************************************************/
 /*** not returns the negative boolean value 								***/
-/*** Usage: not(value)														***/
+/*** Usage: not(value)								***/
 /******************************************************************************/
 private func_not(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 1)) {
@@ -6787,7 +6624,7 @@ private func_if(rtData, params) {
 
 /******************************************************************************/
 /*** isEmpty returns true if the value is empty								***/
-/*** Usage: isEmpty(value)													***/
+/*** Usage: isEmpty(value)							***/
 /******************************************************************************/
 private func_isempty(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() != 1)) {
@@ -6800,7 +6637,7 @@ private func_isempty(rtData, params) {
 
 /******************************************************************************/
 /*** datetime returns the value as a datetime type							***/
-/*** Usage: datetime([value])												***/
+/*** Usage: datetime([value])							***/
 /******************************************************************************/
 private func_datetime(rtData, params) {
 	if (!(params instanceof List) || (params.size() > 1)) {
@@ -6812,7 +6649,7 @@ private func_datetime(rtData, params) {
 
 /******************************************************************************/
 /*** date returns the value as a date type									***/
-/*** Usage: date([value])													***/
+/*** Usage: date([value])							***/
 /******************************************************************************/
 private func_date(rtData, params) {
 	if (!(params instanceof List) || (params.size() > 1)) {
@@ -6824,7 +6661,7 @@ private func_date(rtData, params) {
 
 /******************************************************************************/
 /*** time returns the value as a time type									***/
-/*** Usage: time([value])													***/
+/*** Usage: time([value])							***/
 /******************************************************************************/
 private func_time(rtData, params) {
 	if (!(params instanceof List) || (params.size() > 1)) {
@@ -7086,7 +6923,7 @@ private func_distance(rtData, params) {
 	def pidx = 0
 	def errMsg = ''
 	while (pidx < params.size()) {
-  	 	if ((params[pidx].t != 'device') || ((params[pidx].t == 'device') && !!params[pidx].a)) {
+		if ((params[pidx].t != 'device') || ((params[pidx].t == 'device') && !!params[pidx].a)) {
 			//a decimal or device attribute is provided
 			switch (idx) {
 			case 0:
@@ -7121,7 +6958,7 @@ private func_distance(rtData, params) {
 				} else {
 					lat2 = lat
 					lng2 = lng
-	  			}
+				}
 				idx += 2
 				pidx += 1
 				continue
@@ -7195,9 +7032,9 @@ private func_urlencode(rtData, params) {
 private func_encodeuricomponent(rtData, params) { return func_urlencode(rtData, params); }
 
 /******************************************************************************/
-/*** 																		***/
-/*** COMMON PUBLISHED METHODS												***/
-/*** 																		***/
+/*** 										***/
+/*** COMMON PUBLISHED METHODS							***/
+/*** 										***/
 /******************************************************************************/
 
 def mem(showBytes = true) {
@@ -7205,9 +7042,9 @@ def mem(showBytes = true) {
 	return Math.round(100.00 * (bytes/ 100000.00)) + "%${showBytes ? " ($bytes bytes)" : ""}"
 }
 /******************************************************************************/
-/***																		***/
-/*** UTILITIES																***/
-/***																		***/
+/***										***/
+/*** UTILITIES									***/
+/***										***/
 /******************************************************************************/
 
 def String md5(String md5) {
@@ -7224,14 +7061,16 @@ def String md5(String md5) {
 	return null;
 }
 
-def String hashId(id) {
+def String hashId(id, updateCache=true) {
 	//enabled hash caching for faster processing
 	def result = state.hash ? state.hash[id] : null
 	if (!result) {
 		result = ":${md5("core." + id)}:"
-		def hash = state.hash ?: [:]
-		hash[id] = result
-		state.hash = hash
+		if(updateCache) {
+			def hash = state.hash ?: [:]
+			hash[id] = result
+			state.hash = hash
+		}
 	}
 	return result
 }
@@ -7304,9 +7143,9 @@ private cast(rtData, value, dataType, srcDataType = null) {
 			switch (srcDataType) {
 				case 'boolean': return value ? "true" : "false";
 				case 'decimal':
-				//if (value instanceof Double) return sprintf('%f', value)
-				// strip trailing zeroes (e.g. 5.00 to 5 and 5.030 to 5.03)
-				return value.toString().replaceFirst(/(?:\.|(\.\d*?))0+$/, '$1')
+					//if (value instanceof Double) return sprintf('%f', value)
+					// strip trailing zeroes (e.g. 5.00 to 5 and 5.030 to 5.03)
+					return value.toString().replaceFirst(/(?:\.|(\.\d*?))0+$/, '$1')
 				case 'integer':
 				case 'long': break; if (value > 9999999999) { return formatLocalTime(value) }; break;
 				case 'time': return formatLocalTime(value, 'h:mm:ss a z');
@@ -7489,12 +7328,12 @@ private localToUtcDate(dateOrTime) {
 }
 
 private safeTimeToday(dateOrTimeOrString, tz = null){
-	if(isHubitat()){
+	//if(isHubitat()){
 		dateOrTimeOrString = dateOrTimeOrString?.trim() ?: ""
 		if(dateOrTimeOrString.toLowerCase().endsWith('am') || dateOrTimeOrString.toLowerCase().endsWith('pm')){
-		 	dateOrTimeOrString = dateOrTimeOrString[0..-3].trim()
+			dateOrTimeOrString = dateOrTimeOrString[0..-3].trim()
 		}
-	}
+	//}
 	return timeToday(dateOrTimeOrString, tz)
 }
 
@@ -7671,7 +7510,7 @@ private isDeviceLocation(device){
 }
 
 /******************************************************************************/
-/*** DEBUG FUNCTIONS														***/
+/*** DEBUG FUNCTIONS									***/
 /******************************************************************************/
 private log(message, rtData = null, shift = null, err = null, cmd = null, force = false) {
 	if (cmd == "timer") {
@@ -7733,16 +7572,18 @@ private log(message, rtData = null, shift = null, err = null, cmd = null, force 
 			rtData.logs.push([o: now() - rtData.timestamp, p: prefix2, m: msg + (!!err ? " $err" : ""), c: cmd])
 		}
 	}
-  	if (isHubitat()) {
+//	if (isHubitat()) {
 		if(err){
 			log."$cmd" "$prefix $message $err"
 		}
 		else {
 			log."$cmd" "$prefix $message"
 		}
+/*
 	} else {
 		log."$cmd" "$prefix $message", err
 	}
+*/
 }
 
 private info(message, rtData = null, shift = null, err = null) { log message, rtData, shift, err, 'info' }
@@ -7875,91 +7716,92 @@ def Map getSystemVariablesAndValues(rtData) {
 
 private Map getSystemVariables() {
 	return [
-	'$args': [t: "dynamic", d: true],
-	'$json': [t: "dynamic", d: true],
-	'$places': [t: "dynamic", d: true],
-	'$response': [t: "dynamic", d: true],
-	'$weather': [t: "dynamic", d: true],
-	'$nfl': [t: "dynamic", d: true],
-	'$incidents': [t: "dynamic", d: true],
-	'$shmTripped': [t: "boolean", d: true],
-	"\$currentEventAttribute": [t: "string", v: null],
-	"\$currentEventDescription": [t: "string", v: null],
-	"\$currentEventDate": [t: "datetime", v: null],
-	"\$currentEventDelay": [t: "integer", v: null],
-	"\$currentEventDevice": [t: "device", v: null],
-	"\$currentEventDeviceIndex": [t: "integer", v: null],
-	"\$currentEventDevicePhysical": [t: "boolean", v: null],
-	"\$currentEventReceived": [t: "datetime", v: null],
-	"\$currentEventValue": [t: "dynamic", v: null],
-	"\$currentEventUnit": [t: "string", v: null],
-	"\$currentState": [t: "string", v: null],
-	"\$currentStateDuration": [t: "string", v: null],
-	"\$currentStateSince": [t: "datetime", v: null],
-	"\$nextScheduledTime": [t: "datetime", v: null],
-	"\$name": [t: "string", d: true],
-	"\$state": [t: "string", v: ''],
-	"\$now": [t: "datetime", d: true],
-	'$device': [t: 'device', v: null],
-	'$devices': [t: 'device', v: null],
-	'$location': [t: 'device', v: null],
-	"\$utc": [t: "datetime", d: true],
-	"\$localNow": [t: "datetime", d: true],
-	"\$hour": [t: "integer", d: true],
-	"\$hour24": [t: "integer", d: true],
-	"\$minute": [t: "integer", d: true],
-	"\$second": [t: "integer", d: true],
-	"\$meridian": [t: "string", d: true],
-	"\$meridianWithDots":  [t: "string", d: true],
-	"\$day": [t: "integer", d: true],
-	"\$dayOfWeek": [t: "integer", d: true],
-	"\$dayOfWeekName": [t: "string", d: true],
-	"\$month": [t: "integer", d: true],
-	"\$monthName": [t: "string", d: true],
-	"\$year": [t: "integer", d: true],
-	"\$midnight": [t: "datetime", d: true],
-	"\$noon": [t: "datetime", d: true],
-	"\$sunrise": [t: "datetime", d: true],
-	"\$sunset": [t: "datetime", d: true],
-	"\$nextMidnight": [t: "datetime", d: true],
-	"\$nextNoon": [t: "datetime", d: true],
-	"\$nextSunrise": [t: "datetime", d: true],
-	"\$nextSunset": [t: "datetime", d: true],
-	"\$time": [t: "string", d: true],
-	"\$time24": [t: "string", d: true],
-	"\$index": [t: "decimal", v: null],
-	"\$previousEventAttribute": [t: "string", v: null],
-	"\$previousEventDescription": [t: "string", v: null],
-	"\$previousEventDate": [t: "datetime", v: null],
-	"\$previousEventDelay": [t: "integer", v: null],
-	"\$previousEventDevice": [t: "device", v: null],
-	"\$previousEventDeviceIndex": [t: "integer", v: null],
-	"\$previousEventDevicePhysical": [t: "boolean", v: null],
-	"\$previousEventExecutionTime": [t: "integer", v: null],
-	"\$previousEventReceived": [t: "datetime", v: null],
-	"\$previousEventValue": [t: "dynamic", v: null],
-	"\$previousEventUnit": [t: "string", v: null],
-	"\$previousState": [t: "string", v: null],
-	"\$previousStateDuration": [t: "string", v: null],
-	"\$previousStateSince": [t: "datetime", v: null],
-	"\$random": [t: "decimal", d: true],
-	"\$randomColor": [t: "string", d: true],
-	"\$randomColorName": [t: "string", d: true],
-	"\$randomLevel": [t: "integer", d: true],
-	"\$randomSaturation": [t: "integer", d: true],
-	"\$randomHue": [t: "integer", d: true],
-	"\$httpContentType": [t: "string", v: null],
-	"\$httpStatusCode": [t: "integer", v: null],
-	"\$httpStatusOk": [t: "boolean", v: null],
-	"\$mediaId": [t: "string", d: true],
-	"\$mediaUrl": [t: "string", d: true],
-	"\$mediaType": [t: "string", d: true],
-	"\$mediaSize": [t: "integer", d: true],
-	"\$iftttStatusCode": [t: "integer", v: null],
-	"\$iftttStatusOk": [t: "boolean", v: null],
-	"\$locationMode": [t: "string", d: true],
-	(isHubitat() ? "\$hsmStatus" : "\$shmStatus"): [t: "string", d: true],
-	"\$version": [t: "string", d: true]
+		'$args': [t: "dynamic", d: true],
+		'$json': [t: "dynamic", d: true],
+		'$places': [t: "dynamic", d: true],
+		'$response': [t: "dynamic", d: true],
+		'$weather': [t: "dynamic", d: true],
+		'$nfl': [t: "dynamic", d: true],
+		'$incidents': [t: "dynamic", d: true],
+		//'$shmTripped': [t: "boolean", d: true],
+		"\$currentEventAttribute": [t: "string", v: null],
+		"\$currentEventDescription": [t: "string", v: null],
+		"\$currentEventDate": [t: "datetime", v: null],
+		"\$currentEventDelay": [t: "integer", v: null],
+		"\$currentEventDevice": [t: "device", v: null],
+		"\$currentEventDeviceIndex": [t: "integer", v: null],
+		"\$currentEventDevicePhysical": [t: "boolean", v: null],
+		"\$currentEventReceived": [t: "datetime", v: null],
+		"\$currentEventValue": [t: "dynamic", v: null],
+		"\$currentEventUnit": [t: "string", v: null],
+		"\$currentState": [t: "string", v: null],
+		"\$currentStateDuration": [t: "string", v: null],
+		"\$currentStateSince": [t: "datetime", v: null],
+		"\$nextScheduledTime": [t: "datetime", v: null],
+		"\$name": [t: "string", d: true],
+		"\$state": [t: "string", v: ''],
+		"\$now": [t: "datetime", d: true],
+		'$device': [t: 'device', v: null],
+		'$devices': [t: 'device', v: null],
+		'$location': [t: 'device', v: null],
+		"\$utc": [t: "datetime", d: true],
+		"\$localNow": [t: "datetime", d: true],
+		"\$hour": [t: "integer", d: true],
+		"\$hour24": [t: "integer", d: true],
+		"\$minute": [t: "integer", d: true],
+		"\$second": [t: "integer", d: true],
+		"\$meridian": [t: "string", d: true],
+		"\$meridianWithDots":  [t: "string", d: true],
+		"\$day": [t: "integer", d: true],
+		"\$dayOfWeek": [t: "integer", d: true],
+		"\$dayOfWeekName": [t: "string", d: true],
+		"\$month": [t: "integer", d: true],
+		"\$monthName": [t: "string", d: true],
+		"\$year": [t: "integer", d: true],
+		"\$midnight": [t: "datetime", d: true],
+		"\$noon": [t: "datetime", d: true],
+		"\$sunrise": [t: "datetime", d: true],
+		"\$sunset": [t: "datetime", d: true],
+		"\$nextMidnight": [t: "datetime", d: true],
+		"\$nextNoon": [t: "datetime", d: true],
+		"\$nextSunrise": [t: "datetime", d: true],
+		"\$nextSunset": [t: "datetime", d: true],
+		"\$time": [t: "string", d: true],
+		"\$time24": [t: "string", d: true],
+		"\$index": [t: "decimal", v: null],
+		"\$previousEventAttribute": [t: "string", v: null],
+		"\$previousEventDescription": [t: "string", v: null],
+		"\$previousEventDate": [t: "datetime", v: null],
+		"\$previousEventDelay": [t: "integer", v: null],
+		"\$previousEventDevice": [t: "device", v: null],
+		"\$previousEventDeviceIndex": [t: "integer", v: null],
+		"\$previousEventDevicePhysical": [t: "boolean", v: null],
+		"\$previousEventExecutionTime": [t: "integer", v: null],
+		"\$previousEventReceived": [t: "datetime", v: null],
+		"\$previousEventValue": [t: "dynamic", v: null],
+		"\$previousEventUnit": [t: "string", v: null],
+		"\$previousState": [t: "string", v: null],
+		"\$previousStateDuration": [t: "string", v: null],
+		"\$previousStateSince": [t: "datetime", v: null],
+		"\$random": [t: "decimal", d: true],
+		"\$randomColor": [t: "string", d: true],
+		"\$randomColorName": [t: "string", d: true],
+		"\$randomLevel": [t: "integer", d: true],
+		"\$randomSaturation": [t: "integer", d: true],
+		"\$randomHue": [t: "integer", d: true],
+		"\$httpContentType": [t: "string", v: null],
+		"\$httpStatusCode": [t: "integer", v: null],
+		"\$httpStatusOk": [t: "boolean", v: null],
+		"\$mediaId": [t: "string", d: true],
+		"\$mediaUrl": [t: "string", d: true],
+		"\$mediaType": [t: "string", d: true],
+		"\$mediaSize": [t: "integer", d: true],
+		"\$iftttStatusCode": [t: "integer", v: null],
+		"\$iftttStatusOk": [t: "boolean", v: null],
+		"\$locationMode": [t: "string", d: true],
+		//(isHubitat() ? "\$hsmStatus" : "\$shmStatus"): [t: "string", d: true],
+		"\$hsmStatus": [t: "string", d: true],
+		"\$version": [t: "string", d: true]
 	].sort{it.key}
 }
 
@@ -7972,7 +7814,7 @@ private getSystemVariableValue(rtData, name) {
 	case '$weather': return "${rtData.weather}".toString()
 	case '$nfl': return "${rtData.nfl}".toString()
 	case '$incidents': return "${rtData.incidents}".toString()
-	case '$shmTripped': initIncidents(rtData); return !!((rtData.incidents instanceof List) && (rtData.incidents.size()))
+	//case '$shmTripped': initIncidents(rtData); return !!((rtData.incidents instanceof List) && (rtData.incidents.size()))
 	case '$mediaId': return rtData.mediaId
 	case '$mediaUrl': return rtData.mediaUrl
 	case '$mediaType': return rtData.mediaType
@@ -8011,9 +7853,11 @@ private getSystemVariableValue(rtData, name) {
 	case "\$randomSaturation": def result = getRandomValue("\$randomSaturation") ?: (int)Math.round(50 + 50 * Math.random()); setRandomValue("\$randomSaturation", result); return result
 	case "\$randomHue": def result = getRandomValue("\$randomHue") ?: (int)Math.round(360 * Math.random()); setRandomValue("\$randomHue", result); return result
   	case "\$locationMode": return location.getMode()
-	case  (isHubitat() ? "\$hsmStatus" : "\$shmStatus"):
-	if(isHubitat()) { return rtData.hsmStatus }
-	else switch (location.currentState("alarmSystemStatus")?.value) { case 'off': return 'Disarmed'; case 'stay': return 'Armed/Stay'; case 'away': return 'Armed/Away'; }; return null;
+	//case  (isHubitat() ? "\$hsmStatus" : "\$shmStatus"):
+	case  "\$hsmStatus":
+	//if(isHubitat()) { return rtData.hsmStatus }
+		return location.hsmStatus
+	//else switch (location.currentState("alarmSystemStatus")?.value) { case 'off': return 'Disarmed'; case 'stay': return 'Armed/Stay'; case 'away': return 'Armed/Away'; }; return null;
 	}
 }
 
@@ -8041,30 +7885,620 @@ private void resetRandomValues() {
 	state.temp.randoms = [:]
 }
 
-public Map getColorByName(rtData, name){
-	return (rtData.colors ?: parent.getColors()).find{ it.name == name }
+private Map getColorByName(rtData, name){
+	//return (rtData.colors ?: parent.getColors()).find{ it.name == name }
+	return Colors.find{ it.name == name }
 }
 
-public Map getRandomColor(rtData){
-	def colors = (rtData.colors ?: parent.getColors())
-	def random = (int)(Math.random() * colors.size())
-	return colors[random]
+private Map getRandomColor(rtData){
+	//def colors = Colors //(rtData.colors ?: parent.getColors())
+	def random = (int)(Math.random() * Colors.size())
+	return Colors[random]
 }
+
+import groovy.transform.Field
+
+@Field final List Colors = [
+	[name:"Alice Blue",	rgb:"#F0F8FF",	h:208,	s:100,	l:97],
+	[name:"Antique White",	rgb:"#FAEBD7",	h:34,	s:78,	l:91],
+	[name:"Aqua",		rgb:"#00FFFF",	h:180,	s:100,	l:50],
+	[name:"Aquamarine",	rgb:"#7FFFD4",	h:160,	s:100,	l:75],
+	[name:"Azure",		rgb:"#F0FFFF",	h:180,	s:100,	l:97],
+	[name:"Beige",		rgb:"#F5F5DC",	h:60,	s:56,	l:91],
+	[name:"Bisque",		rgb:"#FFE4C4",	h:33,	s:100,	l:88],
+	[name:"Blanched Almond", rgb:"#FFEBCD",	h:36,	s:100,	l:90],
+	[name:"Blue",		rgb:"#0000FF",	h:240,	s:100,	l:50],
+	[name:"Blue Violet",	rgb:"#8A2BE2",	h:271,	s:76,	l:53],
+	[name:"Brown",		rgb:"#A52A2A",	h:0,	s:59,	l:41],
+	[name:"Burly Wood",	rgb:"#DEB887",	h:34,	s:57,	l:70],
+	[name:"Cadet Blue",	rgb:"#5F9EA0",	h:182,	s:25,	l:50],
+	[name:"Chartreuse",	rgb:"#7FFF00",	h:90,	s:100,	l:50],
+	[name:"Chocolate",	rgb:"#D2691E",	h:25,	s:75,	l:47],
+	[name:"Cool White",	rgb:"#F3F6F7",	h:187,	s:19,	l:96],
+	[name:"Coral",		rgb:"#FF7F50",	h:16,	s:100,	l:66],
+	[name:"Corn Flower Blue",	rgb:"#6495ED",	h:219,	s:79,	l:66],
+	[name:"Corn Silk",	rgb:"#FFF8DC",	h:48,	s:100,	l:93],
+	[name:"Crimson",	rgb:"#DC143C",	h:348,	s:83,	l:58],
+	[name:"Cyan",		rgb:"#00FFFF",	h:180,	s:100,	l:50],
+	[name:"Dark Blue",	rgb:"#00008B",	h:240,	s:100,	l:27],
+	[name:"Dark Cyan",	rgb:"#008B8B",	h:180,	s:100,	l:27],
+	[name:"Dark Golden Rod",rgb:"#B8860B",	h:43,	s:89,	l:38],
+	[name:"Dark Gray",	rgb:"#A9A9A9",	h:0,	s:0,	l:66],
+	[name:"Dark Green",	rgb:"#006400",	h:120,	s:100,	l:20],
+	[name:"Dark Khaki",	rgb:"#BDB76B",	h:56,	s:38,	l:58],
+	[name:"Dark Magenta",	rgb:"#8B008B",	h:300,	s:100,	l:27],
+	[name:"Dark Olive Green",	rgb:"#556B2F",	h:82,	s:39,	l:30],
+	[name:"Dark Orange",	rgb:"#FF8C00",	h:33,	s:100,	l:50],
+	[name:"Dark Orchid",	rgb:"#9932CC",	h:280,	s:61,	l:50],
+	[name:"Dark Red",	rgb:"#8B0000",	h:0,	s:100,	l:27],
+	[name:"Dark Salmon",	rgb:"#E9967A",	h:15,	s:72,	l:70],
+	[name:"Dark Sea Green",	rgb:"#8FBC8F",	h:120,	s:25,	l:65],
+	[name:"Dark Slate Blue",rgb:"#483D8B",	h:248,	s:39,	l:39],
+	[name:"Dark Slate Gray",rgb:"#2F4F4F",	h:180,	s:25,	l:25],
+	[name:"Dark Turquoise",	rgb:"#00CED1",	h:181,	s:100,	l:41],
+	[name:"Dark Violet",	rgb:"#9400D3",	h:282,	s:100,	l:41],
+	[name:"Daylight White",	rgb:"#CEF4FD",	h:191,	s:9,	l:90],
+	[name:"Deep Pink",	rgb:"#FF1493",	h:328,	s:100,	l:54],
+	[name:"Deep Sky Blue",	rgb:"#00BFFF",	h:195,	s:100,	l:50],
+	[name:"Dim Gray",	rgb:"#696969",	h:0,	s:0,	l:41],
+	[name:"Dodger Blue",	rgb:"#1E90FF",	h:210,	s:100,	l:56],
+	[name:"Fire Brick",	rgb:"#B22222",	h:0,	s:68,	l:42],
+	[name:"Floral White",	rgb:"#FFFAF0",	h:40,	s:100,	l:97],
+	[name:"Forest Green",	rgb:"#228B22",	h:120,	s:61,	l:34],
+	[name:"Fuchsia",	rgb:"#FF00FF",	h:300,	s:100,	l:50],
+	[name:"Gainsboro",	rgb:"#DCDCDC",	h:0,	s:0,	l:86],
+	[name:"Ghost White",	rgb:"#F8F8FF",	h:240,	s:100,	l:99],
+	[name:"Gold",		rgb:"#FFD700",	h:51,	s:100,	l:50],
+	[name:"Golden Rod",	rgb:"#DAA520",	h:43,	s:74,	l:49],
+	[name:"Gray",		rgb:"#808080",	h:0,	s:0,	l:50],
+	[name:"Green",		rgb:"#008000",	h:120,	s:100,	l:25],
+	[name:"Green Yellow",	rgb:"#ADFF2F",	h:84,	s:100,	l:59],
+	[name:"Honeydew",	rgb:"#F0FFF0",	h:120,	s:100,	l:97],
+	[name:"Hot Pink",	rgb:"#FF69B4",	h:330,	s:100,	l:71],
+	[name:"Indian Red",	rgb:"#CD5C5C",	h:0,	s:53,	l:58],
+	[name:"Indigo",		rgb:"#4B0082",	h:275,	s:100,	l:25],
+	[name:"Ivory",		rgb:"#FFFFF0",	h:60,	s:100,	l:97],
+	[name:"Khaki",		rgb:"#F0E68C",	h:54,	s:77,	l:75],
+	[name:"Lavender",	rgb:"#E6E6FA",	h:240,	s:67,	l:94],
+	[name:"Lavender Blush",	rgb:"#FFF0F5",	h:340,	s:100,	l:97],
+	[name:"Lawn Green",	rgb:"#7CFC00",	h:90,	s:100,	l:49],
+	[name:"Lemon Chiffon",	rgb:"#FFFACD",	h:54,	s:100,	l:90],
+	[name:"Light Blue",	rgb:"#ADD8E6",	h:195,	s:53,	l:79],
+	[name:"Light Coral",	rgb:"#F08080",	h:0,	s:79,	l:72],
+	[name:"Light Cyan",	rgb:"#E0FFFF",	h:180,	s:100,	l:94],
+	[name:"Light Golden Rod Yellow",	rgb:"#FAFAD2",	h:60,	s:80,	l:90],
+	[name:"Light Gray",	rgb:"#D3D3D3",	h:0,	s:0,	l:83],
+	[name:"Light Green",	rgb:"#90EE90",	h:120,	s:73,	l:75],
+	[name:"Light Pink",	rgb:"#FFB6C1",	h:351,	s:100,	l:86],
+	[name:"Light Salmon",	rgb:"#FFA07A",	h:17,	s:100,	l:74],
+	[name:"Light Sea Green",rgb:"#20B2AA",	h:177,	s:70,	l:41],
+	[name:"Light Sky Blue",	rgb:"#87CEFA",	h:203,	s:92,	l:75],
+	[name:"Light Slate Gray",rgb:"#778899",	h:210,	s:14,	l:53],
+	[name:"Light Steel Blue",rgb:"#B0C4DE",	h:214,	s:41,	l:78],
+	[name:"Light Yellow",	rgb:"#FFFFE0",	h:60,	s:100,	l:94],
+	[name:"Lime",		rgb:"#00FF00",	h:120,	s:100,	l:50],
+	[name:"Lime Green",	rgb:"#32CD32",	h:120,	s:61,	l:50],
+	[name:"Linen",		rgb:"#FAF0E6",	h:30,	s:67,	l:94],
+	[name:"Maroon",		rgb:"#800000",	h:0,	s:100,	l:25],
+	[name:"Medium Aquamarine",	rgb:"#66CDAA",	h:160,	s:51,	l:60],
+	[name:"Medium Blue",	rgb:"#0000CD",	h:240,	s:100,	l:40],
+	[name:"Medium Orchid",	rgb:"#BA55D3",	h:288,	s:59,	l:58],
+	[name:"Medium Purple",	rgb:"#9370DB",	h:260,	s:60,	l:65],
+	[name:"Medium Sea Green",	rgb:"#3CB371",	h:147,	s:50,	l:47],
+	[name:"Medium Slate Blue",	rgb:"#7B68EE",	h:249,	s:80,	l:67],
+	[name:"Medium Spring Green",	rgb:"#00FA9A",	h:157,	s:100,	l:49],
+	[name:"Medium Turquoise",	rgb:"#48D1CC",	h:178,	s:60,	l:55],
+	[name:"Medium Violet Red",	rgb:"#C71585",	h:322,	s:81,	l:43],
+	[name:"Midnight Blue",	rgb:"#191970",	h:240,	s:64,	l:27],
+	[name:"Mint Cream",	rgb:"#F5FFFA",	h:150,	s:100,	l:98],
+	[name:"Misty Rose",	rgb:"#FFE4E1",	h:6,	s:100,	l:94],
+	[name:"Moccasin",	rgb:"#FFE4B5",	h:38,	s:100,	l:85],
+	[name:"Navajo White",	rgb:"#FFDEAD",	h:36,	s:100,	l:84],
+	[name:"Navy",		rgb:"#000080",	h:240,	s:100,	l:25],
+	[name:"Old Lace",	rgb:"#FDF5E6",	h:39,	s:85,	l:95],
+	[name:"Olive",		rgb:"#808000",	h:60,	s:100,	l:25],
+	[name:"Olive Drab",	rgb:"#6B8E23",	h:80,	s:60,	l:35],
+	[name:"Orange",		rgb:"#FFA500",	h:39,	s:100,	l:50],
+	[name:"Orange Red",	rgb:"#FF4500",	h:16,	s:100,	l:50],
+	[name:"Orchid",		rgb:"#DA70D6",	h:302,	s:59,	l:65],
+	[name:"Pale Golden Rod",	rgb:"#EEE8AA",	h:55,	s:67,	l:80],
+	[name:"Pale Green",	rgb:"#98FB98",	h:120,	s:93,	l:79],
+	[name:"Pale Turquoise",	rgb:"#AFEEEE",	h:180,	s:65,	l:81],
+	[name:"Pale Violet Red",	rgb:"#DB7093",	h:340,	s:60,	l:65],
+	[name:"Papaya Whip",	rgb:"#FFEFD5",	h:37,	s:100,	l:92],
+	[name:"Peach Puff",	rgb:"#FFDAB9",	h:28,	s:100,	l:86],
+	[name:"Peru",		rgb:"#CD853F",	h:30,	s:59,	l:53],
+	[name:"Pink",		rgb:"#FFC0CB",	h:350,	s:100,	l:88],
+	[name:"Plum",		rgb:"#DDA0DD",	h:300,	s:47,	l:75],
+	[name:"Powder Blue",	rgb:"#B0E0E6",	h:187,	s:52,	l:80],
+	[name:"Purple",		rgb:"#800080",	h:300,	s:100,	l:25],
+	[name:"Red",		rgb:"#FF0000",	h:0,	s:100,	l:50],
+	[name:"Rosy Brown",	rgb:"#BC8F8F",	h:0,	s:25,	l:65],
+	[name:"Royal Blue",	rgb:"#4169E1",	h:225,	s:73,	l:57],
+	[name:"Saddle Brown",	rgb:"#8B4513",	h:25,	s:76,	l:31],
+	[name:"Salmon",		rgb:"#FA8072",	h:6,	s:93,	l:71],
+	[name:"Sandy Brown",	rgb:"#F4A460",	h:28,	s:87,	l:67],
+	[name:"Sea Green",	rgb:"#2E8B57",	h:146,	s:50,	l:36],
+	[name:"Sea Shell",	rgb:"#FFF5EE",	h:25,	s:100,	l:97],
+	[name:"Sienna",		rgb:"#A0522D",	h:19,	s:56,	l:40],
+	[name:"Silver",		rgb:"#C0C0C0",	h:0,	s:0,	l:75],
+	[name:"Sky Blue",	rgb:"#87CEEB",	h:197,	s:71,	l:73],
+	[name:"Slate Blue",	rgb:"#6A5ACD",	h:248,	s:53,	l:58],
+	[name:"Slate Gray",	rgb:"#708090",	h:210,	s:13,	l:50],
+	[name:"Snow",		rgb:"#FFFAFA",	h:0,	s:100,	l:99],
+	[name:"Soft White",	rgb:"#B6DA7C",	h:83,	s:44,	l:67],
+	[name:"Spring Green",	rgb:"#00FF7F",	h:150,	s:100,	l:50],
+	[name:"Steel Blue",	rgb:"#4682B4",	h:207,	s:44,	l:49],
+	[name:"Tan",		rgb:"#D2B48C",	h:34,	s:44,	l:69],
+	[name:"Teal",		rgb:"#008080",	h:180,	s:100,	l:25],
+	[name:"Thistle",	rgb:"#D8BFD8",	h:300,	s:24,	l:80],
+	[name:"Tomato",		rgb:"#FF6347",	h:9,	s:100,	l:64],
+	[name:"Turquoise",	rgb:"#40E0D0",	h:174,	s:72,	l:56],
+	[name:"Violet",		rgb:"#EE82EE",	h:300,	s:76,	l:72],
+	[name:"Warm White",	rgb:"#DAF17E",	h:72,	s:20,	l:72],
+	[name:"Wheat",		rgb:"#F5DEB3",	h:39,	s:77,	l:83],
+	[name:"White",		rgb:"#FFFFFF",	h:0,	s:0,	l:100],
+	[name:"White Smoke",	rgb:"#F5F5F5",	h:0,	s:0,	l:96],
+	[name:"Yellow",		rgb:"#FFFF00",	h:60,	s:100,	l:50],
+	[name:"Yellow Green",	rgb:"#9ACD32",	h:80,	s:61,	l:50]
+]
 
 private static Class HubActionClass() {
-	try {
-		return 'physicalgraph.device.HubAction' as Class
-	} catch(all) {
 		return 'hubitat.device.HubAction' as Class
-	}
 }
+
 private static Class HubProtocolClass() {
-	try {
-		return 'physicalgraph.device.Protocol' as Class
-	} catch(all) {
 		return 'hubitat.device.Protocol' as Class
-	}
 }
+
 private isHubitat(){
  	return hubUID != null
 }
+
+@Field final Map Attributes = [
+		acceleration:			 [ 		t: "enum",				],
+		activities:			 [  		t: "object",					],
+		alarm:				 [  		t: "enum",			],
+		axisX:				 [ 		t: "integer",	r: [-1024, 1024],	s: "threeAxis",		],
+		axisY:				 [ 		t: "integer",	r: [-1024, 1024],	s: "threeAxis",		],
+		axisZ:				 [ 		t: "integer",	r: [-1024, 1024],	s: "threeAxis",		],
+		battery:			 [  		t: "integer",	r: [0, 100],		u: "%",	],
+//		button:				 [  		t: "enum",		c: "button",			m: true, s: "numberOfButtons,numButtons", i: "buttonNumber"		],
+		carbonDioxide:			 [ 		t: "decimal",	r: [0, null],			],
+		carbonMonoxide:			 [ 		t: "enum",			],
+		color:				 [ 		t: "color",					],
+		colorTemperature:		 [ 		t: "integer",	r: [1000, 30000],	u: "°K",		],
+		consumableStatus:		 [ 		t: "enum",			],
+		contact:			 [ 		t: "enum",			],
+		coolingSetpoint:		 [ 		t: "decimal",	r: [-127, 127],		u: '°?',		],
+		currentActivity:		 [ 		t: "string",					],
+		door:				 [ 		t: "enum",				p: true,	],
+		energy:				 [ 		t: "decimal",	r: [0, null],				],
+		eta:				 [ 		t: "datetime",					],
+		goal:				 [ 		t: "integer",	r: [0, null],			],
+		heatingSetpoint:		 [ 		t: "decimal",	r: [-127, 127],		u: '°?',		],
+		hex:				 [ 		t: "hexcolor",					],
+//		holdableButton:			 [ 		t: "enum",			c: "holdableButton",			m: true,		],
+		hue:				 [ 		t: "integer",	r: [0, 360],		u: "°",	],
+		humidity:			 [ 		t: "integer",	r: [0, 100],			],
+		illuminance:			 [ 		t: "integer",	r: [0, null],		u: "lux",		],
+		image:				 [ 		t: "image",					],
+		indicatorStatus:		 [ 		t: "enum",		],
+		infraredLevel:			 [ 		t: "integer",	r: [0, 100],		u: "%",	],
+		level:				 [ 		t: "integer",	r: [0, 100],		u: "%",	],
+		lock:				 [ 		t: "enum",		c: "lock",		s:"numberOfCodes,numCodes", i:"usedCode", sd: "user code"		],
+		lqi:				 [ 		t: "integer",	r: [0, 255],			],
+		motion:				 [ 		t: "enum",				],
+		mute:				 [ 		t: "enum",				],
+		orientation:			 [ 		t: "enum",			],
+		axisX:				 [ 		t: "decimal",	],
+		axisY:				 [ 		t: "decimal",	],
+		axisZ:				 [ 		t: "decimal",	],
+		pH:				 [ 		t: "decimal",	r: [0, 14],			],
+		phraseSpoken:			 [ 		t: "string",					],
+		power:				 [ 		t: "decimal",		u: "W",			],
+		powerSource:			 [ 		t: "enum",				],
+		presence:			 [ 		t: "enum",				],
+		rssi:				 [ 		t: "integer",	r: [0, 100],		u: "%",	],
+		saturation:			 [ 		t: "integer",	r: [0, 100],		u: "%",	],
+		schedule:			 [ 		t: "object",					],
+		sessionStatus:			 [ 		t: "enum",			],
+		shock:				 [ 		t: "enum",				],
+		sleeping:			 [ 		t: "enum",			],
+		smoke:				 [ 		t: "enum",			],
+		sound:				 [ 		t: "enum",			],
+		soundPressureLevel:		 [ 		t: "integer",	r: [0, null],		u: "dB",		],
+		status:				 [ 		t: "string",					],
+		steps:				 [ 		t: "integer",	r: [0, null],			],
+		switch:				 [ 		t: "enum",				p: true,	],
+		tamper:				 [ 		t: "enum",				],
+		temperature:			 [  		t: "decimal",	r: [-460, 10000],			],
+		thermostatFanMode:		 [ 		t: "enum",				],
+		thermostatMode:			 [ 		t: "enum",				],
+		thermostatOperatingState:	 [ 		t: "enum",			],
+		thermostatSetpoint:		 [ 		t: "decimal",	r: [-127, 127],			],
+		threeAxis:			 [ 		t: "vector3",					],
+		timeRemaining:			 [ 		t: "integer",	r: [0, null],		u: "s",	],
+		touch:				 [ 		t: "enum",				],
+		trackData:			 [ 		t: "object",					],
+		trackDescription:		 [ 		t: "string",					],
+		ultravioletIndex:		 [ 		t: "integer",	r: [0, null],			],
+		valve:				 [ 		t: "enum",			],
+		voltage:			 [ 		t: "decimal",	r: [null, null],	u: "V",	],
+		water:				 [ 		t: "enum",			],
+		windowShade:			 [ 		t: "enum",			],
+	//webCoRE Presence Sensor
+		altitude:			 [ 		t: "decimal",	r: [null, null],	u: "ft",		],
+		altitudeMetric:			 [ 		t: "decimal",	r: [null, null],	u: "m",	],
+		floor:				 [ 		t: "integer",	r: [null, null],		],
+		distance:			 [ 		t: "decimal",	r: [null, null],	u: "mi",		],
+		distanceMetric:			 [ 		t: "decimal",	r: [null, null],	u: "km",		],
+		currentPlace:			 [ 		t: "string",					],
+		previousPlace:			 [ 		t: "string",					],
+		closestPlace:			 [ 		t: "string",					],
+		arrivingAtPlace:		 [ 		t: "string",					],
+		leavingPlace:			 [ 		t: "string",					],
+		places:				 [ 		t: "string",					],
+		horizontalAccuracyMetric:	 [ 		t: "decimal",	r: [null, null],	u: "m",	],
+		horizontalAccuracy:		 [ 		t: "decimal",	r: [null, null],	u: "ft",		],
+		verticalAccuracy:		 [ 		t: "decimal",	r: [null, null],	u: "ft",		],
+		verticalAccuracyMetric:		 [ 		t: "decimal",	r: [null, null],	u: "m",	],
+		latitude:			 [ 		t: "decimal",	r: [null, null],	u: "°",	],
+		longitude:			 [ 		t: "decimal",	r: [null, null],	u: "°",	],
+		closestPlaceDistance:		 [ 		t: "decimal",	r: [null, null],	u: "mi",		],
+		closestPlaceDistanceMetric:	 [ 		t: "decimal",	r: [null, null],	u: "km",	],
+		speed:				 [ 		t: "decimal",	r: [null, null],	u: "ft/s",		],
+		speedMetric:			 [ 		t: "decimal",	r: [null, null],	u: "m/s",		],
+		bearing:			 [ 		t: "decimal",	r: [0, 360],		u: "°",	],
+		doubleTapped:			 [ 	 	t: "integer",	c: "doubleTapableButton"		],
+		held:				 [ 		t: "integer",	c: "holdableButton"		],
+		pushed:				 [  		t: "integer",	c: "pushableButton"								]
+	]
+
+@Field final Map Comparisons = [
+	conditions: [
+		changed:			 [ 		t: 1,	],
+		did_not_change:			 [ 		t: 1,	],
+		is:				 [ 		p: 1	],
+		is_not:				 [ 		p: 1	],
+		is_any_of:			 [ 		p: 1,	],
+		is_not_any_of:			 [ 		p: 1,	],
+		is_equal_to:			 [ 		p: 1	],
+		is_different_than:		 [ 		p: 1	],
+		is_less_than:			 [ 		p: 1	],
+		is_less_than_or_equal_to:	 [ 		p: 1	],
+		is_greater_than:		 [ 		p: 1	],
+		is_greater_than_or_equal_to:	 [ 		p: 1	],
+		is_inside_of_range:		 [ 		p: 2	],
+		is_outside_of_range:		 [ 		p: 2	],
+		is_even:			 [ 		g:"di",	],
+		is_odd:				 [ 		g:"di",	],
+		was:				 [ 		p: 1,			t: 2,	],
+		was_not:			 [ 		p: 1,			t: 2,	],
+		was_any_of:			 [ 		p: 1,	m: true,	t: 2,	],
+		was_not_any_of:			 [ 		p: 1,	m: true,	t: 2,	],
+		was_equal_to:			 [ 		p: 1,			t: 2,	],
+		was_different_than:		 [ 		p: 1,			t: 2,	],
+		was_less_than:			 [ 		p: 1,			t: 2,	],
+		was_less_than_or_equal_to:	 [ 		p: 1,			t: 2,	],
+		was_greater_than:		 [ 		p: 1,			t: 2,	],
+		was_greater_than_or_equal_to:	 [ 		p: 1,			t: 2,	],
+		was_inside_of_range:		 [ 		p: 2,			t: 2,	],
+		was_outside_of_range:		 [ 		p: 2,			t: 2,	],
+		was_even:			 [ 		t: 2,	],
+		was_odd:			 [ 		t: 2,	],
+		is_any:				 [ 		p: 0	],
+		is_before:			 [ 		p: 1	],
+		is_after:			 [ 		p: 1	],
+		is_between:			 [ 		p: 2	],
+		is_not_between:			 [ 		p: 2	],
+	],
+	triggers: [
+		gets:				 [  		p: 1	],
+		happens_daily_at:		 [ 		p: 1	],
+		arrives:			 [ 		p: 2	],
+		executes:			 [ 		p: 1	],
+		changes:			 [ 		g:"bdfis",		],
+		changes_to:			 [ 		p: 1,	],
+		changes_away_from:		 [ 		p: 1,	],
+		changes_to_any_of:		 [ 		p: 1,	m: true,	],
+		changes_away_from_any_of:	 [ 		p: 1,	m: true,	],
+		drops:				 [ 		g:"di",	],
+		does_not_drop:			 [ 		g:"di",	],
+		drops_below:			 [ 		p: 1,	],
+		drops_to_or_below:		 [ 		p: 1,	],
+		remains_below:			 [ 		p: 1,	],
+		remains_below_or_equal_to:	 [ 		p: 1,	],
+		rises:				 [ 		g:"di",	],
+		does_not_rise:			 [		g:"di",	],
+		rises_above:			 [ 		p: 1,	],
+		rises_to_or_above:		 [ 		p: 1,	],
+		remains_above:			 [ 		p: 1,	],
+		remains_above_or_equal_to:	 [ 		p: 1,	],
+		enters_range:			 [ 		p: 2,	],
+		remains_outside_of_range:	 [ 		p: 2,	],
+		exits_range:			 [ 		p: 2,	],
+		remains_inside_of_range:	 [ 		p: 2,	],
+		becomes_even:			 [ 		g:"di",	],
+		remains_even:			 [ 		g:"di",	],
+		becomes_odd:			 [ 		g:"di",	],
+		remains_odd:			 [ 		g:"di",	],
+		stays_unchanged:		 [ 		t: 1,	],
+		stays:				 [ 		p: 1,			t: 1,	],
+		stays_away_from:		 [ 		p: 1,			t: 1,	],
+		stays_any_of:			 [ 		p: 1,	m: true,	t: 1,	],
+		stays_away_from_any_of:		 [ 		p: 1,	m: true,	t: 1,	],
+		stays_equal_to:			 [ 		p: 1,			t: 1,	],
+		stays_different_than:		 [ 		p: 1,			t: 1,	],
+		stays_less_than:		 [ 		p: 1,			t: 1,	],
+		stays_less_than_or_equal_to:	 [ 		p: 1,			t: 1,	],
+		stays_greater_than:		 [ 		p: 1,			t: 1,	],
+		stays_greater_than_or_equal_to:	 [ 		p: 1,			t: 1,	],
+		stays_inside_of_range:		 [ 		p: 2,			t: 1,	],
+		stays_outside_of_range:		 [ 		p: 2,			t: 1,	],
+		stays_even:			 [ 		t: 1,	],
+		stays_odd:			 [ 		t: 1,	],
+	]
+]
+
+@Field final List tileIndexes = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16']
+
+@Field final Map VirtualCommands = [
+	//a = aggregate
+	//d = display
+	//n = name
+	//t = type
+	//i = icon
+	//p = parameters
+	noop:		 [ 		a: true,						],
+	wait:		 [ 		a: true,				p: [[n:"Duration", t:"duration"]],		],
+	waitRandom:	 [ 		a: true,				p: [[n:"At least", t:"duration"],[n:"At most", t:"duration"]],	],
+	waitForTime:	 [ 		a: true,				p: [[n:"Time", t:"time"]],	],
+	waitForDateTime: [ 		a: true,				p: [[n:"Date & Time", t:"datetime"]],	],
+	executePiston:	 [ 		a: true,				p: [[n:"Piston", t:"piston"], [n:"Arguments", t:"variables", d:" with arguments {v}"],[n:"Wait for execution",t:"boolean",d:" and wait for execution to finish",w:"webCoRE can only wait on piston executions of pistons within the same instance as the caller. Please note that global variables updated in the callee piston do NOT get reflected immediately in the caller piston, the new values will be available on the next run."]],	],
+	pausePiston:	 [ n: "Pause piston...",	a: true,	i: "clock", is: "r",		d: "Pause piston \"{0}\"",				p: [[n:"Piston", t:"piston"]],	],
+	resumePiston:	 [ n: "Resume piston...",	a: true,	i: "clock", is: "r",		d: "Resume piston \"{0}\"",				p: [[n:"Piston", t:"piston"]],	],
+//	executeRoutine:	 [ n: "Execute routine...",		a: true,	i: "clock", is: "r",		d: "Execute routine \"{0}\"",					p: [[n:"Routine", t:"routine"]],	],
+	toggle:		 [ 		r: ["on", "off"], 				],
+	toggleRandom:	 [ 		r: ["on", "off"], 							p: [[n:"Probability for on", t:"level", d:" with a {v}% probability for on"]],	],
+	setSwitch:	 [ 		r: ["on", "off"], 							p: [[n:"Switch value", t:"switch"]],			],
+	setHSLColor:	 [  		r: ["setColor"],			p: [[n:"Hue",t:"hue"], [n:"Saturation",t:"saturation"], [n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],  	],
+	toggleLevel:	 [ 	r: ["on", "off", "setLevel"],	p: [[n:"Level", t:"level"]],		],
+	sendNotification: [ 		a: true,					p: [[n:"Message", t:"string"]],	],
+	sendPushNotification:		 [ 	a: true,				p: [[n:"Message", t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
+	sendSMSNotification:		 [ 	a: true,				p: [[n:"Message", t:"string"],[n:"Phone number",t:"phone"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
+//	sendNotificationToContacts:	 [ a: true,					p: [[n:"Message", t:"string"],[n:"Contacts",t:"contacts"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
+	log:		 [ 	a: true,					p: [[n:"Log type", t:"enum", o:["info","trace","debug","warn","error"]],[n:"Message",t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
+	httpRequest:	 [ 	a: true, 					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
+	setVariable:	 [ 	a: true,					p: [[n:"Variable",t:"variable"],[n:"Value", t:"dynamic"]],	],
+	setState:	 [ n: "Set piston state...",		a: true,	i: "align-left", is:"l",	d: "Set piston state to \"{0}\"",				p: [[n:"State",t:"string"]],	],
+	setTileColor:	 [ n: "Set piston tile colors...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} colors to {1} over {2}{3}",			p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
+	setTileTitle:	 [ n: "Set piston tile title...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} title to \"{1}\"",				p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"]],	],
+	setTileText:	 [ n: "Set piston tile text...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} text to \"{1}\"",				p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text",t:"string"]],	],
+	setTileFooter:	 [ n: "Set piston tile footer...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} footer to \"{1}\"",			p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Footer",t:"string"]],	],
+	setTile:		 [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} title  to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
+	clearTile:	 [ n: "Clear piston tile...",		a: true,	i: "info-square", is:"l",	d: "Clear piston tile #{0}",					p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
+	setLocationMode:	 [ n: "Set location mode...",		a: true,	i: "", 		d: "Set location mode to {0}", 					p: [[n:"Mode",t:"mode"]],	],
+	setAlarmSystemStatus:		 [ n: "Set Smart Home Monitor status...",	a: true, i: "",			d: "Set Smart Home Monitor status to {0}",				p: [[n:"Status", t:"alarmSystemStatus"]],				],
+	sendEmail:	 [ n: "Send email...",		a: true,	i: "envelope", 		d: "Send email with subject \"{1}\" to {0}", 			p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],			],
+	wolRequest:		 [ n: "Wake a LAN device", 		a: true,	i: "", 		d: "Wake LAN device at address {0}{1}",			p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
+	adjustLevel:	 [ n: "Adjust level...",	r: ["setLevel"], 	i: "toggle-on",		d: "Adjust level by {0}%{1}",					p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	adjustInfraredLevel:		 [ n: "Adjust infrared level...",	r: ["setInfraredLevel"], 	i: "toggle-on",	d: "Adjust infrared level by {0}%{1}",				p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	adjustSaturation:		 [ n: "Adjust saturation...",	r: ["setSaturation"], 	i: "toggle-on",		d: "Adjust saturation by {0}%{1}",				p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	adjustHue:	 [ n: "Adjust hue...",	r: ["setHue"], 	i: "toggle-on",			d: "Adjust hue by {0}°{1}",				p: [[n:"Adjustment",t:"integer",r:[-360,360]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	adjustColorTemperature:		 [ n: "Adjust color temperature...",	r: ["setColorTemperature"], 	i: "toggle-on",		d: "Adjust color temperature by {0}°K%{1}",		p: [[n:"Adjustment",t:"integer",r:[-29000,29000]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	fadeLevel:	 [ n: "Fade level...",	r: ["setLevel"], 		i: "toggle-on",		d: "Fade level{0} to {1}% in {2}{3}",			p: [[n:"Starting level",t:"level",d:" from {v}%"],[n:"Final level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	fadeInfraredLevel:		 [ n: "Fade infrared level...",	r: ["setInfraredLevel"], 		i: "toggle-on",		d: "Fade infrared level{0} to {1}% in {2}{3}",		p: [[n:"Starting infrared level",t:"level",d:" from {v}%"],[n:"Final infrared level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	fadeSaturation:	 [ n: "Fade saturation...",	r: ["setSaturation"], 		i: "toggle-on",		d: "Fade saturation{0} to {1}% in {2}{3}",			p: [[n:"Starting saturation",t:"level",d:" from {v}%"],[n:"Final saturation",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	fadeHue:		 [ n: "Fade hue...",	r: ["setHue"], 		i: "toggle-on",		d: "Fade hue{0} to {1}° in {2}{3}",				p: [[n:"Starting hue",t:"hue",d:" from {v}°"],[n:"Final hue",t:"hue"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	fadeColorTemperature:		 [ n: "Fade color temperature...",		r: ["setColorTemperature"], 		i: "toggle-on",		d: "Fade color temperature{0} to {1}°K in {2}{3}",			p: [[n:"Starting color temperature",t:"colorTemperature",d:" from {v}°K"],[n:"Final color temperature",t:"colorTemperature"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	flashLevel:	 [ n: "Flash (level)...",	r: ["setLevel"], 	i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",		p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	flashColor:	 [ n: "Flash (color)...",	r: ["setColor"], 	i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",			p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	writeToFuelStream:		 [ n: "Write to fuel stream...",  		a: true, 			d: "Write data point '{2}' to fuel stream {0}{1}{3}", 			p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],	],
+	storeMedia:	 [ n: "Store media...",				a: true, 			d: "Store media", 						p: [],	],
+	saveStateLocally:		 [ n: "Capture attributes to local store...", 				d: "Capture attributes {0} to local state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'], d:' only if store is empty']], ],
+	//saveStateGlobally:		 [ n: "Capture attributes to global store...", 			d: "Capture attributes {0} to global state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'],, d:' only if store is empty']], ],
+	loadStateLocally:		 [ n: "Restore attributes from local store...", 			d: "Restore attributes {0} from local state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
+	//loadStateGlobally:		 [ n: "Restore attributes from global store...", 			d: "Restore attributes {0} from global state{1}{2}",			p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
+	parseJson:	 [ n: "Parse JSON data...",	a: true,			d: "Parse JSON data {0}",				p: [[n: "JSON string", t:"string"]],			],
+	cancelTasks:		 [ n: "Cancel all pending tasks",		a: true,			d: "Cancel all pending tasks",					p: [],			],
+
+	setAlarmSystemStatus:		 [ n: "Set Hubitat Safety Monitor status...",	a: true, i: "",		d: "Set Hubitat Safety Monitor status to {0}",			p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions.collect {[n: it.value, v: it.key]}]],				],
+		//keep emulated flash to not break old pistons
+//	emulatedFlash:	 [ n: "(Old do not use) Emulated Flash",	r: ["on", "off"], 	i: "toggle-on",		d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+		//add back emulated flash with "o" option so that it overrides the native flash command
+	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		o: true /*override physical command*/					]
+]
+
+@Field final Map CommandsOverrides = [
+		push   : [c: "push",   s: null , r: "pushMomentary"],
+		flash  : [c: "flash",  s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
+]
+
+@Field final Map VirtualDevices = [
+		date:			[ n: 'Date',	t: 'date',		],
+		datetime:		[ n: 'Date & Time',		t: 'datetime',	],
+		time:			[ n: 'Time',	t: 'time',		],
+		email:			[ n: 'Email',	t: 'email',		m: true	],
+		powerSource:		[ n: 'Hub power source',	t: 'enum',	o: [battery: 'battery', mains: 'mains'],			x: true	],
+		ifttt:			[ n: 'IFTTT',	t: 'string',		m: true	],
+		mode:			[ n: 'Location mode',		t: 'enum', 	o: true /* getLocationModeOptions()*/,	x: true],
+		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
+//		routine:		[ n: 'Routine',	t: 'enum',	o: getRoutineOptions,	m: true],
+		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',	t: 'enum',		o: getHubitatAlarmSystemStatusOptions, ac: getAlarmSystemStatusActions,	x: true], //ac - actions. hubitat doesn't reuse the status for actions
+		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',	t: 'enum',		o: getAlarmSystemStatusActions,	m: true],
+		alarmSystemAlert: 	[ n: 'Hubitat Safety Monitor alert',	t: 'enum',		o: getAlarmSystemAlertOptions,	m: true],
+		alarmSystemRule: 	[ n: 'Hubitat Safety Monitor rule',	t: 'enum',		o: getAlarmSystemRuleOptions,		m: true]
+]
+
+
+@Field final Map getAlarmSystemStatusActions = [
+	armAway:	"Arm Away",
+	armHome:	"Arm Home",
+	armNight:	"Arm Night",
+	disarm:		"Disarm",
+	armRules:	"Arm Monitor Rules",
+	disarmRules:	"Disarm Monitor Rules",
+	disarmAll:	"Disarm All",
+	armAll:		"Arm All",
+	cancelAlerts:	"Cancel Alerts"
+]
+
+/*
+@Field final Map getAlarmSystemStatusOptions = [
+	off:	"Disarmed",
+	stay: 	"Armed/Stay",
+	away:	"Armed/Away"
+]
+*/
+
+@Field final Map getHubitatAlarmSystemStatusOptions = [
+	armedAway:		"Armed Away",
+	armingAway:		"Arming Pending exit delay",
+	armedHome: 		"Armed Home",
+	armedNight: 		"Armed Night",
+	disarmed: 		"Disarmed",
+	allDisarmed:		"All Disarmed"
+]
+
+@Field final Map getAlarmSystemAlertOptions = [
+	intrusion:		"Intrusion Away",
+	"intrusion-home": 	"Intrusion Home",
+	"intrusion-night": 	"Intrusion Night",
+	smoke:			"Smoke",
+	water:			"Water",
+	rule:			"Rule",
+	cancel:			"Alerts Cancelled",
+	arming:			"Arming Failure"
+]
+
+@Field final Map getAlarmSystemRuleOptions = [
+	armedRule: 	"Armed Rule",
+	disarmedRule: 	"Disarmed Rule"
+]
+
+@Field final Map PhysicalCommands = [
+	auto:			 [ 		a: "thermostatMode",		v: "auto",		],
+	beep:			 [ n: "Be",					],
+	both:			 [ 		a: "alarm",			v: "both",		],
+	cancel:			 [ n: "Ca",						],
+	close:			 [ 		a: "door",			v: "close",		],
+	configure:		 [ i: 'cog',				],
+	cool:			 [ 		a: "thermostatMode",		v: "cool",		],
+	deviceNotification:	 [ 								p: [[n:"Message",t:"string"]],	],
+	eco:			 [  		a: "thermostatMode",		v: "eco",		],
+	emergencyHeat:		 [ 		a: "thermostatMode",		v: "emergency heat",	],
+	fanAuto:		 [ 		a: "thermostatFanMode",		v: "auto",		],
+	fanCirculate:		 [ 		a: "thermostatFanMode",		v: "circulate",		],
+	fanOn:			 [ 		a: "thermostatFanMode",		v: "on",		],
+	getAllActivities:	 [ n: "Geti",						],
+	getCurrentActivity:	 [ n: "Getc",						],
+	heat:			 [	 	a: "thermostatMode",	v: "heat",		],
+	indicatorNever:		 [ n: "Di",						],
+	indicatorWhenOff:	 [ n: "Ei",					],
+	indicatorWhenOn:	 [ n: "Enon",					],
+	lock:			 [	 	a: "lock",	v: "locked",			],
+	mute:			 [ 		a: "mute",			v: "muted",				],
+	nextTrack:		 [ n: "Nxtt",					],
+	off:			 [ 		a: "switch",		v: "off",				],
+	on:			 [ 		a: "switch",		v: "on",				],
+	open:			 [ 		a: "door",			v: "open",				],
+	pause:			 [ n: "Pause",							],
+	play:			 [ n: "Play",							],
+	playText:		 [ 				p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],		],
+	playTextAndRestore:	 [ 				p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],		],
+	playTextAndResume:	 [ 				p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],		],
+	playTrack:		 [ 				p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
+	playTrackAndRestore:	 [ 				p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
+	playTrackAndResume:	 [ 				p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
+	poll:			 [ 		i: 'question',				],
+	presetPosition:		 [ 		a: "windowShade",			v: "partially open",			],
+	previousTrack:		 [ n: "Ps t",								],
+	push:			 [ n: "Push",									],
+	refresh:		 [ n: "Refresh",			i: 'sync',							],
+	restoreTrack:		 [ 				p: [[n:"Track URL",t:"url"]],		],
+	resumeTrack:		 [ 				p: [[n:"Track URL",t:"url"]],		],
+	setColor:		 [ 		a: "color",				p: [[n:"Color",t:"color"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
+	setColorTemperature:	 [ 		a: "colorTemperature",			p: [[n:"Color Temperature", t:"colorTemperature"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
+	setConsumableStatus:	 [ 				p: [[n:"Status", t:"consumable"]],			],
+	setCoolingSetpoint:	 [ 		a: "thermostatCoolingSetpoint",				p: [[n:"Desired temperature", t:"thermostatSetpoint"]], 		],
+	setHeatingSetpoint:	 [ 		a: "thermostatHeatingSetpoint",				p: [[n:"Desired temperature", t:"thermostatSetpoint"]], 		],
+	setHue:			 [ 		a: "hue",				p: [[n:"Hue", t:"hue"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 		],
+	setInfraredLevel:	 [ 		a: "infraredLevel",			p: [[n:"Level",t:"infraredLevel"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 	],
+	setLevel:		 [ 		a: "level",				p: [[n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 	],
+	setSaturation:		 [ 		a: "saturation",			p: [[n:"Saturation", t:"saturation"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
+	setSchedule:		 [ 		a: "schedule",				p: [[n:"Schedule", t:"object"]],			],
+	setThermostatFanMode:	 [ 		a: "thermostatFanMode",				p: [[n:"Fan mode", t:"thermostatFanMode"]],	],
+	setThermostatMode:	 [ 		a: "thermostatMode",				p: [[n:"Thermostat mode",t:"thermostatMode"]],		],
+	setTimeRemaining:	 [ 		a: "timeRemaining",					p: [[n:"Remaining time [seconds]", t:"number"]],		],
+	setTrack:		 [ 					p: [[n:"Track URL",t:"url"]], 		],
+	siren:			 [ 		a: "alarm",			v: "siren",				],
+	speak:			 [ 				p: [[n:"Message", t:"string"]],		],
+	start:			 [ n: "Start",									],
+	startActivity:		 [ 				p: [[n:"Activity", t:"string"]],			],
+	stop:			 [ n: "Stop",									],
+	strobe:			 [ 				a: "alarm",			v: "strobe",			],
+	take:			 [ n: "Take pic",								],
+	unlock:			 [ 				a: "lock",			v: "unlocked",			],
+	unmute:			 [ 				a: "mute",			v: "unmuted",			],
+	/* predfined commands below */
+	//general
+	quickSetCool:		 [ 			p: [[n:"Desired temperature",t:"thermostatSetpoint"]],			],
+	quickSetHeat:		 [ 			p: [[n:"Desired temperature",t:"thermostatSetpoint"]],			],
+	toggle:			 [ n: "Toggle",				],
+	reset:			 [ n: "Reset",					],
+	//hue
+	startLoop:		 [ n: "Start color loop",					],
+	stopLoop:		 [ n: "Stop color loop",					],
+	setLoopTime:		 [ n: "Set loop duration...",	d: "Set loop duration to {0}",			p: [[n:"Duration", t:"duration"]]			],
+	setDirection:		 [ n: "Switch loop direction",					],
+	alert:			 [ n: "Alert with lights...",			p: [[n:"Alert type", t:"enum", o:["Blink","Breathe","Okay","Stop"]]], 	],
+	setAdjustedColor:	 [ 			p: [[n:"Color", t:"color"], [n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		],
+	setAdjustedHSLColor:	 [ 			p: [[n:"Hue", t:"hue"],[n:"Saturation", t:"saturation"],[n:"Level", t:"level"],[n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		],
+	//harmony
+	allOn:			 [ n: "Turn all on",				],
+	allOff:			 [ n: "Turn all off",				],
+	hubOn:			 [ n: "Turn hub on",				],
+	hubOff:			 [ n: "Turn hub off",				],
+	//blink camera
+	enableCamera:		 [ n: "Enable camera",				],
+	disableCamera:		 [ n: "Disable camera",					],
+	monitorOn:		 [ n: "Turn monitor on",					],
+	monitorOff:		 [ n: "Turn monitor off",					],
+	ledOn:			 [ n: "Turn LED on",				],
+	ledOff:			 [ n: "Turn LED off",				],
+	ledAuto:		 [ n: "Set LED to Auto",					],
+	setVideoLength:		 [ 			p: [[n:"Duration", t:"duration"]], 			],
+	//dlink camera
+	pirOn:			 [ n: "Enable PIR",				],
+	pirOff:			 [ n: "Disable PIR",				],
+	nvOn:			 [ n: "Night  On",				],
+	nvOff:			 [ n: "Night Off",				],
+	nvAuto:			 [ n: "Night Auto",				],
+	vrOn:			 [ n: "Enable lvideo",				],
+	vrOff:			 [ n: "Disable lvideo",				],
+	left:			 [ n: "Pan left",					],
+	right:			 [ n: "Pan right",					],
+	up:			 [ n: "Pan up",				],
+	down:			 [ n: "Pan down",					],
+	home:			 [ n: "Pan Home",				],
+	presetOne:		 [ n: "Pan  #1",				],
+	presetTwo:		 [ n: "Pan  #2",				],
+	presetThree:		 [ n: "Pan  #3",				],
+	presetFour:		 [ n: "Pan  #4",				],
+	presetFive:		 [ n: "Pan  #5",				],
+	presetSix:		 [ n: "Pan  #6",				],
+	presetSeven:		 [ n: "Pan  #7",				],
+	presetEight:		 [ n: "Pan  #8",				],
+	presetCommand:		 [ 			p: [[n:"Preset #", t:"integer",r:[1,99]]], 	],
+	//zwave fan speed control by @pmjoen
+	low:			 [ n: "Set to Low",			],
+	med:			 [ n: "Set to Medium",			],
+	high:			 [ n: "Set to High",	],
+	doubleTap:		 [ 		a: "doubleTapped",			p:[[n: "Button #", t: "integer"]]],
+	flashNative:		 [ n: "Flash",	],
+	hold:			 [ n: "Hold",		d: "Hold Button {0}",		a: "held",		p: [[n:"Button #", t: "integer"]]],
+	push:			 [ n: "Push",		d: "Push button {0}",		a: "pushed",		p:[[n: "Button #", t: "integer"]]],
+	pushMomentary:		 [ n: "Push"						]
+]
