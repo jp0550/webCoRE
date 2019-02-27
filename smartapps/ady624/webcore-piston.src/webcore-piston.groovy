@@ -3143,7 +3143,7 @@ public ahttpRequestHandler(resp, ddata) {
    			json = [:]
 		}
 	} else {
-		if(resp.haseError()) {
+		if(resp.hasError()) {
 			log.debug  "Response error: ${resp.getErrorMessage()}"
 		}
 		if (!resp.hasError() && resp.data && (resp.data instanceof java.io.ByteArrayInputStream)) {
