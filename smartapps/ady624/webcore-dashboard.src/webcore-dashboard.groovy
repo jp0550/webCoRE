@@ -16,12 +16,13 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-public static String version() { return "v0.3.108.20180906" }
+public static String version() { return "v0.3.10a.20190223" }
+
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
 private static String handle() { return "webCoRE" }
-if(!isHubitat())include 'asynchttp_v1'
+//if(!isHubitat())include 'asynchttp_v1'
 definition(
 	name: "${handle()} Dashboard",
 	namespace: "ady624",
@@ -149,23 +150,24 @@ public updatePiston(pistonId, piston) {
 
 private void broadcastEvent(deviceId, eventName, eventValue, eventTime) {
 	def iid = state.instanceId
-    def region = state.region ?: 'us'
-    if (!iid || !iid.startsWith(':') || !iid.endsWith(':')) return
+	def region = state.region ?: 'us'
+	if (!iid || !iid.startsWith(':') || !iid.endsWith(':')) return
     
-    def params = [
-            uri: "https://api-${region}-${iid[32]}.webcore.co:9237",
-            path: '/event/sink',
-            requestContentType: "application/json",
-            headers: ['ST' : state.instanceId],
-            body: [d: deviceId, n: eventName, v: eventValue, t: eventTime]
-        ]
+	def params = [
+		uri: "https://api-${region}-${iid[32]}.webcore.co:9237",
+		path: '/event/sink',
+		requestContentType: "application/json",
+		headers: ['ST' : state.instanceId],
+		body: [d: deviceId, n: eventName, v: eventValue, t: eventTime]
+	]
     
+/*
     if(asynchttp_v1){
         asynchttp_v1.put(null, params)
     }
-    else {
+    else { */
         asynchttpPut('myDone', params, [bbb:0])
-    }
+    //}
 }
 
 def myDone(resp, data) {
