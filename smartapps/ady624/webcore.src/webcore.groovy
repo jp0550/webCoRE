@@ -18,18 +18,14 @@
  *
  *  Version history
 */
-public static String version() { return "v0.3.109.20181207" }
-/*
- *	12/07/2018 >>> v0.3.109.20181207 - BETA M3 - Dirty fix for dashboard timeouts: seems like ST has a lot of trouble reading the list of devices/commands/attributes/values these days, so giving up on reading values makes this much faster - temporarily?!
- *	09/06/2018 >>> v0.3.108.20180906 - BETA M3 - Restore pistons from backup file, hide "(unknown)" SHM status, fixed string to date across DST thanks @bangali, null routines, integer trailing zero cast, saving large pistons and disappearing variables on mobile
- */
+public String version() { return "v0.3.10a.20190223" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
 private static String handle() { return "webCoRE" }
 private static String domain() { return "webcore.co" }
-if(!isHubitat()) include 'asynchttp_v1'
+//if(!isHubitat()) include 'asynchttp_v1'
 definition(
 	name: "${handle()}",
 	namespace: "ady624",
@@ -1611,8 +1607,8 @@ def recoveryHandler() {
 	}
 	if (state.version != version()) {
 		//updated
-	atomicState.version = version()
-	updated()
+		atomicState.version = version()
+		updated()
 	}
 	//log.trace "RECOVERY took ${now() - t}ms"
 }
@@ -1852,7 +1848,7 @@ private String generatePistonName() {
 	def apps = getChildApps()
 	def i = 1
 	while (true) {
-		def name = i == 5 ? "Mambo No. 5" : "${handle()} Piston #$i"
+		def name = "${handle()} Piston #$i"
 		def found = false
 		for (app in apps) {
 			if (app.label == name) {
@@ -1861,7 +1857,7 @@ private String generatePistonName() {
 			}
 		}
 		if (found) {
-				i++
+			i++
 			continue
 		}
 		return name
@@ -1951,6 +1947,7 @@ private registerInstance() {
 	def region = endpoint.contains('graph-eu') ? 'eu' : 'us';
 	def name = handle() + ' Piston'
 	def pistons = getChildApps().findAll{ it.name == name }.collect{ [ a: state[hashId(it.id, false)]?.a ] }
+//log.debug "pistons: ${pistons}"
 	List lpa = pistons.findAll{ it.a }.collect{ it.id }
 	def pa = lpa.size()
 	List lpd = pistons.findAll{ !it.a }.collect{ it.id }
@@ -1971,18 +1968,27 @@ private registerInstance() {
 			lpa: lpa.join(','),
 			pd: pd,
 			lpd: lpd.join(',')
-			]
 		]
+	]
+//log.debug "params ${params}"
+/*
 	if (asynchttp_v1) {
 		asynchttp_v1.put(instanceRegistrationHandler, params)
 	}
-	else {
+	else { */
 		params << [contentType: 'application/json', requestContentType: 'application/json']
+		asynchttpPut('myDone', params, [bbb:0])
+/*
 		try{
 			httpPut(params) { res -> }	
 		}
 		catch(e) {}
-	}
+*/
+	//}
+}
+
+def myDone(resp, data) {
+	log.debug "register resp: ${resp?.status}"
 }
 
 private initSunriseAndSunset() {
@@ -2814,7 +2820,7 @@ private Map virtualCommands() {
 		setTile					: [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",			d: "Set piston tile #{0} title  to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
 		clearTile				: [ n: "Clear piston tile...",		a: true,	i: "info-square", is:"l",			d: "Clear piston tile #{0}",											p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
 		setLocationMode				: [ n: "Set location mode...",		a: true,	i: "", 						d: "Set location mode to {0}", 											p: [[n:"Mode",t:"mode"]],																														],
-		setAlarmSystemStatus			: [ n: "Set Smart Home Monitor status...",	a: true, i: "",					d: "Set Smart Home Monitor status to {0}",								p: [[n:"Status", t:"alarmSystemStatus"]],																										],
+		//setAlarmSystemStatus			: [ n: "Set Smart Home Monitor status...",	a: true, i: "",					d: "Set Smart Home Monitor status to {0}",								p: [[n:"Status", t:"alarmSystemStatus"]],																										],
 		sendEmail				: [ n: "Send email...",				a: true,	i: "envelope", 				d: "Send email with subject \"{1}\" to {0}", 							p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],																							],
 		wolRequest				: [ n: "Wake a LAN device", 		a: true,	i: "", 						d: "Wake LAN device at address {0}{1}",									p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
 		adjustLevel				: [ n: "Adjust level...",	 r: ["setLevel"], 	i: "toggle-on",				d: "Adjust level by {0}%{1}",											p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
