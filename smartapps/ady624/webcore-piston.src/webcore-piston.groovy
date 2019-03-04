@@ -16,16 +16,13 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- *  Version history
 */
-public String version() { return "v0.3.10a.20190223" }
+public static String version() { return "v0.3.10a.20190223" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION								***/
 /******************************************************************************/
 private static String handle() { return "webCoRE" }
-
-//if(!isHubitat())include 'asynchttp_v1'
 
 definition(
 	name: "${handle()} Piston",
@@ -181,15 +178,17 @@ def updated() {
 	unsubscribe()
 	initialize()
 
-	if((settings.maxStats?.toInteger() ?: 0) < 1) app.updateSetting("maxStats", [type: "number", value: 1])
-	if((settings.maxLogs?.toInteger() ?: 0) < 1) app.updateSetting("maxLogs", [type: "number", value: 1])
+	def t0 = getPistonLimits().maxStats
+	def t1 = getPistonLimits().maxLogs
+	if((settings.maxStats?.toInteger() ?: 0) < t0) app.updateSetting("maxStats", [type: "number", value: t0])
+	if((settings.maxLogs?.toInteger() ?: 0) < t1) app.updateSetting("maxLogs", [type: "number", value: t1])
 
 	return true
 }
 
 def initialize() {
 	if (!!state.active) {
-		resume()
+			resume()
 	}
 }
 
@@ -206,6 +205,7 @@ def get(boolean minimal = false) {
 			active: state.active,
 			category: state.category ?: 0
 		],
+		//piston: getStoredPiston()
 		piston: state.piston
 	] + (minimal ? [:] : [
 		systemVars: getSystemVariablesAndValues(),
@@ -221,6 +221,46 @@ def get(boolean minimal = false) {
 		nextSchedule: state.nextSchedule,
 		schedules: state.schedules
 	])
+}
+
+private Map getStoredPiston() {
+	if(state.piston) {
+		//rtData.json = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(data)
+		def t0 = state.piston
+		def tt0 = groovy.json.JsonOutput.toJson(t0)
+		//state.piston = null
+		//state.remove("piston")
+		//state.zpiston = zip(tt0)
+		def t1 = zip(tt0)
+		def t2 = unzip(t1)
+		def t3 = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(t2)
+log.debug "piston size ${"$t0".size()}  pistonC: ${"$t1".size()}, res: ${"$t3".size()}"
+		return t0
+	} else if(state.zpiston) {
+		def tt0 = unzip(state.zpiston)
+		def t0 = new groovy.json.JsonSlurper().parseText(t0)
+		return t0
+	}
+	return null
+}
+
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
+
+private String zip(String s){
+	def targetStream = new ByteArrayOutputStream()
+	def zipStream = new GZIPOutputStream(targetStream)
+	zipStream.write(s.getBytes('UTF-8'))
+	zipStream.close()
+	def zippedBytes = targetStream.toByteArray()
+	targetStream.close()
+	return zippedBytes.encodeBase64()
+}
+ 
+private String unzip(String compressed){
+	def inflaterStream = new GZIPInputStream(new ByteArrayInputStream(compressed.decodeBase64()))
+	def uncompressedStr = inflaterStream.getText('UTF-8')
+	return uncompressedStr
 }
 
 def activity(lastLogTimestamp) {
@@ -275,6 +315,12 @@ def setup(data, chunks) {
 	app.updateSetting('bin', [type: 'text', value: state.bin ?: ''])
 	app.updateSetting('author', [type: 'text', value: state.author ?: ''])
 	state.piston = piston
+	if(state.piston) {
+		def t0 = groovy.json.JsonOutput.toJson(piston)
+		//state.piston = null
+		//state.remove("piston")
+		//state.zpiston = zip(t0)
+	}
 	state.trace = [:]
 	state.schedules = []
 	state.vars = state.vars ?: [:];
@@ -347,10 +393,10 @@ private int setIds(node, maxId = 0, existingIds = [:], requiringIds = [], level 
 }
 
 
-def settingsToState(myKey, settings) {
-	if(settings) {
-		atomicState."${myKey}" = settings
-		state."${myKey}" = settings
+def settingsToState(myKey, setval) {
+	if(setval) {
+		atomicState."${myKey}" = setval
+		state."${myKey}" = setval
 	} else state.remove("${myKey}" as String)
 }
 
@@ -378,7 +424,6 @@ def setBin(bin) {
 	}
 	atomicState.bin = bin;
 	app.updateSetting('bin', [type: 'text', value: bin ?: ''])
-	state.hash = [:]
 	return [:]
 }
 
@@ -392,12 +437,14 @@ Map pausePiston() {
 	state.schedules = []
 	rtData.stats.nextSchedule = 0
 	unsubscribe()
-	state.subscriptions = [:]
 	unschedule()
 	app.updateSetting('dev', (Map) null)
 	//app.updateSetting('contacts', (Map) null)
 	state.hash = null
 	state.trace = [:]
+	state.subscriptions = [:]
+	atomicState.subscriptions = [:]
+	state.schedules = []
 	if (rtData.logging) info msg, rtData
 	updateLogs(rtData)
 	atomicState.active = false
@@ -464,17 +511,18 @@ private getTemporaryRunTimeData() {
 }
 
 //atomic state performance is much worse in hubitat than in smartthings. Grab a cached version where possible
-private getCachedAtomicState(){
+private getCachedAtomicState(rtData){
 	def atomStart = now()
+	def atomState
 
 //	try {
 		atomicState.loadState()
-		def atomState = atomicState.@backingMap
-		return atomState
+		atomState = atomicState.@backingMap
 //	} catch(e){
 //		return atomicState
 //	}
-	//debug "Atomic state generated in ${now() - atomStart}ms", rtData
+	if (rtData.logging > 2) debug "Atomic state generated in ${now() - atomStart}ms", rtData
+	return atomState
 }
 
 private getLocalRunTimeData(timestamp, fetchWrappers = false) {
@@ -508,10 +556,9 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 //	try {
  		def timestamp = rtData?.timestamp ?: now()
 		def piston = state.piston
+		//def piston = getStoredPiston()
 		def appId = hashId(app.id)
 		def logs = (rtData && rtData.temporary) ? rtData.logs : null
-		def logging = "$state.logging".toString()
-		logging = logging.isInteger() ? logging.toInteger() : 0
 		//pep is parallel execution
 		if(piston.o?.pep || !!fetchWrappers) {
 			rtData = (rtData && !rtData.temporary) ? rtData : parent.getRunTimeData((semaphore && !(piston.o?.pep)) ? appId : null, !!fetchWrappers)
@@ -526,18 +573,20 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 		rtData.trace = [t: timestamp, points: [:]]
 		rtData.id = appId
 		rtData.active = state.active;
+		def logging = "$state.logging".toString()
+		logging = logging.isInteger() ? logging.toInteger() : 0
+		rtData.logging = (int) logging
 		rtData.category = state.category;
 		rtData.stats = [nextScheduled: 0]
 		//we're reading the cache from atomicState because we might have waited at a semaphore
 		//def atomState = (rtData.waitedAtSemaphore ?: true) ? (isHubitat() ? getCachedAtomicState() : atomicState) : state
-		def atomState = (piston.o?.pep || rtData.waitedAtSemaphore) ? getCachedAtomicState() : state
+		def atomState = (piston.o?.pep || rtData.waitedAtSemaphore) ? getCachedAtomicState(rtData) : state
 
 		rtData.cache = atomState.cache ?: [:]
 		rtData.newCache = [:]
 		rtData.schedules = []
 		rtData.cancelations = [statements:[], conditions:[], all: false]
 		rtData.piston = piston
-		rtData.logging = (int) logging
 		rtData.locationId = hashId(location.id + '-L')
 		rtData.locationModeId = hashId(location.getCurrentMode().id)
 		//flow control
@@ -957,10 +1006,10 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 	//beat race conditions
 	//overwrite state, might have changed meanwhile
 	if (rtData.piston.o?.pep) {
+		state.schedules = atomicState.schedules
 		atomicState.cache = rtData.cache
 		atomicState.store = rtData.store
 	}
-	state.schedules = atomicState.schedules
 	state.cache = rtData.cache
 	state.store = rtData.store
 }
@@ -975,9 +1024,9 @@ private processSchedules(rtData, scheduleJob = false) {
 	/*
 	for (timer in rtData.piston.s.findAll{ it.t == 'every' }) {
 		if (!schedules.find{ it.s == timer.$ } && !rtData.schedules.find{ it.s == timer.$ }) {
-			if (rtData.logging > 2) debug "Rescheduling missing timer ${timer.$}", rtData
+		if (rtData.logging > 2) debug "Rescheduling missing timer ${timer.$}", rtData
 			scheduleTimer(rtData, timer, 0)
-		}
+	}
 	}
 	*/
 	//reset states
@@ -1135,8 +1184,7 @@ private Boolean executeStatement(rtData, statement, async = false) {
 			case 'every':
 				//we override current condition so that child statements can cancel on it
 				def ownEvent = (rtData.event && (rtData.event.name == 'time') && rtData.event.schedule && (rtData.event.schedule.s == statement.$) && (rtData.event.schedule.i < 0))
-				def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
-				if (ownEvent || !schedules.find{ it.s == statement.$ }) {
+				if (ownEvent || !state.schedules.find{ it.s == statement.$ }) {
 					//if the time has come for our timer, schedule the next timer
 					//if no next time is found quick enough, a new schedule with i = -2 will be setup so that a new attempt can be made at a later time
 					if (ownEvent) rtData.fastForwardTo = null
@@ -1379,28 +1427,25 @@ private Boolean executeStatement(rtData, statement, async = false) {
 			//do we repeat the loop?
 			repeat = perform && value && loop && !rtData.fastForwardTo
 
-			if(repeat) {
-				def overBy = checkForSlowdown(rtData)
-				if(overBy > 0) {
-					def delay = rtData.pistonLimits.taskShortDelay
-					if(overBy > 30000) {
-						delay = rtData.pistonLimits.taskLongDelay
-					}
-					def mstr = "ExecuteStatement: Execution time exceeded ${overBy}ms, "
-					if(repeat && overBy > 80000) {
-						error "${mstr}Terminating", rtData
-						rtData.terminated = true
-						repeat = false
-					} else {
-						doPause("${mstr}Waiting for ${delay}ms", delay, rtData)
-					}
+			def overBy = checkForSlowdown(rtData)
+			if(overBy > 0) {
+				def delay = rtData.pistonLimits.taskShortDelay
+				if(overBy > 30000) {
+					delay = rtData.pistonLimits.taskLongDelay
+				}
+				def mstr = "ExecuteStatement: Execution time exceeded ${overBy}ms, "
+				if(repeat && overBy > 80000) {
+					error "${mstr}Terminating", rtData
+					rtData.terminated = true
+					repeat = false
+				} else {
+					doPause("${mstr}Waiting for ${delay}ms", delay, rtData)
 				}
 			}
 		}
 	}
 	if (!rtData.fastForwardTo) {
-		def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
-		def schedule = (statement.t == 'every') ? (rtData.schedules.find{ it.s == statement.$} ?: schedules.find{ it.s == statement.$ }) : null
+		def schedule = (statement.t == 'every') ? (rtData.schedules.find{ it.s == statement.$} ?: state.schedules.find{ it.s == statement.$ }) : null
 		if (schedule) {
 			//timers need to show the remaining time
 			tracePoint(rtData, "s:${statement.$}", now() - t, now() - schedule.t)
@@ -1582,9 +1627,7 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 	}
 	//if we don't have to wait, we're home free
 
-	//negative delays force us to reschedule, no sleeping on this one
 	boolean reschedule = (delay < 0)
-	if (delay < 0 && rtData.logging > 2) debug "executeTask: Delay is negative", rtData
 	delay = reschedule ? -delay : delay
 
 	//get remaining piston time
@@ -1594,19 +1637,16 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 		if(overBy > 10000) {
 			mdelay = rtData.pistonLimits.taskLongDelay
 		}
-		if(!delay || mdelay > delay) {
-			def actDelay = doPause("ExecuteTask: Execution time exceeded ${overBy}ms, Waiting for ${mdelay}ms ($delay)", mdelay, rtData)
-			if(actDelay && delay) {
-				if(delay > mdelay) delay -= actDelay
-				else if(actDelay > delay) delay = 0
-			}
-		}
+		def actDelay = doPause("ExecuteTask: Execution time exceeded ${overBy}ms, Waiting for ${mdelay}ms ($delay)", mdelay, rtData)
+		if(actDelay && delay && delay > mdelay) delay -= actDelay
 	}
 
 	if (delay) {
 		//get remaining piston time
 		def timeLeft = rtData.pistonLimits.executionTime + rtData.timestamp - now()
+		//negative delays force us to reschedule, no sleeping on this one
 		//boolean reschedule = (delay < 0)
+		//delay = reschedule ? -delay : delay
 		//we're aiming at waking up with at least 3s left
 		//keep executing until we hit 3 seconds before the total execution time limit
 		if (delay > rtData.pistonLimits.taskMaxDelay) {
@@ -1649,7 +1689,6 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 			scheduleDevice = hashId(device.id)
 //		}
 		//we're using schedules instead
-//ERS
 		def statement = rtData.currentAction
 		def cs = [] + ((statement.tcp == 'b') || (statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
 		def ps = (statement.tcp == 'b') || (statement.tcp == 'p') ? 1 : 0
@@ -2081,7 +2120,6 @@ private int getWeekOfMonth(date = null, backwards = false) {
 
 
 private requestWakeUp(rtData, statement, task, timeOrDelay, data = null) {
-//ERS
 	def time = timeOrDelay > 9999999999 ? timeOrDelay : now() + timeOrDelay
 	def cs = [] + ((statement.tcp == 'b') || (statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
 	def ps = (statement.tcp == 'b') || (statement.tcp == 'p') ? 1 : 0
@@ -2103,14 +2141,14 @@ private requestWakeUp(rtData, statement, task, timeOrDelay, data = null) {
 			response: rtData.response ?: [:]
 		]
 	]
-/*
+
 	if (rtData.logging > 2) {
 		debug "requestWakeup(rtData, statement, task, timeOrDelay, data)", rtData
 		debug "statement: ${statement}  statement.D: ${statement.$}", rtData
 		debug "task: ${task}  taskD: ${task.$}", rtData
 		debug "cs: ${cs}  ps: ${ps} time: ${time} data: ${data}", rtData
 	}
-*/
+
 	rtData.schedules.push(schedule)
 }
 
@@ -2262,7 +2300,7 @@ private long vcmd_log(rtData, device, params) {
 	log message, rtData, null, null, "${command}".toLowerCase().trim(), true
 	def save = params.size() > 2 ? !!params[2] : false
 	if (save) {
-		sendNotificationEvent(message)
+		//sendNotificationEvent(message)
 	}
 	return 0
 }
@@ -2348,6 +2386,7 @@ private long vcmd_setLocationMode(rtData, device, params) {
 private long vcmd_setAlarmSystemStatus(rtData, device, params) {
 	def statusIdOrName = params[0]
 	def dev = rtData.virtualDevices['alarmSystemStatus']
+	//def dev = VirtualDevices['alarmSystemStatus']
 	//def options = isHubitat() ? dev?.ac : dev?.o
 	def options = dev?.ac
 	def status = options?.find{ (it.key == statusIdOrName) || (it.value == statusIdOrName)}.collect{ [id: it.key, name: it.value] }
@@ -2746,19 +2785,23 @@ private long vcmd_flashColor(rtData, device, params) {
 }
 
 private long vcmd_sendNotification(rtData, device, params) {
-	def message = params[0]
-	sendNotificationEvent(message)
+	def message = "Hubitat does not support sendNotification" + params[0]
+	log message, rtData
+	//sendNotificationEvent(message)
 	return 0
 }
 
 private long vcmd_sendPushNotification(rtData, device, params) {
-	def message = params[0]
+	def message = "Hubitat does not support sendPushNotification" + params[0]
+	log message, rtData
 	def save = !!params[1]
+/*
 	if (save) {
 		sendPush(message)
 	} else {
 		sendPushMessage(message)
 	}
+*/
 	return 0
 }
 
@@ -2767,11 +2810,13 @@ private long vcmd_sendSMSNotification(rtData, device, params) {
 	def phones = "${params[1]}".replace(" ", "").replace("-", "").replace("(", "").replace(")", "").tokenize(",;*|").unique()
 	def save = !!params[2]
 	for(def phone in phones) {
-		if (save) {
-			sendSms(phone, message)
+//		if (save) {
+			sendSms(phone, message)  // Hubitat only allows 10 per day
+/*
 		} else {
 			sendSmsMessage(phone, message)
 		}
+*/
 		//we only need one notification
 		save = false
 	}
@@ -2965,8 +3010,8 @@ public localHttpRequestHandler(hubResponse) {
 		}
 	}
 	handleEvents([date: new Date(), device: location, name: 'wc_async_reply', value: 'httpRequest', contentType: mediaType, responseData: data, jsonData: json, responseCode: responseCode, setRtData: setRtData])
-}
 	//handleEvents([date: new Date(), device: location, name: 'wc_async_reply', value: callbackData?.command, responseCode: response.status, setRtData: [mediaId: mediaId, mediaUrl: mediaUrl]])
+}
 */
 
 private long vcmd_httpRequest(rtData, device, params) {
@@ -3129,22 +3174,22 @@ public ahttpRequestHandler(resp, ddata) {
 		case 'image/gif':
 			binary = true
 	}
-   	def data =  [:]
-   	def json = [:]
+	def data =  [:]
+	def json = [:]
 	def setRtData = [:]
 	def err
 	if ((resp.status == 200) && resp.data && !binary) {
 		try {
-   			data = resp.getData()
-   			json = resp.getJson()
+			data = resp.getData()
+			json = resp.getJson()
 			//json = resp.data instanceof Map ? resp.data : (LinkedHashMap) new groovy.json.JsonSlurper().parseText(resp.data)
 			//rtData.response = response.data instanceof Map ? response.data : (LinkedHashMap) new groovy.json.JsonSlurper().parseText(response.data)
 		} catch (all) {
-   			json = [:]
+			json = [:]
 		}
 	} else {
 		if(resp.hasError()) {
-			log.debug  "Response error: ${resp.getErrorMessage()}"
+			log.debug  "http Response Status:  ${resp.status}  error Message: ${resp.getErrorMessage()}"
 		}
 		if (!resp.hasError() && resp.data && (resp.data instanceof java.io.ByteArrayInputStream)) {
 			setRtData.mediaType = mediaType
@@ -3155,7 +3200,7 @@ public ahttpRequestHandler(resp, ddata) {
 		}
 //		rtData.mediaUrl = null;
 	}
-
+ 
 	handleEvents([date: new Date(), device: location, name: 'wc_async_reply', value: 'httpRequest', contentType: mediaType, responseData: data, jsonData: json, responseCode: resp.status, setRtData: setRtData])
 }
 
@@ -3186,14 +3231,14 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 			path: "/fuelStream/write",
 			headers: [
 				'ST' : rtData.instanceId
-			],
+	],
 			body: [
 				c: canister,
 				n: name,
 				s: source,
 				d: data,
 				i: rtData.instanceId
-			],
+	],
 			requestContentType: "application/json"
 		]
 		//if (asynchttp_v1) asynchttp_v1.put(null, requestParams)
@@ -3710,10 +3755,10 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 					if (result) {
 					//if we find the comparison true, set a timer if we haven't already
 						def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
-						if (!schedules.find{ (it.s == condition.$) }) {
-							if (rtData.logging > 2) debug "Adding a timed trigger schedule for condition ${condition.$}", rtData
+									if (!schedules.find{ (it.s == condition.$) }) {
+						if (rtData.logging > 2) debug "Adding a timed trigger schedule for condition ${condition.$}", rtData
 							requestWakeUp(rtData, condition, condition, delay)
-						}
+					}
 				} else {
 					if (rtData.logging > 2) debug "Cancelling any timed trigger schedules for condition ${condition.$}", rtData
 					cancelStatementSchedules(rtData, condition.$)
@@ -4318,6 +4363,7 @@ private void subscribeAll(rtData) {
 			case 'echoSistant':
 				if (value && (value.t == 'c') && (value.c)) {
 					def options = rtData.virtualDevices[operand.v]?.o
+					//def options = VirtualDevices[operand.v]?.o
 					def item = options ? options[value.c] : value.c
 					if (item) {
 						subscriptionId = "$deviceId${operand.v}${item}"
@@ -4656,6 +4702,7 @@ private Map getDeviceAttribute(rtData, deviceId, attributeName, subDeviceIndex =
 			//def v = isHubitat() ? (rtData.hsmStatus) : location.currentState("alarmSystemStatus")?.value
 			def v = location.hsmStatus
 			def n = rtData.virtualDevices['alarmSystemStatus']?.o[v]
+			//def n = VirtualDevices['alarmSystemStatus']?.o[v]
 			return [t: 'string', v: v, n: n]
 		}
 		return [t: 'string', v: location.getName().toString()]
@@ -7353,7 +7400,8 @@ private utcToLocalDate(dateOrTimeOrString = null) {
 		dateOrTimeOrString = dateOrTimeOrString.getTime()
 	}
 	if (!dateOrTimeOrString) {
-		dateOrTimeOrString = now()
+		//dateOrTimeOrString = utcToLocalDate(now())
+		return new Date(now())
 	}
 	if (dateOrTimeOrString instanceof Long) {
 		//ST the system time is UTC, hubitat is user's local timezone. No need to convert
@@ -7374,7 +7422,8 @@ private utcToLocalTime(dateOrTimeOrString = null) {
 		dateOrTimeOrString = dateOrTimeOrString.getTime()
 	}
 	if (!dateOrTimeOrString) {
-		dateOrTimeOrString = now()
+		//dateOrTimeOrString = now()
+		return now()
 	}
 	if (dateOrTimeOrString instanceof Long) {
 		return dateOrTimeOrString + (location.timeZone ? location.timeZone.getOffset(dateOrTimeOrString) : 0)
@@ -7714,8 +7763,10 @@ private initSunriseAndSunset(rtData) {
 			updated: now()
 		]
 	}
-	rtData.sunrise = localToUtcTime(rightNow - rightNow.mod(86400000) + utcToLocalTime(rtData.sunTimes.sunrise).mod(86400000))
-	rtData.sunset = localToUtcTime(rightNow - rightNow.mod(86400000) + utcToLocalTime(rtData.sunTimes.sunset).mod(86400000))
+	//rtData.sunrise = localToUtcTime(rightNow - rightNow.mod(86400000) + utcToLocalTime(rtData.sunTimes.sunrise).mod(86400000))
+	//rtData.sunset = localToUtcTime(rightNow - rightNow.mod(86400000) + utcToLocalTime(rtData.sunTimes.sunset).mod(86400000))
+	rtData.sunrise = rtData.sunTimes.sunrise
+	rtData.sunset = rtData.sunTimes.sunset
 }
 
 private getSunriseTime(rtData) {
@@ -8122,6 +8173,7 @@ private isHubitat(){
  	return hubUID != null
 }
 
+//ERS use i, p, t, m   (name)
 @Field final Map Attributes = [
 		acceleration:			 [ 		t: "enum",				],
 		activities:			 [  		t: "object",					],
@@ -8222,6 +8274,7 @@ private isHubitat(){
 		pushed:				 [  		t: "integer",	c: "pushableButton"								]
 	]
 
+//ERS use p, t
 @Field final Map Comparisons = [
 	conditions: [
 		changed:			 [ 		t: 1,	],
@@ -8310,6 +8363,7 @@ private isHubitat(){
 
 @Field final List tileIndexes = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16']
 
+// ERS o (override phys command), a (aggregate commands)
 @Field final Map VirtualCommands = [
 	//a = aggregate
 	//d = display
@@ -8338,15 +8392,15 @@ private isHubitat(){
 	log:		 [ 	a: true,					p: [[n:"Log type", t:"enum", o:["info","trace","debug","warn","error"]],[n:"Message",t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 	httpRequest:	 [ 	a: true, 					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
 	setVariable:	 [ 	a: true,					p: [[n:"Variable",t:"variable"],[n:"Value", t:"dynamic"]],	],
-	setState:	 [ 	a: true,					p: [[n:"State",t:"string"]],	],
-	setTileColor:	 [ 	a: true,					p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
-	setTileTitle:	 [ 	a: true,					p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"]],	],
-	setTileText:	 [ 	a: true,					p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text",t:"string"]],	],
-	setTileFooter:	 [ 	a: true,					p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Footer",t:"string"]],	],
-	setTile:	 [ 	a: true,			p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
-	clearTile:	 [ 	a: true,					p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
-	setLocationMode: [ 	a: true,					p: [[n:"Mode",t:"mode"]],	],
-	//setAlarmSystemStatus:		 [ 	a: true, 			p: [[n:"Status", t:"alarmSystemStatus"]],				],
+	setState:	 [ n: "Set piston state...",		a: true,	i: "align-left", is:"l",	d: "Set piston state to \"{0}\"",				p: [[n:"State",t:"string"]],	],
+	setTileColor:	 [ n: "Set piston tile colors...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} colors to {1} over {2}{3}",			p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
+	setTileTitle:	 [ n: "Set piston tile title...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} title to \"{1}\"",				p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"]],	],
+	setTileText:	 [ n: "Set piston tile text...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} text to \"{1}\"",				p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text",t:"string"]],	],
+	setTileFooter:	 [ n: "Set piston tile footer...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} footer to \"{1}\"",			p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Footer",t:"string"]],	],
+	setTile:		 [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} title  to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
+	clearTile:	 [ n: "Clear piston tile...",		a: true,	i: "info-square", is:"l",	d: "Clear piston tile #{0}",					p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
+	setLocationMode:	 [ n: "Set location mode...",		a: true,	i: "", 		d: "Set location mode to {0}", 					p: [[n:"Mode",t:"mode"]],	],
+//	setAlarmSystemStatus:		 [ n: "Set Smart Home Monitor status...",	a: true, i: "",			d: "Set Smart Home Monitor status to {0}",				p: [[n:"Status", t:"alarmSystemStatus"]],				],
 	sendEmail:	 [ n: "Send email...",		a: true,	i: "envelope", 		d: "Send email with subject \"{1}\" to {0}", 			p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],			],
 	wolRequest:		 [ n: "Wake a LAN device", 		a: true,	i: "", 		d: "Wake LAN device at address {0}{1}",			p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
 	adjustLevel:	 [ n: "Adjust level...",	r: ["setLevel"], 	i: "toggle-on",		d: "Adjust level by {0}%{1}",					p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
@@ -8359,7 +8413,7 @@ private isHubitat(){
 	fadeSaturation:	 [ n: "Fade saturation...",	r: ["setSaturation"], 		i: "toggle-on",		d: "Fade saturation{0} to {1}% in {2}{3}",			p: [[n:"Starting saturation",t:"level",d:" from {v}%"],[n:"Final saturation",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	fadeHue:		 [ n: "Fade hue...",	r: ["setHue"], 		i: "toggle-on",		d: "Fade hue{0} to {1}° in {2}{3}",				p: [[n:"Starting hue",t:"hue",d:" from {v}°"],[n:"Final hue",t:"hue"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	fadeColorTemperature:		 [ n: "Fade color temperature...",		r: ["setColorTemperature"], 		i: "toggle-on",		d: "Fade color temperature{0} to {1}°K in {2}{3}",			p: [[n:"Starting color temperature",t:"colorTemperature",d:" from {v}°K"],[n:"Final color temperature",t:"colorTemperature"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+//	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	flashLevel:	 [ n: "Flash (level)...",	r: ["setLevel"], 	i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",		p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	flashColor:	 [ n: "Flash (color)...",	r: ["setColor"], 	i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",			p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	writeToFuelStream:		 [ n: "Write to fuel stream...",  		a: true, 			d: "Write data point '{2}' to fuel stream {0}{1}{3}", 			p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],	],
@@ -8371,13 +8425,15 @@ private isHubitat(){
 	parseJson:	 [ n: "Parse JSON data...",	a: true,			d: "Parse JSON data {0}",				p: [[n: "JSON string", t:"string"]],			],
 	cancelTasks:		 [ n: "Cancel all pending tasks",		a: true,			d: "Cancel all pending tasks",					p: [],			],
 
-	setAlarmSystemStatus:		 [ n: "Set Hubitat Safety Monitor status...",	a: true, i: "",		d: "Set Hubitat Safety Monitor status to {0}",			p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions().collect {[n: it.value, v: it.key]}]],				],
+	setAlarmSystemStatus:		 [ n: "Set Hubitat Safety Monitor status...",	a: true, /* i: "",		d: "Set Hubitat Safety Monitor status to {0}",			p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions.collect {[n: it.value, v: it.key]}]],*/				],
 		//keep emulated flash to not break old pistons
 //	emulatedFlash:	 [ n: "(Old do not use) Emulated Flash",	r: ["on", "off"], 	i: "toggle-on",		d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 		//add back emulated flash with "o" option so that it overrides the native flash command
 	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		o: true /*override physical command*/					]
 ]
 
+// ERS c and r are used
+// the physical command r: is replaced with command c.   If the VirtualCommand c exists and has o: true we will use that virtual command;  otherwise it will be replace phyicalcommand
 @Field final Map CommandsOverrides = [
 		push   : [c: "push",   s: null , r: "pushMomentary"],
 		flash  : [c: "flash",  s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
@@ -8389,6 +8445,25 @@ private Map getLocationModeOptions(updateCache = false) {
 		if (mode) result[hashId(mode.id, updateCache)] = mode.name;
 	}
 	return result
+}
+
+//ERS ac, o
+private Map VirtualDevices() {
+	return [
+		date:			[ n: 'Date',	t: 'date',		],
+		datetime:		[ n: 'Date & Time',		t: 'datetime',	],
+		time:			[ n: 'Time',	t: 'time',		],
+		email:			[ n: 'Email',	t: 'email',		m: true	],
+		powerSource:		[ n: 'Hub power source',	t: 'enum',	o: [battery: 'battery', mains: 'mains'],			x: true	],
+		ifttt:			[ n: 'IFTTT',	t: 'string',		m: true	],
+		mode:			[ n: 'Location mode',		t: 'enum', 	o: getLocationModeOptions(),	x: true],
+		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
+//		routine:		[ n: 'Routine',	t: 'enum',	o: getRoutineOptions,	m: true],
+		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',	t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),	x: true], //ac - actions. hubitat doesn't reuse the status for actions
+		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',	t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],
+		alarmSystemAlert: 	[ n: 'Hubitat Safety Monitor alert',	t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true],
+		alarmSystemRule: 	[ n: 'Hubitat Safety Monitor rule',	t: 'enum',		o: getAlarmSystemRuleOptions(),		m: true]
+	]
 }
 
 
@@ -8449,26 +8524,7 @@ return [
 ]
 }
 
-
-//@Field final Map VirtualDevices = [
-private Map VirtualDevices() {
-	return [
-		date:			[ n: 'Date',	t: 'date',		],
-		datetime:		[ n: 'D&T',		t: 'datetime',	],
-		time:			[ n: 'Time',	t: 'time',		],
-		email:			[ n: 'Email',	t: 'email',		m: true	],
-		powerSource:		[ n: 'Hpwr',	t: 'enum',	o: [battery: 'battery', mains: 'mains'],			x: true	],
-		ifttt:			[ n: 'IFTTT',	t: 'string',		m: true	],
-		mode:			[ n: 'Lm',		t: 'enum', 	o: getLocationModeOptions(true),	x: true],
-		tile:			[ n: 'P tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
-//		routine:		[ n: 'Routine',	t: 'enum',	o: getRoutineOptions,	m: true],
-		alarmSystemStatus:	[ n: 'HSM status',	t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),	x: true], //ac - actions. hubitat doesn't reuse the status for actions
-		alarmSystemEvent:	[ n: 'HSM event',	t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],
-		alarmSystemAlert: 	[ n: 'HSM alert',	t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true],
-		alarmSystemRule: 	[ n: 'HSM rule',	t: 'enum',		o: getAlarmSystemRuleOptions(),		m: true]
-	]
-}
-
+// ERS uses a, v
 @Field final Map PhysicalCommands = [
 	auto:			 [ 		a: "thermostatMode",		v: "auto",		],
 	beep:			 [ n: "Be",					],
@@ -8548,40 +8604,40 @@ private Map VirtualDevices() {
 	setAdjustedColor:	 [ 			p: [[n:"Color", t:"color"], [n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		],
 	setAdjustedHSLColor:	 [ 			p: [[n:"Hue", t:"hue"],[n:"Saturation", t:"saturation"],[n:"Level", t:"level"],[n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		],
 	//harmony
-	allOn:			 [ n: "Tall on",				],
-	allOff:			 [ n: "Tall off",				],
-	hubOn:			 [ n: "Thub on",				],
-	hubOff:			 [ n: "Thub off",				],
+	allOn:			 [ n: "Turn all on",				],
+	allOff:			 [ n: "Turn all off",				],
+	hubOn:			 [ n: "Turn hub on",				],
+	hubOff:			 [ n: "Turn hub off",				],
 	//blink camera
-	enableCamera:		 [ n: "E camera",				],
-	disableCamera:		 [ n: "D camera",					],
-	monitorOn:		 [ n: "Tn monitor on",					],
+	enableCamera:		 [ n: "Enable camera",				],
+	disableCamera:		 [ n: "Disable camera",					],
+	monitorOn:		 [ n: "Turn monitor on",					],
 	monitorOff:		 [ n: "Turn monitor off",					],
-	ledOn:			 [ n: "TL on",				],
-	ledOff:			 [ n: "TL off",				],
-	ledAuto:		 [ n: "SetL Auto",					],
+	ledOn:			 [ n: "Turn LED on",				],
+	ledOff:			 [ n: "Turn LED off",				],
+	ledAuto:		 [ n: "Set LED to Auto",					],
 	setVideoLength:		 [ 			p: [[n:"Duration", t:"duration"]], 			],
 	//dlink camera
-	pirOn:			 [ n: "E PIR",				],
-	pirOff:			 [ n: "D PIR",				],
-	nvOn:			 [ n: "N On",				],
-	nvOff:			 [ n: "N Off",				],
-	nvAuto:			 [ n: "N Auto",				],
-	vrOn:			 [ n: "E lvideo",				],
-	vrOff:			 [ n: "D lvideo",				],
-	left:			 [ n: "P left",					],
-	right:			 [ n: "P right",					],
-	up:			 [ n: "P up",				],
-	down:			 [ n: "P down",					],
-	home:			 [ n: "P Home",				],
-	presetOne:		 [ n: "P  #1",				],
-	presetTwo:		 [ n: "P  #2",				],
-	presetThree:		 [ n: "P  #3",				],
-	presetFour:		 [ n: "P  #4",				],
-	presetFive:		 [ n: "P  #5",				],
-	presetSix:		 [ n: "P  #6",				],
-	presetSeven:		 [ n: "P  #7",				],
-	presetEight:		 [ n: "P  #8",				],
+	pirOn:			 [ n: "Enable PIR",				],
+	pirOff:			 [ n: "Disable PIR",				],
+	nvOn:			 [ n: "Night  On",				],
+	nvOff:			 [ n: "Night Off",				],
+	nvAuto:			 [ n: "Night Auto",				],
+	vrOn:			 [ n: "Enable lvideo",				],
+	vrOff:			 [ n: "Disable lvideo",				],
+	left:			 [ n: "Pan left",					],
+	right:			 [ n: "Pan right",					],
+	up:			 [ n: "Pan up",				],
+	down:			 [ n: "Pan down",					],
+	home:			 [ n: "Pan Home",				],
+	presetOne:		 [ n: "Pan  #1",				],
+	presetTwo:		 [ n: "Pan  #2",				],
+	presetThree:		 [ n: "Pan  #3",				],
+	presetFour:		 [ n: "Pan  #4",				],
+	presetFive:		 [ n: "Pan  #5",				],
+	presetSix:		 [ n: "Pan  #6",				],
+	presetSeven:		 [ n: "Pan  #7",				],
+	presetEight:		 [ n: "Pan  #8",				],
 	presetCommand:		 [ 			p: [[n:"Preset #", t:"integer",r:[1,99]]], 	],
 	//zwave fan speed control by @pmjoen
 	low:			 [ n: "Set to Low",			],
