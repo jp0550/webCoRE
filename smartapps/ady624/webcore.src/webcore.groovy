@@ -16,7 +16,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- *  Version history
 */
 public String version() { return "v0.3.10a.20190223" }
 
@@ -25,7 +24,7 @@ public String version() { return "v0.3.10a.20190223" }
 /******************************************************************************/
 private static String handle() { return "webCoRE" }
 private static String domain() { return "webcore.co" }
-//if(!isHubitat()) include 'asynchttp_v1'
+
 definition(
 	name: "${handle()}",
 	namespace: "ady624",
@@ -1946,7 +1945,7 @@ private registerInstance() {
 	def endpoint = state.endpoint
 	def region = endpoint.contains('graph-eu') ? 'eu' : 'us';
 	def name = handle() + ' Piston'
-	def pistons = getChildApps().findAll{ it.name == name }.collect{ [ a: state[hashId(it.id, false)]?.a ] }
+	def pistons = getChildApps().findAll{ it.name == name }.collect{ def t0 = hashId(it.id, true); [ id: t0, a: state[t0]?.a ] }
 //log.debug "pistons: ${pistons}"
 	List lpa = pistons.findAll{ it.a }.collect{ it.id }
 	def pa = lpa.size()
@@ -2075,20 +2074,20 @@ public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
 	def storageApp = !!fetchWrappers ? getStorageApp() : null
 	return [
 		enabled: !settings.disabled,
-		//attributes: attributes(),
+		attributes: attributes(),
 		semaphore: semaphore,
 		semaphoreName: semaphoreName,
 		semaphoreDelay: semaphoreDelay,
 		commands: [
-			//physical: commands(),
-			//virtual: virtualCommands(),
-			//overrides: commandOverrides()
+			physical: commands(),
+			virtual: virtualCommands(),
+			overrides: commandOverrides()
 		],
-		//comparisons: comparisons(),
+		comparisons: comparisons(),
 		coreVersion: version(),
 		contacts: [:],
 		devices: (!!fetchWrappers ? (storageApp ? storageApp.listAvailableDevices(true) : listAvailableDevices(true)) : [:]),
-		//virtualDevices: virtualDevices(),
+		virtualDevices: virtualDevices(),
 		globalVars: listAvailableVariables(),
 		globalStore: state.store ?: [:],
 		settings: state.settings ?: [:],
