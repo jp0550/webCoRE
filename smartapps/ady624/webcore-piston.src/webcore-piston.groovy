@@ -16,6 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
+ * Last update March 5, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
 
@@ -525,26 +526,60 @@ private getCachedAtomicState(rtData){
 	return atomState
 }
 
-private getLocalRunTimeData(timestamp, fetchWrappers = false) {
-	if(state.cVersion == null) parent.updatePistonsW(app)
+private getLocalRunTimeData(timestamp, semaphore) {
+        def startTime = now()
+        semaphore = semaphore ?: 0
+        def semaphoreDelay = 0
+        def semaphoreName
+        def waited = false
+        if (semaphore) {
+        	semaphoreName = semaphore ? "sph$semaphore" : ''
+                //if we need to wait for a semaphore, we do it here
+                def lastSemaphore
+                while (semaphore) {
+			def tt0 = atomicState[semaphoreName]
+                        lastSemaphore = tt0 ?: 0  //(atomicState[semaphoreName] ?: 0)
+                        if (!lastSemaphore || (now() - lastSemaphore > 100000)) {
+				def tt1 = now()
+                                semaphoreDelay = waited ? tt1  - startTime : 0
+                                semaphore = tt1
+                                atomicState[semaphoreName] = semaphore
+                                break
+                        }
+                        waited = true
+                        pause(250)
+                }
+        }
+
+	if(state.cVersion == null) {
+		parent.updatePistonsW(app)
+		state.cVersion = atomicState.cVersion
+		state.disabled = atomicState.disabled
+		state.logPistonExecutions = atomicState.logPistonExecutions
+		state.settings = atomicState.settings
+	}
+
 	def t0 = now()
 	def t1 = [:]
 	t1 = [
 		initGlobal: false,
+		initGStore: false,
 
 		enabled: !state.disabled,
-		semaphoreDelay: 0,
+		semaphore: semaphore,
+		semaphoreName: semaphoreName,
+		semaphoreDelay: semahoreDelay,
 		coreVersion: state.cVersion,
 		settings: state.settings,
 		region: 'us',
 		powerSource: 'mains',
-		started: timestamp,
+		started: startTime,
 		ended: t0,
-		generatedIn: now() - timestamp,
 		instanceId: hashId(parent.id),
-		waitedAtSempahore: false,
+		waitedAtSempahore: waited,
 		logPistonExecutions: state.logPistonExecutions,
-		globalStore: [:]
+		generatedIn: now() - startTime
+		//globalStore: state.store ?: [:]
 	]
 //debug "parent id: ${parent.id}"
 //debug "t1:  ${t1}"
@@ -560,10 +595,10 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 		def appId = hashId(app.id)
 		def logs = (rtData && rtData.temporary) ? rtData.logs : null
 		//pep is parallel execution
-		if(piston.o?.pep || !!fetchWrappers) {
+		if(!!fetchWrappers) { // this is a resume piston from pause
 			rtData = (rtData && !rtData.temporary) ? rtData : parent.getRunTimeData((semaphore && !(piston.o?.pep)) ? appId : null, !!fetchWrappers)
 		} else {
-			rtData = (rtData && !rtData.temporary) ? rtData : getLocalRunTimeData(timestamp, !!fetchWrappers)
+			rtData = (rtData && !rtData.temporary) ? rtData : getLocalRunTimeData(timestamp, (semaphore && !(piston.o?.pep)) ? appId : null)
 		}
 		rtData.timestamp = timestamp
 		rtData.logs = [[t: timestamp]]
@@ -1003,6 +1038,14 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 	//clear the global vars - we already set them
 	rtData.gvCache = null
 	rtData.gvStoreCache = null
+
+	// release semaphore
+        if (rtData.semaphoreName && (atomicState[rtData.semaphoreName] <= rtData.semaphore)) {
+                //release the semaphore
+                atomicState[rtData.semaphoreName] = 0
+                //atomicState.remove(data.semaphoreName)
+        }
+
 	//beat race conditions
 	//overwrite state, might have changed meanwhile
 	if (rtData.piston.o?.pep) {
@@ -3299,6 +3342,10 @@ private long vcmd_saveStateLocally(rtData, device, params, global = false) {
 	boolean overwrite = !(params.size() > 2 ? cast(rtData, params[2], 'boolean') : false)
 	for (attr in attributes) {
 		def n = canister + attr
+		if(global && !rtData.initGStore) {
+			rtData.globalStore = parent.getGStore()
+			rtData.initGStore = true
+		}
 		if (overwrite || (global ? (rtData.globalStore[n] == null) : (rtData.store[n] == null))) {
 			def value = getDeviceAttributeValue(rtData, device, attr)
 			if (attr == 'hue') value = value * 3.6
@@ -3326,6 +3373,10 @@ private long vcmd_loadStateLocally(rtData, device, params, global = false) {
 	boolean empty = params.size() > 2 ? cast(rtData, params[2], 'boolean') : false
 	for (attr in attributes) {
 		def n = canister + attr
+		if(global && !rtData.initGStore) {
+			rtData.globalStore = parent.getGStore()
+			rtData.initGStore = true
+		}
 		def value = global ? rtData.globalStore[n] : rtData.store[n]
 		if (attr == 'hue') value = cast(rtData, value, 'decimal') / 3.6
 		if (empty) {
