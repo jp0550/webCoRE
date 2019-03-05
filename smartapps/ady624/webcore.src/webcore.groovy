@@ -16,6 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
+ * Last Updated March 5, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
 
@@ -604,10 +605,14 @@ def updated() {
 	return true
 }
 
-public updatePistonsW(piston, ch1=true, ch2=true, ch3=true) {
+public updatePistonsW(piston, ch1=true, ch2=true, ch3=true, ch4=true) {
 	if(ch1) piston.settingsToState('disabled', disabled)
 	if(ch2) piston.settingsToState('logPistonExecutions', logPistonExecutions)
 	if(ch3) piston.settingsToState('cVersion', version())
+	if(ch4) {
+		def msettings = atomicState.settings
+		piston.settingsToState('settings', msettings)
+	}
 }
 
 private initialize() {
@@ -940,8 +945,8 @@ private api_intf_dashboard_piston_create() {
 		if (params.author || params.bin) {
 			piston.config([bin: params.bin, author: params.author, initialVersion: version()])
 			updatePistonsW(piston)
-			def settings = atomicState.settings
-			piston.settingsToState('settings', settings)
+			//def msettings = atomicState.settings
+			//piston.settingsToState('settings', msettings)
 		}
 		if (isHubitat() && !piston.isInstalled()) piston.installed()
 			result = [status: "ST_SUCCESS", id: hashId(piston.id)]
@@ -967,19 +972,19 @@ private api_intf_dashboard_piston_get() {
 			}
 			if (requireDb) {
 				result.dbVersion = serverDbVersion
-			result.db = [
-				capabilities: capabilities().sort{ it.value.d },
-				commands: [
-					physical: commands().sort{ it.value.d ?: it.value.n },
-					virtual: virtualCommands().sort{ it.value.d ?: it.value.n }
-				],
-				attributes: attributes().sort{ it.key },
-				comparisons: comparisons(),
-				functions: functions(),
-				colors: [
-					standard: colorUtil?.ALL ?: getColors()
-				],
-			]
+				result.db = [
+					capabilities: capabilities().sort{ it.value.d },
+					commands: [
+						physical: commands().sort{ it.value.d ?: it.value.n },
+						virtual: virtualCommands().sort{ it.value.d ?: it.value.n }
+					],
+					attributes: attributes().sort{ it.key },
+					comparisons: comparisons(),
+					functions: functions(),
+					colors: [
+						standard: colorUtil?.ALL ?: getColors()
+					],
+				]
 			}
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
@@ -1479,13 +1484,13 @@ private api_intf_settings_set() {
 	def result
 	debug "Dashboard: Request received to set settings"
 	if (verifySecurityToken(params.token)) {
-		def settings = params.settings ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.settings.decodeBase64(), "UTF-8")) : null
+		def msettings = params.settings ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.settings.decodeBase64(), "UTF-8")) : null
 		atomicState.settings = settings
 
 		def name = handle() + ' Piston'
 		def t0 = getChildApps().findAll{ it.name == name }
 		t0.each {
-			it.settingsToState('settings', settings)
+			it.settingsToState('settings', msettings)
 		}
 
 		//testLifx()
@@ -1795,6 +1800,10 @@ private setPowerSource(powerSource, atomic = true) {
 
 public Map listAvailableVariables() {
 	return (state.vars ?: [:]).sort{ it.key }
+}
+
+public Map getGStore() {
+	return (state.store ?: [:]).sort{it.key }
 }
 
 private void initTokens() {
