@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 11, 2019 for Hubitat
+ * Last Updated March 12, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190311" }
+public String HEversion() { return "v0.3.10a.20190312" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -1240,8 +1240,8 @@ private api_intf_dashboard_presence_create() {
 	if (verifySecurityToken(params.token)) {
 		def dni = params.dni
 		def sensor = (dni ? getChildDevices().find{ it.getDeviceNetworkId() == dni } : null) ?: addChildDevice("ady624", handle() + " Presence Sensor", dni ?: hashId("${now()}"), null, [label: params.name])
-		sensor.updateLabel(params.name);
 		if (sensor) {
+			sensor.label = "${params.name}"
 			result = [
 				status: "ST_SUCCESS",
 				deviceId: hashId(sensor.id)
