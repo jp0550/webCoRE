@@ -16,14 +16,16 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 5, 2019 for Hubitat
+ * Last update March 11, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
+public static String HEversion() { return "v0.3.10a.20190311" }
 
-/******************************************************************************/
-/*** webCoRE DEFINITION								***/
-/******************************************************************************/
+/*** webCoRE DEFINITION					***/
+
 private static String handle() { return "webCoRE" }
+
+import groovy.json.*
 
 definition(
 	name: "${handle()} Piston",
@@ -47,15 +49,14 @@ preferences {
 	page(name: "pageClearAll")
 }
 
-/******************************************************************************/
-/*** CONFIGURATION PAGES							***/
-/******************************************************************************/
+/*** CONFIGURATION PAGES				***/
+
 def pageMain() {
 	//webCoRE Piston main page
 	return dynamicPage(name: "pageMain", title: "", install: true, uninstall: !!state.build) {
 		if (!parent || !parent.isInstalled()) {
 			section() {
-				paragraph "Sorry, you cannot install a piston directly from the Marketplace, please use the webCoRE SmartApp instead."
+				paragraph "Sorry, you cannot install a piston directly from the Dashboard, please use the webCoRE SmartApp instead."
 			}
 			section(sectionTitleStr("Installing webCoRE")) {
 				paragraph "If you are trying to install webCoRE, please go back one step and choose webCoRE, not webCoRE Piston. You can also visit wiki.webcore.co for more information on how to install and use webCoRE"
@@ -80,17 +81,23 @@ def pageMain() {
 			}
 
 			section(sectionTitleStr("Application Info")) {
-				if (state.bin) {
-					paragraph state.bin, title: "Automatic backup bin code"
+				if(!!state.disabled) {
+					paragraph "Piston is disabled by webCoRE"
 				}
-				paragraph version(), title: "Version"
-				paragraph mem(), title: "Memory Usage"
+				if(!state.active) {
+					paragraph "Piston is paused"
+				}
+				if (state.bin) {
+					paragraph "Automatic backup bin code: ${state.bin}"
+				}
+				paragraph "Version: ${version()}"
+				paragraph "Memory Usage: ${mem()}"
 			}
 
 			section(sectionTitleStr("Recovery")) {
 				href "pageRun", title: "Force-run this piston"
-				href "pageClear", title: "Clear all data except variables", description: "You will lose all logs, trace points, statistics, but no variables"
-				href "pageClearAll", title: "Clear all data", description: "You will lose all data stored in any variables"
+				href "pageClear", title: "Clear all data except local variables", description: "You will lose all logs, trace points, statistics, but no variables"
+				href "pageClearAll", title: "Clear all data", description: "You will lose all data stored in any local variables"
 			}
 
 			section(){
@@ -125,11 +132,7 @@ def imgTitle(imgSrc, titleStr, color=null, imgWidth=30, imgHeight=null) {
 }
 
 def pageClear() {
-	state.cache = [:]
-	state.hash = [:]
-	state.logs = []
-	state.stats = [:]
-	state.trace = [:]
+	clear1()
 	return dynamicPage(name: "pageClear", title: "", uninstall: false) {
 		section("Clear") {
 			paragraph "All non-essential data has been cleared."
@@ -137,25 +140,30 @@ def pageClear() {
 	}
 }
 
-def pageClearAll() {
+private clear1() {
 	state.cache = [:]
 	state.hash = [:]
 	state.logs = []
 	state.stats = [:]
+	state.temp = [:]
 	state.trace = [:]
+	for(sph in state.findAll{ it.key.startsWith('sph') }) {
+		state.remove(sph.key as String)
+	}
+}
+
+def pageClearAll() {
+	clear1()
 	state.vars = [:]
+	state.store = [:]
 	return dynamicPage(name: "pageClearAll", title: "", uninstall: false) {
 		section("Clear All") {
-			paragraph "All data has been cleared."
+			paragraph "All local data has been cleared."
 		}
 	}
 }
 
-/******************************************************************************/
-/*** 										***/
-/*** PUBLIC METHODS								***/
-/*** 										***/
-/******************************************************************************/
+/*** PUBLIC METHODS					***/
 
 def isInstalled(){
  	return !!state.created
@@ -177,19 +185,19 @@ def installed() {
 
 def updated() {
 	unsubscribe()
-	initialize()
 
 	def t0 = getPistonLimits().maxStats
 	def t1 = getPistonLimits().maxLogs
 	if((settings.maxStats?.toInteger() ?: 0) < t0) app.updateSetting("maxStats", [type: "number", value: t0])
 	if((settings.maxLogs?.toInteger() ?: 0) < t1) app.updateSetting("maxLogs", [type: "number", value: t1])
 
+	initialize()
 	return true
 }
 
 def initialize() {
 	if (!!state.active) {
-			resume()
+		resume()
 	}
 }
 
@@ -226,20 +234,19 @@ def get(boolean minimal = false) {
 
 private Map getStoredPiston() {
 	if(state.piston) {
-		//rtData.json = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(data)
 		def t0 = state.piston
-		def tt0 = groovy.json.JsonOutput.toJson(t0)
+		def tt0 = new groovy.json.JsonOutput().toJson(t0)
+		def t1 = zip(tt0)
 		//state.piston = null
 		//state.remove("piston")
-		//state.zpiston = zip(tt0)
-		def t1 = zip(tt0)
+		//state.zpiston = t1
 		def t2 = unzip(t1)
 		def t3 = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(t2)
-log.debug "piston size ${"$t0".size()}  pistonC: ${"$t1".size()}, res: ${"$t3".size()}"
+//log.debug "piston size ${"$t0".size()}  pistonC: ${"$t1".size()}, res: ${"$t3".size()}"
 		return t0
 	} else if(state.zpiston) {
 		def tt0 = unzip(state.zpiston)
-		def t0 = new groovy.json.JsonSlurper().parseText(t0)
+		def t0 = new groovy.json.JsonSlurper().parseText(tt0)
 		return t0
 	}
 	return null
@@ -305,10 +312,11 @@ def setup(data, chunks) {
 		v: data.v ?: [],
 		z: data.z ?: ''
 	]
-	if (data.n) app.updateLabel(data.n)
 	setIds(piston)
+	if (data.n) app.updateLabel(data.n)
 	for(chunk in settings.findAll{ it.key.startsWith('chunk:') && !chunks[it.key] }) {
-		app.updateSetting(chunk.key, [type: 'text', value: ''])
+		//app.updateSetting(chunk.key, [type: 'text', value: ''])
+		app.clearSetting("${chunk.key}")
 	}
 	for(chunk in chunks) {
 		app.updateSetting(chunk.key, [type: 'text', value: chunk.value])
@@ -317,10 +325,11 @@ def setup(data, chunks) {
 	app.updateSetting('author', [type: 'text', value: state.author ?: ''])
 	state.piston = piston
 	if(state.piston) {
-		def t0 = groovy.json.JsonOutput.toJson(piston)
+		def t0 = new groovy.json.JsonOutput().toJson(piston)
+		def t1 = zip(t0)
 		//state.piston = null
+		//state.zpiston = t1
 		//state.remove("piston")
-		//state.zpiston = zip(t0)
 	}
 	state.trace = [:]
 	state.schedules = []
@@ -333,7 +342,6 @@ def setup(data, chunks) {
 	}
 	return [active: state.active, build: state.build, modified: state.modified, state: state.state, rtData: rtData]
 }
-
 
 private int setIds(node, maxId = 0, existingIds = [:], requiringIds = [], level = 0) {
 	if (node?.t in ['if', 'while', 'repeat', 'for', 'each', 'switch', 'action', 'every', 'condition', 'restriction', 'group', 'do', 'on', 'event']) {
@@ -393,14 +401,12 @@ private int setIds(node, maxId = 0, existingIds = [:], requiringIds = [], level 
 	return maxId
 }
 
-
 def settingsToState(myKey, setval) {
 	if(setval) {
 		atomicState."${myKey}" = setval
 		state."${myKey}" = setval
 	} else state.remove("${myKey}" as String)
 }
-
 
 def config(data) {
 	if (!data) {
@@ -440,20 +446,21 @@ Map pausePiston() {
 	unsubscribe()
 	unschedule()
 	app.updateSetting('dev', (Map) null)
+	app.clearSetting("dev")
 	//app.updateSetting('contacts', (Map) null)
 	state.hash = null
 	state.trace = [:]
 	state.subscriptions = [:]
-	atomicState.subscriptions = [:]
-	state.schedules = []
 	if (rtData.logging) info msg, rtData
 	updateLogs(rtData)
+	atomicState.sph = 0
 	atomicState.active = false
 	return rtData
 }
 
 Map resume() {
 	state.active = true;
+	atomicState.sph = 0
 	def tempRtData = getTemporaryRunTimeData()
 	def msg = timer "Piston successfully started", null, -1
 	if (tempRtData.logging) info "Starting piston... (${version()})", tempRtData, 0
@@ -492,8 +499,9 @@ def test() {
 }
 
 def execute(data, source) {
-	pause(250)
-	handleEvents([date: new Date(), device: location, name: 'execute', value: source ?: now(), jsonData: data])
+	pause(10)
+	//log.debug "execute() called  ${data}"
+	handleEvents([date: new Date(), device: location, name: 'execute', value: source ?: now(), jsonData: data], false)
 	return [:]
 }
 
@@ -522,38 +530,17 @@ private getCachedAtomicState(rtData){
 //	} catch(e){
 //		return atomicState
 //	}
-	if (rtData.logging > 2) debug "Atomic state generated in ${now() - atomStart}ms", rtData
+	if (rtData.logging > 2) debug "AtomicState generated in ${now() - atomStart}ms", rtData
 	return atomState
 }
 
-private getLocalRunTimeData(timestamp, semaphore) {
-        def startTime = now()
-        semaphore = semaphore ?: 0
-        def semaphoreDelay = 0
-        def semaphoreName
-        def waited = false
-        if (semaphore) {
-        	semaphoreName = semaphore ? "sph$semaphore" : ''
-                //if we need to wait for a semaphore, we do it here
-                def lastSemaphore
-                while (semaphore) {
-			def tt0 = atomicState[semaphoreName]
-                        lastSemaphore = tt0 ?: 0  //(atomicState[semaphoreName] ?: 0)
-                        if (!lastSemaphore || (now() - lastSemaphore > 100000)) {
-				def tt1 = now()
-                                semaphoreDelay = waited ? tt1  - startTime : 0
-                                semaphore = tt1
-                                atomicState[semaphoreName] = semaphore
-                                break
-                        }
-                        waited = true
-                        pause(250)
-                }
-        }
+private getLocalRunTimeData(timestamp, retSt) {
+	def startTime = now()
 
-	if(state.cVersion == null) {
+	if(state.cVersion == null || state.hVersion == null) {
 		parent.updatePistonsW(app)
 		state.cVersion = atomicState.cVersion
+		state.hVersion = atomicState.hVersion
 		state.disabled = atomicState.disabled
 		state.logPistonExecutions = atomicState.logPistonExecutions
 		state.settings = atomicState.settings
@@ -565,68 +552,150 @@ private getLocalRunTimeData(timestamp, semaphore) {
 		initGlobal: false,
 		initGStore: false,
 
-		enabled: !state.disabled,
-		semaphore: semaphore,
-		semaphoreName: semaphoreName,
-		semaphoreDelay: semahoreDelay,
+		//enabled: !state.disabled,
+		semaphore: retSt?.semaphore,
+		semaphoreName: retSt?.semaphoreName,
+		semaphoreDelay: retSt?.semaphoreDelay,
+		waitedAtSempahore: retSt?.semaphoreDelay > 0 ? true : false, //waited,
 		coreVersion: state.cVersion,
+		hcoreVersion: state.hVersion,
 		settings: state.settings,
 		region: 'us',
 		powerSource: 'mains',
 		started: startTime,
 		ended: t0,
 		instanceId: hashId(parent.id),
-		waitedAtSempahore: waited,
 		logPistonExecutions: state.logPistonExecutions,
 		generatedIn: now() - startTime
 		//globalStore: state.store ?: [:]
 	]
-//debug "parent id: ${parent.id}"
-//debug "t1:  ${t1}"
 	return t1
 }
 
-private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
-	def n = now()
+// This can a) lock semaphore,  b) wait for semaphore,  c) queue event, d) just fall through (no locking, waiting)
+private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
+	semaphore = semaphore ?: 0
+	def semaphoreDelay = 0
+	def semaphoreName = "sph"
+	def waited = false
+	def tt1 = now()
+	def startTime = tt1
+	if(semaphore) {
+		//if we need to wait for a semaphore, we do it here
+		def lastSemaphore
+		while (semaphore) {
+			def tt0 = atomicState[semaphoreName]
+			lastSemaphore = tt0 ?: 0
+			if (!lastSemaphore || (tt1 - lastSemaphore > 100000)) {
+				atomicState[semaphoreName] = tt1
+				semaphoreDelay = waited ? tt1  - startTime : 0
+				semaphore = tt1
+				if(rtData.logging > 2) debug "Set Lock", rtData
+				break
+			}
+			waited = true
+			if(queue) {
+				if(event) {
+					def eventlst = []
+					def myEvent = [
+						t: event.date.getTime(),
+						name: event.name,
+						value: event.value,
+						descriptionText: event.descriptionText,
+						unit: event.unit,
+						physical: event.physical,
+						index: event.index,
+						jsonData: event.jsonData,
+						recovery: event.recovery,
+						schedule: event.schedule
+					]
+					if(event.device) {
+						myEvent.device = [id: event.device?.id, name: event.device?.name, label: event.device?.label ]
+						if(event.device.hubs) {
+							myEvent.device.hubs = [t: "tt"] // event.device.hubs  is pretty big...
+						}
+					}
+					def mt0 = atomicState.aevQ
+					eventlst = mt0 ?: []
+					eventlst.push(myEvent)
+					atomicState.aevQ = eventlst
+					runIn(getPistonLimits().recovery.toInteger(), lockRecoveryHandler) // atomicState takes time to propogate causing a race
+				}
+				semaphore = null
+				semaphoreName = null
+				break
+			} else {
+				pause(500)
+			}
+			tt1 = now()
+		}
+	}
+	def t0 = [
+		semaphore: semaphore,
+		semaphoreName: semaphoreName,
+		semaphoreDelay: semaphoreDelay,
+		waited: (semaphoreDelay > 0)  ? true: false
+	]
+	if(waited && queue) {
+		t0.exitOut = true
+	}
+	return t0
+}
+
+private relSem(rtData) {
+	if (rtData.semaphoreName && (atomicState[rtData.semaphoreName] <= rtData.semaphore)) {
+		atomicState[rtData.semaphoreName] = 0
+		if (rtData.logging > 2) debug "Released Lock", rtData
+	}
+}
+
+private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
+	//def n = now()
 //	try {
  		def timestamp = rtData?.timestamp ?: now()
+		def logs = (rtData && rtData.temporary) ? rtData.logs : null
+		def t0 = null
+		if(!!fetchWrappers) { // this is a resume piston from pause
+			rtData = (rtData && !rtData.temporary) ? rtData : parent.getRunTimeData(t0, !!fetchWrappers)
+		} else {
+			rtData = (rtData && !rtData.temporary) ? rtData : getLocalRunTimeData(timestamp, retSt)
+		}
 		def piston = state.piston
 		//def piston = getStoredPiston()
 		def appId = hashId(app.id)
-		def logs = (rtData && rtData.temporary) ? rtData.logs : null
-		//pep is parallel execution
-		if(!!fetchWrappers) { // this is a resume piston from pause
-			rtData = (rtData && !rtData.temporary) ? rtData : parent.getRunTimeData((semaphore && !(piston.o?.pep)) ? appId : null, !!fetchWrappers)
-		} else {
-			rtData = (rtData && !rtData.temporary) ? rtData : getLocalRunTimeData(timestamp, (semaphore && !(piston.o?.pep)) ? appId : null)
+		rtData.id = appId
+		rtData.active = state.active
+		def logging = state?.logging?.toString()
+		logging = logging.isInteger() ? logging.toInteger() : 0
+		rtData.logging = (int) logging
+		rtData.category = state.category
+		rtData.piston = piston
+		rtData.locationId = hashId(location.id + '-L')
+		rtData.pistonLimits = getPistonLimits()
+		if (!fetchWrappers) {
+			rtData.devices = (settings.dev && (settings.dev instanceof List) ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:])
+			//rtData.contacts = (settings.contacts && (settings.contacts instanceof List) ? settings.contacts.collectEntries{[(hashId(it.id)): it]} : [:])
 		}
+		rtData.virtualDevices = VirtualDevices()
+
 		rtData.timestamp = timestamp
 		rtData.logs = [[t: timestamp]]
 		if (logs && logs.size()) {
 			rtData.logs = rtData.logs + logs
 		}
 		rtData.trace = [t: timestamp, points: [:]]
-		rtData.id = appId
-		rtData.active = state.active;
-		def logging = "$state.logging".toString()
-		logging = logging.isInteger() ? logging.toInteger() : 0
-		rtData.logging = (int) logging
-		rtData.category = state.category;
+
 		rtData.stats = [nextScheduled: 0]
-		//we're reading the cache from atomicState because we might have waited at a semaphore
-		//def atomState = (rtData.waitedAtSemaphore ?: true) ? (isHubitat() ? getCachedAtomicState() : atomicState) : state
+		//we're reading the cache from atomicState if parallel or if we  have waited at a semaphore
 		def atomState = (piston.o?.pep || rtData.waitedAtSemaphore) ? getCachedAtomicState(rtData) : state
 
 		rtData.cache = atomState.cache ?: [:]
 		rtData.newCache = [:]
 		rtData.schedules = []
 		rtData.cancelations = [statements:[], conditions:[], all: false]
-		rtData.piston = piston
-		rtData.locationId = hashId(location.id + '-L')
 		rtData.locationModeId = hashId(location.getCurrentMode().id)
-		//flow control
-		//we're reading the old state from atomicState because we might have waited at a semaphore
 
+		//flow control
 		def st = atomState.state
 		rtData.state = (st instanceof Map) ? st : [old: '', new: '']
 		rtData.state.old = rtData.state.new;
@@ -635,18 +704,12 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 		rtData.fastForwardTo = null
 		rtData.break = false
 		rtData.updateDevices = false
-		rtData.pistonLimits = getPistonLimits()
 
 		state.schedules = atomState.schedules
-		if (!fetchWrappers) {
-			rtData.devices = (settings.dev && (settings.dev instanceof List) ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:])
-			//rtData.contacts = (settings.contacts && (settings.contacts instanceof List) ? settings.contacts.collectEntries{[(hashId(it.id)): it]} : [:])
-		}
 		rtData.systemVars = getSystemVariables()
 		rtData.localVars = getLocalVariables(rtData, piston.v, atomState)
-//ERS
-		rtData.virtualDevices = VirtualDevices()
-		if(!rtData.commands) {
+
+		//if(!rtData.commands) {
 			//rtData.attributes = attributes()
 			//rtData.commands.physical = commands()
 			//rtData.commands.virtual = virtualCommands()
@@ -655,7 +718,7 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 			//rtData.comparisons = comparisons()
 			//rtData.virtualDevices = virtualDevices()
 			//rtData.colors = getColors()
-		}
+		//}
 //	} catch(all) {
 //			error "Error while getting runtime data:", rtData, null, all
 //	}
@@ -663,19 +726,18 @@ private getRunTimeData(rtData = null, semaphore = null, fetchWrappers = false) {
 }
 
 private checkVersion(rtData) {
-	def ver = version()
-	if (ver != rtData.coreVersion) {
+	def ver = HEversion()
+	if (ver != rtData.hcoreVersion) {
 		//parent and child apps have different versions
-		warn "WARNING: Results may be unreliable because the ${ver > rtData.coreVersion ? "child app's version ($ver) is newer than the parent app's version (${rtData.coreVersion})" : "parent app's version (${rtData.coreVersion}) is newer than the child app's version ($ver)" }. Please consider updating both apps to the same version.", rtData
+		warn "WARNING: Results may be unreliable because the ${ver > rtData.hcoreVersion ? "child app's version ($ver) is newer than the parent app's version (${rtData.hcoreVersion})" : "parent app's version (${rtData.hcoreVersion}) is newer than the child app's version ($ver)" }. Please consider updating both apps to the same version.", rtData
 	}
 	if (!location.timeZone) {
 		error "Your location is not setup correctly - timezone information is missing. Please select your location by placing the pin and radius on the map, then tap Save, and then tap Done. You may encounter error or incorrect timing until this is fixed."
 	}
 }
 
-/******************************************************************************/
 /*** EVENT HANDLING								***/
-/******************************************************************************/
+
 def fakeHandler(event) {
 	def rtData = getRunTimeData()
 	warn "Received unexpected event [${event.device?:location}].${event.name} = ${event.value} (device has no active subscriptions)... ", rtData
@@ -688,18 +750,11 @@ def deviceHandler(event) {
 
 def timeHandler(event, recovery = false) {
 //	try {
-		handleEvents([date: new Date(event.t), device: location, name: 'time', value: event.t, schedule: event, recovery: recovery])
+		handleEvents([date: new Date(event.t), device: location, name: 'time', value: event.t, schedule: event, recovery: recovery], !recovery)
 //	} catch (Exception e) {
 //		error "Unexpected error:", null, null, e
 //	}
 }
-
-/*
-//new and improved timeout recovery management
-def timeoutRecoveryHandler_webCoRE(event) {
-	timeHandler([t:now()], true)
-}
-*/
 
 def timeRecoveryHandler(event) {
 	if(event) {
@@ -711,81 +766,93 @@ def timeRecoveryHandler(event) {
 
 }
 
+def lockRecoveryHandler(event) {
+	timeHandler([t:now()], true)
+}
+
 def executeHandler(event) {
-	pause(250)
+	//log.debug "executeHandler called ${event.jsonData}"
 	handleEvents([date: event.date, device: location, name: 'execute', value: event.value, jsonData: event.jsonData])
 }
 
 def getPistonLimits(){
-	return /* isHubitat() ? */ [ // for HE the limits are per event
-		schedule: 3000,	// was 20000 required time remaining to do extra processing
-		scheduleVariance: 2000, // was 3000
-		executionTime: 8000, // was 30000 after this time for a single event, we start doing pause()
-		taskShortDelay: 333,
-		taskLongDelay: 500,
-		taskRemaining: 3000,
-		taskMaxDelay: 3000, // was 5000
-		maxStats: settings.maxStats ?: 50,
-		maxLogs: settings.maxLogs ?: 50,
-		recovery: 130
-/*
-	] : [	// for ST, the schedule limits are a family of executions
-		schedule: 15000,
+	return [ // for HE the limits are per wakeup
+		schedule: 1000,	// was 20000 required time remaining to do extra processing
 		scheduleVariance: 2000,
 		executionTime: 20000,
-		taskShortDelay: 250,
+		slTime: 1000, // after this time of execution, we start doing pause()
+		taskShortDelay: 100, // was 250
 		taskLongDelay: 500,
-		taskRemaining: 10000,
-		taskMaxDelay: 5000,
-		maxStats: 500,
-		maxLogs: 500
-*/
+		taskRemaining: 10000, // not used in HE
+		taskMaxDelay: 2000, // was 5000
+		maxStats: settings.maxStats ?: 100, // was 500
+		maxLogs: settings.maxLogs ?: 100, // was 500
+		recovery: 130 // seconds to wait per Event processing
 	]
 }
-//entry point for all events
-def handleEvents(event) {
-	//cancel all pending jobs, we'll handle them later
-	//if(isHubitat()) unschedule(timeHandler)
-	unschedule(timeHandler)
-	if (!state.active) return
+//handler for all events
+def handleEvents(event, queue=true, callMySelf=false) {
+	def tstr = " active, aborting piston execution."
+	if (!state.active) { // this is pause/resume piston
+		warn "Piston is not${tstr}"
+		return
+	}
 	def startTime = now()
 	state.lastExecuted = startTime
 	def eventDelay = startTime - event.date.getTime()
 	def msg = timer "Event processed successfully", null, -1
 	def tempRtData = getTemporaryRunTimeData()
-	if (tempRtData.logging) info "Received event [${event.device?:location}].${(event.name == 'time') ? event.name + (event.recovery ? '/recovery' : '') : event.name} = ${event.value} with a delay of ${eventDelay}ms", tempRtData, 0
-	state.temp = [:]
-	//todo start execution
-	def ver = version()
-	def msg2 = timer "Runtime successfully initialized in 0ms ($ver)"
-	Map rtData = getRunTimeData(tempRtData, true)
-	if (rtData.logging > 2) debug "RunTime Analysis CS > ${rtData.started - startTime}ms > PS > ${rtData.generatedIn}ms > PE > ${now() - rtData.ended}ms > CE", rtData
-	if (!rtData.enabled) {
-		warn "Kill switch is active, aborting piston execution."
+	if (tempRtData.logging) info "Received event [${event?.device?.label?: event?.device?.name?:location}].${(event.name == 'time') ? event.name + (event.recovery ? '/recovery' : '') : event.name} = ${event.value} with a delay of ${eventDelay}ms, canQueue: ${queue}, calledMyself: ${callMySelf}", tempRtData, 0
+	if(!!state.disabled) {
+		warn "Kill switch is${tstr}"
 		return;
 	}
-	checkVersion(rtData)
-//	if(isHubitat()) {
-		runIn(rtData.pistonLimits.recovery.toInteger(), timeRecoveryHandler)
-//	}
-/*
-	else {
-		setTimeoutRecoveryHandler('timeoutRecoveryHandler_webCoRE')
+	def piston
+	if(state.pep == null) {
+		piston = state.piston
+		// pep is parallel execution - this serializes execution of events
+		state.pep = piston.o?.pep ? true : false
 	}
-*/
+	def appId = hashId(app.id)
+	def t0 = (true && !(state.pep)) ? appId : null
+	def retSt = [:]
+	if(t0 && !callMySelf) {
+		retSt = lockOrQueueSemaphore(t0, event, queue, tempRtData)
+		if(retSt.exitOut) {  // we queued the event - release thread; will run event later
+			if(tempRtData.logging > 1) trace "Event Queued", tempRtData, -1
+			return retSt
+		}
+	}
+	if (retSt.semaphoreDelay) {
+		warn "Piston waited at a semaphore for ${retSt.semaphoreDelay}ms", rtData
+	}
 
-	if (rtData.semaphoreDelay) {
-		warn "Piston waited at a semaphore for ${rtData.semaphoreDelay}ms", rtData
-	}
-	msg2.m = "Runtime (${"$rtData".size()} bytes) successfully initialized in ${rtData.generatedIn}ms ($ver)"
-	if (rtData.logging > 1) trace msg2, rtData
+	//start execution - we have the lock or not serialized
+	//cancel all pending jobs, we'll handle them later
+	unschedule(timeHandler)
+	unschedule(timeRecoveryHandler)
+	Map rtData = getRunTimeData(tempRtData, retSt )
+	piston = state.piston
+	//piston = getStoredPiston()
+	//def mmmpiston = getStoredPiston() // ERS testing
+	checkVersion(rtData)
+	def ver = version()
+
+	t0 = rtData.generatedIn + now() - rtData.ended
+	if(rtData.logging > 2) debug "RunTime LockT > ${rtData.started - startTime}ms > rtDataT > ${rtData.generatedIn}ms > pistonT > ${now() - rtData.ended}ms > CE", rtData
+	if(rtData.logging > 1) trace "Runtime (${"$rtData".size()} bytes) successfully initialized in ${t0}ms ($ver)", rtData
+
+// start of per event processing
+	state.temp = [:]
+	runIn(rtData.pistonLimits.recovery.toInteger(), timeRecoveryHandler)
+
 	rtData.stats.timing = [
 		t: startTime,
 		d: eventDelay > 0 ? eventDelay : 0,
 		l: now() - startTime
 	]
 	startTime = now()
-	msg2 = timer "Execution stage complete.", null, -1
+	def msg2 = timer "Execution stage complete.", null, -1
 	if (rtData.logging > 1) trace "Execution stage started", rtData, 1
 	def success = true
 	def syncTime = false
@@ -793,9 +860,9 @@ def handleEvents(event) {
 		success = executeEvent(rtData, event)
 		syncTime = true
 	}
+
 	//process all time schedules in order
 	def t = now()
-
 	while (success && (rtData.pistonLimits.executionTime + rtData.timestamp - now() > rtData.pistonLimits.schedule)) {
 		//we only keep doing stuff if we haven't passed the 50% execution time mark
 		def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
@@ -850,16 +917,18 @@ def handleEvents(event) {
 		}
 		success = executeEvent(rtData, event)
 		syncTime = true
-		//if we waited at a semaphore, we don't want to process too many events
-		if (rtData.semaphoreDelay) break
+
+		//if (rtData.semaphoreDelay) break //if we waited at a semaphore, we don't want to process too many events  // ACTUALLY WE DO WANT TO CATCH UP:7467
+		pause(30)
 	}
 
 	rtData.stats.timing.e = now() - startTime
 	if (rtData.logging > 1) trace msg2, rtData
 	if (!success) msg.m = "Event processing failed"
 	finalizeEvent(rtData, msg, success)
+
 	if (rtData.currentEvent && rtData.logPistonExecutions) {
-		try {
+		//try {
 			def desc = 'webCore piston \'' + app.label + '\' was executed'
 			sendLocationEvent(name: 'webCoRE', value: 'pistonExecuted', isStateChange: true, displayed: false, linkText: desc, descriptionText: desc, data: [
 				id: hashId(app.id),
@@ -867,9 +936,27 @@ def handleEvents(event) {
 				event: [date: rtData.currentEvent.date, delay: rtData.currentEvent.delay, duration: now() - rtData.currentEvent.date, device: "$rtData.event.device", name: rtData.currentEvent.name, value: rtData.currentEvent.value, physical: rtData.currentEvent.physical, index: rtData.currentEvent.index],
 				state: [old: rtData.state.old, new: rtData.state.new]
 				])
-		} catch (all) {
-		}
+		//} catch (all) {
+		//}
 	}
+	pause(350) // buffer for atomicState lock propagation
+
+// process queued events in time order
+	while(!callMySelf) {
+		def qsize 
+		def evtQ = atomicState.aevQ
+		if (evtQ == null || evtQ == [] || evtQ.size() == 0) break
+		qsize = evtQ.size()
+		def evtList = evtQ.sort { it.t }
+		def theEvent = evtList.remove(0)
+		atomicState.aevQ = evtList
+		if(qsize > 8) { error "large queue size ${qsize}" }
+		unschedule(lockRecoveryHandler)
+		theEvent.date = new Date(theEvent.t)
+		handleEvents(theEvent, false, true)
+	}
+	relSem(rtData)
+	if(rtData.logging > 2) debug "Exiting", rtData
 }
 
 private Boolean executeEvent(rtData, event) {
@@ -1039,13 +1126,6 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 	rtData.gvCache = null
 	rtData.gvStoreCache = null
 
-	// release semaphore
-        if (rtData.semaphoreName && (atomicState[rtData.semaphoreName] <= rtData.semaphore)) {
-                //release the semaphore
-                atomicState[rtData.semaphoreName] = 0
-                //atomicState.remove(data.semaphoreName)
-        }
-
 	//beat race conditions
 	//overwrite state, might have changed meanwhile
 	if (rtData.piston.o?.pep) {
@@ -1067,9 +1147,9 @@ private processSchedules(rtData, scheduleJob = false) {
 	/*
 	for (timer in rtData.piston.s.findAll{ it.t == 'every' }) {
 		if (!schedules.find{ it.s == timer.$ } && !rtData.schedules.find{ it.s == timer.$ }) {
-		if (rtData.logging > 2) debug "Rescheduling missing timer ${timer.$}", rtData
+			if (rtData.logging > 2) debug "Rescheduling missing timer ${timer.$}", rtData
 			scheduleTimer(rtData, timer, 0)
-	}
+		}
 	}
 	*/
 	//reset states
@@ -1102,10 +1182,10 @@ private processSchedules(rtData, scheduleJob = false) {
 	//add traces for all remaining schedules
 	/*for (schedule in schedules) {
 		def t = now() - schedule.t
-	if ((t < 0) && (schedule.i > 0) && !rtData.trace.points["t:${schedule.i}"]) {
-		//we enter a fake trace point to show it on the trace view
+		if ((t < 0) && (schedule.i > 0) && !rtData.trace.points["t:${schedule.i}"]) {
+			//we enter a fake trace point to show it on the trace view
 			tracePoint(rtData, "t:${schedule.i}", 0, t)
-	}
+		}
 	}*/
 	if (scheduleJob) {
 		if (schedules.size()) {
@@ -1115,15 +1195,11 @@ private processSchedules(rtData, scheduleJob = false) {
 			rtData.stats.nextSchedule = next.t
 			if (rtData.logging) info "Setting up scheduled job for ${formatLocalTime(next.t)} (in ${t}s)" + (schedules.size() > 1 ? ', with ' + (schedules.size() - 1).toString() + ' more job' + (schedules.size() > 2 ? 's' : '') + ' pending' : ''), rtData
 			runIn(t.toInteger(), timeHandler, [data: next])
-//			if(isHubitat()){
-				runIn((t + rtData.pistonLimits.recovery).toInteger(), timeRecoveryHandler, [data: next])
-//			}
+			runIn((t.toInteger() + rtData.pistonLimits.recovery).toInteger(), timeRecoveryHandler, [data: next])
 		} else {
 			rtData.stats.nextSchedule = 0
 			//remove the recovery
-//			if(isHubitat()){
-				unschedule(timeRecoveryHandler)
-//			}
+			unschedule(timeRecoveryHandler)
 		}
 	}
 	if (rtData.piston.o?.pep) atomicState.schedules = schedules
@@ -1158,8 +1234,6 @@ private updateLogs(rtData) {
 	state.logs = logs
 	//rtData.remove('logs')
 }
-
-
 
 private Boolean executeStatements(rtData, statements, async = false) {
 	rtData.statementLevel = rtData.statementLevel + 1
@@ -1477,7 +1551,7 @@ private Boolean executeStatement(rtData, statement, async = false) {
 					delay = rtData.pistonLimits.taskLongDelay
 				}
 				def mstr = "ExecuteStatement: Execution time exceeded ${overBy}ms, "
-				if(repeat && overBy > 80000) {
+				if(repeat && overBy > 240000) {
 					error "${mstr}Terminating", rtData
 					rtData.terminated = true
 					repeat = false
@@ -1524,7 +1598,7 @@ private Boolean executeStatement(rtData, statement, async = false) {
 private checkForSlowdown(rtData) {
 	//return how long over the time limit we are
 	def overBy = 0
-	def curRunTime = now() - rtData.timestamp - rtData.pistonLimits.executionTime
+	def curRunTime = now() - rtData.timestamp - rtData.pistonLimits.slTime
 	if( curRunTime > overBy) {
 		overBy = curRunTime
 	}
@@ -1670,6 +1744,7 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 	}
 	//if we don't have to wait, we're home free
 
+	//negative delays force us to reschedule, no sleeping on this one
 	boolean reschedule = (delay < 0)
 	delay = reschedule ? -delay : delay
 
@@ -1677,7 +1752,7 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 	def overBy = checkForSlowdown(rtData)
 	if(overBy > 0) {
 		def mdelay = rtData.pistonLimits.taskShortDelay
-		if(overBy > 10000) {
+		if(overBy > 30000) {
 			mdelay = rtData.pistonLimits.taskLongDelay
 		}
 		def actDelay = doPause("ExecuteTask: Execution time exceeded ${overBy}ms, Waiting for ${mdelay}ms ($delay)", mdelay, rtData)
@@ -1686,16 +1761,13 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 
 	if (delay) {
 		//get remaining piston time
-		def timeLeft = rtData.pistonLimits.executionTime + rtData.timestamp - now()
-		//negative delays force us to reschedule, no sleeping on this one
-		//boolean reschedule = (delay < 0)
-		//delay = reschedule ? -delay : delay
+//		def timeLeft = rtData.pistonLimits.executionTime + rtData.timestamp - now()
 		//we're aiming at waking up with at least 3s left
 		//keep executing until we hit 3 seconds before the total execution time limit
 		if (delay > rtData.pistonLimits.taskMaxDelay) {
 			reschedule = true
 		}
-		if (reschedule || (timeLeft - delay < rtData.pistonLimits.taskRemaining) || async) {
+		if (reschedule /* || (timeLeft - delay < rtData.pistonLimits.taskRemaining) */ || async) {
 			//schedule a wake up
 			if (rtData.logging > 1) trace "Requesting a wake up for ${formatLocalTime(now() + delay)} (in ${cast(rtData, delay / 1000, 'decimal')}s)", rtData
 			tracePoint(rtData, "t:${task.$}", now() - t, -delay)
@@ -2185,13 +2257,14 @@ private requestWakeUp(rtData, statement, task, timeOrDelay, data = null) {
 		]
 	]
 
+/*
 	if (rtData.logging > 2) {
 		debug "requestWakeup(rtData, statement, task, timeOrDelay, data)", rtData
 		debug "statement: ${statement}  statement.D: ${statement.$}", rtData
 		debug "task: ${task}  taskD: ${task.$}", rtData
 		debug "cs: ${cs}  ps: ${ps} time: ${time} data: ${data}", rtData
 	}
-
+*/
 	rtData.schedules.push(schedule)
 }
 
@@ -3008,55 +3081,6 @@ private long vcmd_iftttMaker(rtData, device, params) {
 	return 0
 }
 
-
-/*
-*/
-
-/*
-public localHttpRequestHandler(hubResponse) {
-	def responseCode = ''
-	for (header in hubResponse.headers) {
-		if (header.key.startsWith('http')) {
-			def parts = header.key.tokenize(' ')
-			if (parts.size() > 2) {
-				responseCode = parts[1]
-			}
-		}
-	}
-
-	def binary = false
-	def mediaType = hubResponse.getHeaders()['content-type']?.toLowerCase().tokenize(';')[0]
-	switch (mediaType) {
-	case 'image/jpeg':
-	case 'image/png':
-	case 'image/gif':
-		binary = true
-	}
-	def data = hubResponse.body
-   	def json = [:]
-	def setRtData = [:]
-	if (binary) {
-		setRtData.mediaType = mediaType
-		setRtData.mediaData = data?.getBytes()
-	} else if (data) {
-		try {
-			def trimmed = data.trim()
-			if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-				json = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(trimmed)
-			} else if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-				json = (List) new groovy.json.JsonSlurper().parseText(trimmed)
-			} else {
-				json = [:]
-			}
-		} catch (all) {
-			json = [:]
-		}
-	}
-	handleEvents([date: new Date(), device: location, name: 'wc_async_reply', value: 'httpRequest', contentType: mediaType, responseData: data, jsonData: json, responseCode: responseCode, setRtData: setRtData])
-	//handleEvents([date: new Date(), device: location, name: 'wc_async_reply', value: callbackData?.command, responseCode: response.status, setRtData: [mediaId: mediaId, mediaUrl: mediaUrl]])
-}
-*/
-
 private long vcmd_httpRequest(rtData, device, params) {
 	def uri = params[0].replace(" ", "%20")
 	def method = params[1]
@@ -3093,17 +3117,6 @@ private long vcmd_httpRequest(rtData, device, params) {
 		userPart = uriSubParts[0] + '@'
 		uri = uriSubParts[1]
 	}
-/*
-	def internal = uri.startsWith("10.") || uri.startsWith("192.168.")
-	if ((!internal) && uri.startsWith("172.")) {
-		//check for the 172.16.x.x/12 class
-		def b = uri.substring(4,6)
-		if (b.isInteger()) {
-			b = b.toInteger()
-			internal = (b >= 16) && (b <= 31)
-		}
-	}
-*/
 	def data = null
 	if (requestBodyType == 'CUSTOM' && !useQueryString) {
 		data = requestBody
@@ -3113,97 +3126,40 @@ private long vcmd_httpRequest(rtData, device, params) {
 			data[variable] = getVariable(rtData, variable).v
 		}
 	}
-/*
-	if (internal && !isHubitat()) {
-		try {
-			if (rtData.logging > 2) debug "Sending internal web request to: $userPart$uri", rtData
-			def ip = ((uri.indexOf("/") > 0) ? uri.substring(0, uri.indexOf("/")) : uri)
-			if (!ip.contains(':')) ip += ':80'
-			Map requestParams = [
-				method: method,
-				path: (uri.indexOf("/") > 0) ? uri.substring(uri.indexOf("/")) : "",
-				headers: [
-					HOST: userPart + ip,
-					'Content-Type': requestContentType
-				] + (auth ? [Authorization: auth] : [:]),
-				query: useQueryString ? data : null, //thank you @destructure00
-				body: !useQueryString ? data : null //thank you @destructure00
-			]
-			sendHubCommand(HubActionClass().newInstance(requestParams, null, [callback: localHttpRequestHandler]))
-			return 20000
-		} catch (all) {
-			error "Error executing internal web request: ", rtData, null, all
+	try {
+		def requestParams = [
+			uri:  "${protocol}://${userPart}${uri}",
+			query: useQueryString ? data : null,
+			headers: (auth ? [Authorization: auth] : [:]),
+			requestContentType: requestContentType,
+			body: !useQueryString ? data : null
+		]
+		def func = ""
+		switch(method) {
+			case "GET":
+				func = "asynchttpGet"
+				break
+			case "POST":
+				func = "asynchttpPost"
+				break
+			case "PUT":
+				func = "asynchttpPut"
+				break
+			case "DELETE":
+				func = "asynchttpDelete"
+				break
+			case "HEAD":
+				func = "asynchttpHead"
+				break
 		}
-	} else {
-*/
-		try {
-			def requestParams = [
-				uri:  "${protocol}://${userPart}${uri}",
-				query: useQueryString ? data : null,
-				headers: (auth ? [Authorization: auth] : [:]),
-				requestContentType: requestContentType,
-				body: !useQueryString ? data : null
-			]
-			def func = ""
-			switch(method) {
-				case "GET":
-					func = "asynchttpGet"
-					break
-				case "POST":
-					func = "asynchttpPost"
-					break
-				case "PUT":
-					func = "asynchttpPut"
-					break
-				case "DELETE":
-					func = "asynchttpDelete"
-					break
-				case "HEAD":
-					func = "asynchttpHead"
-					break
-			}
-			if (rtData.logging > 2) debug "Sending ${func} web request to: $uri", rtData
-			if (func) {
-				"$func"('ahttpRequestHandler', requestParams, [cc:0])
-				return 24000
-/*
-				"$func"(requestParams) { response ->
-					setSystemVariableValue(rtData, "\$httpContentType", response.contentType)
-					setSystemVariableValue(rtData, "\$httpStatusCode", response.status)
-					setSystemVariableValue(rtData, "\$httpStatusOk", (response.status >= 200) && (response.status <= 299))
-					def binary = false
-					def mediaType = response.contentType.toLowerCase()
-					switch (mediaType) {
-						case 'image/jpeg':
-						case 'image/png':
-						case 'image/gif':
-							binary = true
-					}
-					if ((response.status == 200) && response.data && !binary) {
-						try {
-							rtData.response = response.data instanceof Map ? response.data : (LinkedHashMap) new groovy.json.JsonSlurper().parseText(response.data)
-						} catch (all) {
-							rtData.response = response.data
-						}
-					} else {
-						rtData.response = null
-						if (response.data && (response.data instanceof java.io.ByteArrayInputStream)) {
-							rtData.mediaType = mediaType
-							rtData.mediaData = response.data.getBytes()
-						} else {
-							rtData.mediaType = null
-							rtData.mediaData = null
-						}
-						rtData.mediaUrl = null;
-					}
-				}
-				pause(400)
-*/
-			}
-		} catch (all) {
-			error "Error executing external web request: ", rtData, null, all
+		if (rtData.logging > 2) debug "Sending ${func} web request to: $uri", rtData
+		if (func) {
+			"$func"('ahttpRequestHandler', requestParams, [cc:0])
+			return 24000
 		}
-//	}
+	} catch (all) {
+		error "Error executing external web request: ", rtData, null, all
+	}
 	return 0
 }
 
@@ -3232,7 +3188,7 @@ public ahttpRequestHandler(resp, ddata) {
 		}
 	} else {
 		if(resp.hasError()) {
-			log.debug  "http Response Status:  ${resp.status}  error Message: ${resp.getErrorMessage()}"
+			error "http Response Status: ${resp.status}   error Message: ${resp.getErrorMessage()}"
 		}
 		if (!resp.hasError() && resp.data && (resp.data instanceof java.io.ByteArrayInputStream)) {
 			setRtData.mediaType = mediaType
@@ -3274,14 +3230,17 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 			path: "/fuelStream/write",
 			headers: [
 				'ST' : rtData.instanceId
-	],
-			body: [
+				],
+			body: req,
+/*
+				[
 				c: canister,
 				n: name,
 				s: source,
 				d: data,
 				i: rtData.instanceId
-	],
+				],
+*/
 			requestContentType: "application/json"
 		]
 		//if (asynchttp_v1) asynchttp_v1.put(null, requestParams)
@@ -3294,7 +3253,7 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 }
 
 def myDone(resp, data) {
-	log.debug "writefuel resp: ${resp?.status}"
+	//log.debug "writefuel resp: ${resp?.status}"
 }
 
 private long vcmd_storeMedia(rtData, device, params) {
@@ -3315,7 +3274,7 @@ private long vcmd_storeMedia(rtData, device, params) {
 	]
 	//if (asynchttp_v1) asynchttp_v1.put(asyncHttpRequestHandler, requestParams, [command: 'storeMedia'])
 	asynchttpPut(asyncHttpRequestHandler, requestParams, [command: 'storeMedia'])
-	return 20000
+	return 24000
 }
 
 public asyncHttpRequestHandler(response, callbackData) {
@@ -3567,7 +3526,7 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 	//older pistons don't have the 'to' operand (time offset), we're simulating an empty one
 	if (!operand) operand = [t: 'c']
 	switch (operand.t) {
-		case '': //optional, nothing selected
+	case '': //optional, nothing selected
 		values = [[i: "${node?.$}:$index:0", v: [t: operand.vt, v: null]]]
 		break
 	case "p": //physical device
@@ -3583,13 +3542,13 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		if ((values.size() > 1) && !(operand.g in ['any', 'all'])) {
 			//if we have multiple values and a grouping other than any or all we need to apply that function
 			try {
-			values = [[i: "${node?.$}:$index:0", v:"func_${operand.g}"(rtData, values*.v) + (operand.vt ? [vt: operand.vt] : [:])]]
+				values = [[i: "${node?.$}:$index:0", v:"func_${operand.g}"(rtData, values*.v) + (operand.vt ? [vt: operand.vt] : [:])]]
 			} catch(all) {
 			error "Error applying grouping method ${operand.g}", rtData
 			}
 		}
 		break;
-		case 'd': //devices
+	case 'd': //devices
 		def deviceIds = []
 		for (d in expandDeviceList(rtData, operand.d)) {
 				if (getDevice(rtData, d)) deviceIds.push(d)
@@ -3611,7 +3570,7 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		*/
 			values = [[i: "${node?.$}:d", v:[t: 'device', v: deviceIds.unique()]]]
 		break
-		case 'v': //virtual devices
+	case 'v': //virtual devices
 		switch (operand.v) {
 		case 'mode':
 		case 'alarmSystemStatus':
@@ -3706,10 +3665,9 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		values = [[i: "${node?.$}:$index:0", v: getArgument(rtData, operand.u)]]
 		break
 	}
-	if (!node)
-	{
+	if (!node) {
 		if (values.length) return values[0].v
-	return [t: 'dynamic', v: null]
+		return [t: 'dynamic', v: null]
 	}
 	return values
 }
@@ -3765,9 +3723,9 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 		Map options = [
 			//we ask for matching/non-matching devices if the user requested it or if the trigger is timed
 			//setting matches to true will force the condition group to evaluate all members (disables evaluation optimizations)
-					matches: lo.operand.dm || lo.operand.dn || (trigger && comparison.t),
+			matches: lo.operand.dm || lo.operand.dn || (trigger && comparison.t),
 			forceAll: (trigger && comparison.t)
-				]
+		]
 		def to = (comparison.t || (ro && (lo.operand.t == 'v') && (lo.operand.v == 'time') && (ro.operand.t != 'c'))) && condition.to ? [operand: condition.to, values: evaluateOperand(rtData, null, condition.to)] : null
 		def to2 = ro2 && (lo.operand.t == 'v') && (lo.operand.v == 'time') && (ro2.operand.t != 'c') && condition.to2 ? [operand: condition.to2, values: evaluateOperand(rtData, null, condition.to2)] : null
 		result = evaluateComparison(rtData, condition.co, lo, ro, ro2, to, to2, options)
@@ -3794,7 +3752,7 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 					if (!schedules.find{ (it.s == condition.$) && (it.d == dev) }) {
 						//schedule a wake up if there's none, otherwise just move on
 						if (rtData.logging > 2) debug "Adding a timed trigger schedule for device $dev for condition ${condition.$}", rtData
-								requestWakeUp(rtData, condition, condition, delay, dev)
+						requestWakeUp(rtData, condition, condition, delay, dev)
 					}
 					} else {
 						//cancel that one device schedule
@@ -4973,16 +4931,17 @@ private Map getResponse(rtData, name) {
 }
 
 private Map getWeather(rtData, name) {
+	warn 'Hubitat does not support $weather', rtData
 	List parts = name.tokenize('.');
 	rtData.weather = rtData.weather ?: [:]
+/*
 	if (parts.size() > 0) {
 		def dataFeature = parts[0]
 		if (rtData.weather[dataFeature] == null) {
 			rtData.weather[dataFeature] = app.getWeatherFeature(dataFeature) // getTwcConditions()  dataFeature == "conditions"
-			// getTwcForecast() dataFeature == "forecast"
-			// getTwcPwsConditions(station) dataFeature == "conditions"
 		}
 	}
+*/
 	return getJsonData(rtData, rtData.weather, name)
 }
 
@@ -5061,8 +5020,10 @@ private Map getVariable(rtData, name) {
 			result = getResponse(rtData, name.substring(9))
 		} else if (name.startsWith('$nfl.') && (name.size() > 5)) {
 			result = getNFL(rtData, name.substring(5))
+/*
 		} else if (name.startsWith('$weather.') && (name.size() > 9)) {
 			result = getWeather(rtData, name.substring(9))
+*/
 		} else if (name.startsWith('$incidents.') && (name.size() > 11)) {
 			result = getIncidents(rtData, name.substring(11))
 		} else if (name.startsWith('$incidents[') && (name.size() > 11)) {
@@ -5280,32 +5241,32 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 		def fn = "func_${expression.n}"
 		//in a function, we look for device parameters, they may be lists - we need to reformat all parameters to send them to the function properly
 		try {
-				def params = []
+		def params = []
 		if (expression.i && expression.i.size()) {
 			for (i in expression.i) {
 				def param = simplifyExpression(i)
-			if ((param.t == 'device') || (param.t == 'variable')) {
-				//if multiple devices involved, we need to spread the param into multiple params
-				param = evaluateExpression(rtData, param)
-				def sz = param.v instanceof List ? param.v.size() : 1
-				switch (sz) {
-					case 0: break;
-					case 1: params.push(param); break;
-				default:
-						for (v in param.v) {
-						params.push([t: param.t, a: param.a, v: [v]])
+				if ((param.t == 'device') || (param.t == 'variable')) {
+					//if multiple devices involved, we need to spread the param into multiple params
+					param = evaluateExpression(rtData, param)
+					def sz = param.v instanceof List ? param.v.size() : 1
+					switch (sz) {
+						case 0: break;
+						case 1: params.push(param); break;
+						default:
+							for (v in param.v) {
+							params.push([t: param.t, a: param.a, v: [v]])
+						}
 					}
+				} else {
+					params.push(param);
 				}
-			} else {
-				params.push(param);
-			}
 			}
 		}
-				result = "$fn"(rtData, params)
-			} catch (all) {
-				//log error
-		result = [t: "error", v: all]
-			}
+		result = "$fn"(rtData, params)
+		} catch (all) {
+			//log error
+			result = [t: "error", v: all]
+		}
 		break
 	case "expression":
 		//if we have a single item, we simply traverse the expression
@@ -5339,29 +5300,29 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 				case '!!':
 				case '?':
 					items.push([t: integer, v: 0, o: item.o])
-				break;
+					break;
 				case ':':
 					if (lastOperand >= 0) {
-					//groovy-style support for (object ?: value)
-					items.push(items[lastOperand] + [o: item.o])
-				} else {
+						//groovy-style support for (object ?: value)
+						items.push(items[lastOperand] + [o: item.o])
+					} else {
 						items.push([t: integer, v: 0, o: item.o])
-				}
-				break;
+					}
+					break;
 				case '*':
 				case '/':
 					items.push([t: integer, v: 1, o: item.o])
-				break;
+					break;
 				case '&&':
 				case '!&':
 					items.push([t: boolean, v: true, o: item.o])
-				break;
+					break;
 				case '||':
 				case '!|':
 				case '^^':
 				case '!^':
 					items.push([t: boolean, v: false, o: item.o])
-				break;
+					break;
 			}
 			} else {
 				items[operand].o = item.o;
@@ -5837,6 +5798,25 @@ private func_fahrenheit(rtData, params) {
 	double t = evaluateExpression(rtData, params[0], 'decimal').v
 	//convert temperature to Fahrenheit
 	return [t: "decimal", v: (double) t * 9.0 / 5.0 + 32.0]
+}
+
+/******************************************************************************/
+/*** fahrenheit converts temperature between Celsius and Fahrenheit if the  ***/
+/*** units differ from location.temperatureScale                            ***/
+/*** Usage: convertTemperatureIfNeeded(celsiusTemperature, 'C')             ***/
+/******************************************************************************/
+private func_converttemperatureifneeded(rtData, params) {
+	if (!params || !(params instanceof List) || (params.size() < 2)) {
+		return [t: "error", v: "Invalid parameters. Expecting convertTemperatureIfNeeded(temperature, unit)"];
+	}
+	double t = evaluateExpression(rtData, params[0], 'decimal').v
+	def u = evaluateExpression(rtData, params[1], 'string').v.toUpperCase()
+	//convert temperature to Fahrenheit
+	switch (location.temperatureScale) {
+		case u: return [t: "decimal", v: t]
+		case 'F': return func_celsius(rtData, [params[0]])
+		case 'C': return func_fahrenheit(rtData, [params[0]])
+	}
 }
 
 /******************************************************************************/
@@ -7203,7 +7183,9 @@ private func_encodeuricomponent(rtData, params) { return func_urlencode(rtData, 
 /******************************************************************************/
 
 def mem(showBytes = true) {
-	def bytes = state.toString().length()
+	def mbytes = new groovy.json.JsonOutput().toJson(state)
+//	def bytes = state.toString().length()
+	def bytes = mbytes.toString().length()
 	return Math.round(100.00 * (bytes/ 100000.00)) + "%${showBytes ? " ($bytes bytes)" : ""}"
 }
 /******************************************************************************/
@@ -7456,7 +7438,7 @@ private utcToLocalDate(dateOrTimeOrString = null) {
 	}
 	if (dateOrTimeOrString instanceof Long) {
 		//ST the system time is UTC, hubitat is user's local timezone. No need to convert
-		return new Date(dateOrTimeOrString + ( (!isHubitat() && location.timeZone) ? location.timeZone.getOffset(dateOrTimeOrString) : 0))
+		return new Date(dateOrTimeOrString + ( (/* !isHubitat() &&*/ location.timeZone) ? location.timeZone.getOffset(dateOrTimeOrString) : 0))
 	}
 	return null
 }
@@ -7866,10 +7848,10 @@ private Map getLocalVariables(rtData, vars, atomState) {
 	def values = atomState.vars
 	for (var in vars) {
 		def variable = [t: var.t, v: var.v ?: (var.t.endsWith(']') ? (values[var.n] instanceof Map ? values[var.n] : {}) : cast(rtData, values[var.n], var.t)), f: !!var.v] //f means fixed value - we won't save this to the state
-	if (rtData && var.v && (var.a == 's') && !var.t.endsWith(']')) {
-		variable.v = evaluateExpression(rtData, evaluateOperand(rtData, null, var.v), var.t).v
-	}
-	rtData.localVars[var.n] = variable
+		if (rtData && var.v && (var.a == 's') && !var.t.endsWith(']')) {
+			variable.v = evaluateExpression(rtData, evaluateOperand(rtData, null, var.v), var.t).v
+		}
+		rtData.localVars[var.n] = variable
 	}
 	return rtData.localVars
 }
@@ -7889,7 +7871,7 @@ private Map getSystemVariables() {
 		'$json': [t: "dynamic", d: true],
 		'$places': [t: "dynamic", d: true],
 		'$response': [t: "dynamic", d: true],
-		'$weather': [t: "dynamic", d: true],
+//		'$weather': [t: "dynamic", d: true],
 		'$nfl': [t: "dynamic", d: true],
 		'$incidents': [t: "dynamic", d: true],
 		//'$shmTripped': [t: "boolean", d: true],
@@ -7968,6 +7950,7 @@ private Map getSystemVariables() {
 		"\$iftttStatusCode": [t: "integer", v: null],
 		"\$iftttStatusOk": [t: "boolean", v: null],
 		"\$locationMode": [t: "string", d: true],
+		"\$temperatureScale": [t: "string", d: true],
 		//(isHubitat() ? "\$hsmStatus" : "\$shmStatus"): [t: "string", d: true],
 		"\$hsmStatus": [t: "string", d: true],
 		"\$version": [t: "string", d: true]
@@ -7980,7 +7963,7 @@ private getSystemVariableValue(rtData, name) {
 	case '$json': return "${rtData.json}".toString()
 	case '$places': return "${rtData.settings?.places}".toString()
 	case '$response': return "${rtData.response}".toString()
-	case '$weather': return "${rtData.weather}".toString()
+//	case '$weather': return "${rtData.weather}".toString()
 	case '$nfl': return "${rtData.nfl}".toString()
 	case '$incidents': return "${rtData.incidents}".toString()
 	//case '$shmTripped': initIncidents(rtData); return !!((rtData.incidents instanceof List) && (rtData.incidents.size()))
@@ -8022,6 +8005,7 @@ private getSystemVariableValue(rtData, name) {
 	case "\$randomSaturation": def result = getRandomValue("\$randomSaturation") ?: (int)Math.round(50 + 50 * Math.random()); setRandomValue("\$randomSaturation", result); return result
 	case "\$randomHue": def result = getRandomValue("\$randomHue") ?: (int)Math.round(360 * Math.random()); setRandomValue("\$randomHue", result); return result
   	case "\$locationMode": return location.getMode()
+	case "\$temperatureScale": return location.getTemperatureScale()
 	//case  (isHubitat() ? "\$hsmStatus" : "\$shmStatus"):
 	case  "\$hsmStatus":
 	//if(isHubitat()) { return rtData.hsmStatus }
