@@ -16,9 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 5, 2019 for Hubitat
+ * Last Updated March 11, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
+public String HEversion() { return "v0.3.10a.20190311" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -63,9 +64,7 @@ preferences {
 
 
 /******************************************************************************/
-/*** 																		***/
 /*** CONFIGURATION PAGES													***/
-/*** 																		***/
 /******************************************************************************/
 
 /******************************************************************************/
@@ -115,7 +114,7 @@ def pageMain() {
 
 		if (settings.agreement) {
 			section("Engine block") {
-				href "pageEngineBlock", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE.png", inputTitleStr("Cast iron")), description: app.version(), required: false
+				href "pageEngineBlock", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE.png", inputTitleStr("Cast iron")), description: app.version()+" HE: "+ app.HEversion(), required: false
 			}
 		}
 
@@ -161,7 +160,7 @@ private pageSectionDisclaimer() {
 		paragraph "At no time does the server receive any real IDs of SmartThings objects, the instance security password, nor the instance security token that your browser uses to communicate with the SmartApp. The server is therefore unable to access any information that only an authenticated browser can."
 	}
 	section('Information collected by the server') {
-		paragraph "The webcore.co server(s) collect ANONYMIZED hashes of 1) your unique account identifier, 2) your locations, and 3) installed webCoRE instances. It also collects an encrypted version of your SmartApp instances' endpoints that allow the server to trigger pistons on emails (if you use that feature), proxy IFTTT requests to your pistons, or provide inter-location communication between your webCoRE instances, as well as data points provided by you when using the Fuel Stream feature. It also allows for automatic browser registration when you use another browser, by providing that browser basic information about your existing instances. You will still need to enter the password to access each of those instances, the server does not have the password, nor the security tokens."
+		paragraph "The webcore.co server(s) collect ANONYMIZED hashes of 1) your unique account identifier, 2) your locations, and 3) installed webCoRE instances. It also collects an encrypted version of your app instances' endpoints that allow the server to trigger pistons on emails (if you use that feature), proxy IFTTT requests to your pistons, or provide inter-location communication between your webCoRE instances, as well as data points provided by you when using the Fuel Stream feature. It also allows for automatic browser registration when you use another browser, by providing that browser basic information about your existing instances. You will still need to enter the password to access each of those instances, the server does not have the password, nor the security tokens."
 	}
 	section('Information NOT collected by the server') {
 		paragraph "The webcore.co server(s) do NOT intentionally collect any real object IDs from SmartThings, any names, phone numbers, email addresses, physical location information, addresses, or any other personally identifiable information."
@@ -573,7 +572,7 @@ def installed() {
 }
 
 def updated() {
-	warn "Updating webCoRE ${version()}"
+	warn "Updating webCoRE ${version()} HE: ${HEversion()}"
 	unsubscribe()
 	unschedule()
 	initialize()
@@ -590,8 +589,9 @@ def updated() {
 		state.lPE = logPistonExecutions
 		chg2 = true
 	}
-	if(state.cV != version()) {
+	if(state.cV != version() || state.hV != HEversion()) {
 		state.cV = version()
+		state.hV = HEversion()
 		chg3 = true
 	}
 	if(chg1 || chg2 || chg3) {
@@ -608,7 +608,10 @@ def updated() {
 public updatePistonsW(piston, ch1=true, ch2=true, ch3=true, ch4=true) {
 	if(ch1) piston.settingsToState('disabled', disabled)
 	if(ch2) piston.settingsToState('logPistonExecutions', logPistonExecutions)
-	if(ch3) piston.settingsToState('cVersion', version())
+	if(ch3) {
+		piston.settingsToState('cVersion', version())
+		piston.settingsToState('hVersion', HEversion())
+	}
 	if(ch4) {
 		def msettings = atomicState.settings
 		piston.settingsToState('settings', msettings)
@@ -619,6 +622,7 @@ private initialize() {
 	subscribeAll()
 	state.vars = state.vars ?: [:]
 	state.version = version()
+	state.versionHE = HEversion()
 	if (state.installed && settings.agreement) {
 		registerInstance()
 	}
@@ -1485,7 +1489,7 @@ private api_intf_settings_set() {
 	debug "Dashboard: Request received to set settings"
 	if (verifySecurityToken(params.token)) {
 		def msettings = params.settings ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.settings.decodeBase64(), "UTF-8")) : null
-		atomicState.settings = settings
+		atomicState.settings = msettings
 
 		def name = handle() + ' Piston'
 		def t0 = getChildApps().findAll{ it.name == name }
@@ -1596,23 +1600,23 @@ private api_execute() {
 def recoveryHandler() {
 	def t = now()
 	def lastRecovered = state.lastRecovered
-	def recTime = 120000
+	def recTime = 300000
 	if (lastRecovered && (now() - lastRecovered < recTime)) return
 	atomicState.lastRecovered = now()
 	def name = handle() + ' Piston'
 	long threshold = now() - recTime
+	if (state.version != version() || state.versionHE != HEversion()) {
+		atomicState.version = version()
+		atomicState.versionHE = HEversion()
+		updated()
+	}
 	def updateCache = true
-	def failedPistons = getChildApps().findAll{ it.name == name }.collect{ [ id: hashId(it.id, updateCache), 'name': it.label, 'meta': state[hashId(it.id, updateCache)] ] }.findAll{ it.meta && it.meta.a && it.meta.n && (it.meta.n < threshold) }
+	def failedPistons = getChildApps().findAll{ it.name == name }.collect{ [ id: hashId(it.id, updateCache), 'name': it.label, 'meta': state[hashId(it.id, !updateCache)] ] }.findAll{ it.meta && it.meta.a && it.meta.n && (it.meta.n < threshold) }
 	if (failedPistons.size()) {
 		for (piston in failedPistons) {
 			warn "Piston $piston.name was sent a recovery signal because it was ${now() - piston.meta.n}ms late"
 			sendLocationEvent(name: piston.id, value: 'recovery', isStateChange: true, displayed: false, linkText: "Recovery event", descriptionText: "Recovery event for piston $piston.name")
 		}
-	}
-	if (state.version != version()) {
-		//updated
-		atomicState.version = version()
-		updated()
 	}
 	//log.trace "RECOVERY took ${now() - t}ms"
 }
@@ -2094,6 +2098,7 @@ public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
 		],
 		comparisons: comparisons(),
 		coreVersion: version(),
+		hcoreVersion: HEversion(),
 		contacts: [:],
 		devices: (!!fetchWrappers ? (storageApp ? storageApp.listAvailableDevices(true) : listAvailableDevices(true)) : [:]),
 		virtualDevices: virtualDevices(),
@@ -2167,12 +2172,14 @@ public void updateRunTimeData(data) {
 	for (variable in variableEvents) {
 		sendVariableEvent(variable)
 	}
+/*
 	//release semaphores
 	if (data.semaphoreName && (atomicState[data.semaphoreName] <= data.semaphore)) {
 		//release the semaphore
 		atomicState[data.semaphoreName] = 0
 		//atomicState.remove(data.semaphoreName)
 	}
+*/
 	//broadcast to dashboard
 	if (state.dashboard == 'active') {
 		def dashboardApp = getDashboardApp()
@@ -3038,6 +3045,7 @@ private static Map functions() {
 		dewpoint		: [ t: "decimal",	d: "dewPoint",		],
 		fahrenheit		: [ t: "decimal",						],
 		celsius			: [ t: "decimal",						],
+		converttemperatureifneeded	: [ t:"decimal", d: "convertTemperatureIfNeeded", 	],
 		dateAdd			: [ t: "time",		d: "dateAdd",		],
 		startswith		: [ t: "boolean",	d: "startsWith",	],
 		endswith		: [ t: "boolean",	d: "endsWith",		],
