@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 11, 2019 for Hubitat
+ * Last update March 12, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190311" }
+public static String HEversion() { return "v0.3.10a.20190312" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -864,7 +864,7 @@ def handleEvents(event, queue=true, callMySelf=false) {
 	//process all time schedules in order
 	def t = now()
 	while (success && (rtData.pistonLimits.executionTime + rtData.timestamp - now() > rtData.pistonLimits.schedule)) {
-		//we only keep doing stuff if we haven't passed the 50% execution time mark
+		//we only keep doing stuff if we haven't passed the 95% execution time mark
 		def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
 		if (!schedules || !schedules.size()) break
 		if (event.name == 'wc_async_reply') {
@@ -918,7 +918,7 @@ def handleEvents(event, queue=true, callMySelf=false) {
 		success = executeEvent(rtData, event)
 		syncTime = true
 
-		//if (rtData.semaphoreDelay) break //if we waited at a semaphore, we don't want to process too many events  // ACTUALLY WE DO WANT TO CATCH UP:7467
+		//if (rtData.semaphoreDelay) break //if we waited at a semaphore, we don't want to process too many events  // ACTUALLY WE DO WANT TO CATCH UP
 		pause(30)
 	}
 
@@ -939,7 +939,7 @@ def handleEvents(event, queue=true, callMySelf=false) {
 		//} catch (all) {
 		//}
 	}
-	pause(350) // buffer for atomicState lock propagation
+	pause(350) // time buffer for atomicState lock propagation
 
 // process queued events in time order
 	while(!callMySelf) {
