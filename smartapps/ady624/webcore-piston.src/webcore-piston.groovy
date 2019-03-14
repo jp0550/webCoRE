@@ -602,16 +602,16 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 						name: event.name,
 						value: event.value,
 						descriptionText: event.descriptionText,
-						unit: event.unit,
-						physical: event.physical,
-						index: event.index,
-						jsonData: event.jsonData,
-						recovery: event.recovery,
-						schedule: event.schedule
+						unit: event?.unit,
+						physical: event?.physical,
+						index: event?.index,
+						jsonData: event?.jsonData,
+						recovery: event?.recovery,
+						schedule: event?.schedule
 					]
 					if(event.device) {
 						myEvent.device = [id: event.device?.id, name: event.device?.name, label: event.device?.label ]
-						if(event.device.hubs) {
+						if(event.device?.hubs) {
 							myEvent.device.hubs = [t: "tt"] // event.device.hubs  is pretty big...
 						}
 					}
