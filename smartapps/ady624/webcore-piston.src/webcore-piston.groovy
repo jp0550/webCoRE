@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 12, 2019 for Hubitat
+ * Last update March 14, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190312" }
+public static String HEversion() { return "v0.3.10a.20190314" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -56,7 +56,7 @@ def pageMain() {
 	return dynamicPage(name: "pageMain", title: "", install: true, uninstall: !!state.build) {
 		if (!parent || !parent.isInstalled()) {
 			section() {
-				paragraph "Sorry, you cannot install a piston directly from the Dashboard, please use the webCoRE SmartApp instead."
+				paragraph "Sorry, you cannot install a piston directly from the Dashboard, please use the webCoRE App instead."
 			}
 			section(sectionTitleStr("Installing webCoRE")) {
 				paragraph "If you are trying to install webCoRE, please go back one step and choose webCoRE, not webCoRE Piston. You can also visit wiki.webcore.co for more information on how to install and use webCoRE"
@@ -1348,7 +1348,7 @@ private Boolean executeStatement(rtData, statement, async = false) {
 								if (rtData.event.name == operand.v) perform = true
 								break;
 							case 'x':
-								if ((rtData.event.value == operand.x) && (rtData.event.name == (operand.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId))) perform = true
+								if ((rtData.event.value == operand.x) && (rtData.event.name == (operand.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId) + ".${operand.x}" )) perform = true
 								break;
 							}
 						}
@@ -4288,7 +4288,7 @@ private void subscribeAll(rtData) {
 		if ((expression.t == 'variable') && expression.x && expression.x.startsWith('@')) {
 			subscriptionId = "${expression.x}"
 			deviceId = rtData.locationId
-			attribute = "${expression.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId}${isHubitat() ? "" : ".${expression.x}"}"
+			attribute = "${expression.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId}.${expression.x}"
 		}
 		if (subscriptionId && deviceId) {
 			def ct = subscriptions[subscriptionId]?.t ?: null
@@ -4405,7 +4405,7 @@ private void subscribeAll(rtData) {
 		case 'x':
 			if (operand.x && operand.x.startsWith('@')) {
 				def subscriptionId = operand.x
-				def attribute = "${operand.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId}${ isHubitat() ? "" : ".${operand.x}"}"
+				def attribute = "${operand.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId}.${operand.x}"
 				def ct = subscriptions[subscriptionId]?.t ?: null
 				if ((ct == 'trigger') || (comparisonType == 'trigger')) {
 					ct = 'trigger'
@@ -8451,6 +8451,9 @@ private isHubitat(){
 //	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	flashLevel:	 [ n: "Flash (level)...",	r: ["setLevel"], 	i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",		p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	flashColor:	 [ n: "Flash (color)...",	r: ["setColor"], 	i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",			p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+
+	iftttMaker:	 [ n: "Send an IFTTT Maker event...",	a: true,			d: "Send the {0} IFTTT Maker event{1}{2}{3}",				p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
+//	lifxScene					: [ n: "LIFX - Activate scene...",	  	a: true, 							d: "Activate LIFX Scene '{0}'{1}", 										p: [[n: "Scene", t:"lifxScene"],[n: "Duration", t:"duration", d:" for {v}"]],					],
 	writeToFuelStream:		 [ n: "Write to fuel stream...",  		a: true, 			d: "Write data point '{2}' to fuel stream {0}{1}{3}", 			p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],	],
 	storeMedia:	 [ n: "Store media...",				a: true, 			d: "Store media", 						p: [],	],
 	saveStateLocally:		 [ n: "Capture attributes to local store...", 				d: "Capture attributes {0} to local state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'], d:' only if store is empty']], ],
@@ -8460,6 +8463,13 @@ private isHubitat(){
 	parseJson:	 [ n: "Parse JSON data...",	a: true,			d: "Parse JSON data {0}",				p: [[n: "JSON string", t:"string"]],			],
 	cancelTasks:		 [ n: "Cancel all pending tasks",		a: true,			d: "Cancel all pending tasks",					p: [],			],
 
+//	+ (getIftttKey() ? [
+	iftttMaker : [n: "Send IFTTT Maker event", p: ["Event:text", "?Value1:string", "?Value2:string", "?Value3:string"], l: true, dd: "Send IFTTT Maker event '{0}' with parameters '{1}', '{2}', and '{3}'", aggregated: true],
+//	] : [:])
+/*	+ (getLifxToken() ? [
+		lifxScene: [n: "Activate LIFX scene", p: ["Scene:lifxScenes"], l: true, dd: "Activate LIFX Scene '{0}'", aggregated: true],
+	] : [:])*/	
+	
 	setAlarmSystemStatus:		 [ n: "Set Hubitat Safety Monitor status...",	a: true, /* i: "",		d: "Set Hubitat Safety Monitor status to {0}",			p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions.collect {[n: it.value, v: it.key]}]],*/				],
 		//keep emulated flash to not break old pistons
 //	emulatedFlash:	 [ n: "(Old do not use) Emulated Flash",	r: ["on", "off"], 	i: "toggle-on",		d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
