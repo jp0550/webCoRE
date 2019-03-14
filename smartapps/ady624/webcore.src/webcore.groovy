@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 12, 2019 for Hubitat
+ * Last Updated March 14, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190312" }
+public String HEversion() { return "v0.3.10a.20190314" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -626,6 +626,7 @@ private initialize() {
 	if (state.installed && settings.agreement) {
 		registerInstance()
 	}
+	def storageApp = getStorageApp(true)
 	def recoveryMethod = (settings.recovery ?: 'Every 30 minutes').replace('Every ', 'Every').replace(' minute', 'Minute').replace(' hour', 'Hour')
 	if (recoveryMethod != 'Never') {
 		try {
@@ -877,7 +878,7 @@ private api_intf_dashboard_load() {
 	def result
 	recoveryHandler()
 	//install storage app
-	def storageApp = getStorageApp(true)
+	def storageApp //= getStorageApp(true)
 	//debug "Dashboard: Request received to initialize instance"
 	if (verifySecurityToken(params.token)) {
 		result = api_get_base_result(params.dev, true)
@@ -907,7 +908,7 @@ private api_intf_dashboard_refresh() {
 	startDashboard()
 	def result
 	if (verifySecurityToken(params.token)) {
-		def storageApp = getStorageApp(true)
+		def storageApp //= getStorageApp(true)
 		result = storageApp ? storageApp.getDashboardData() : getDashboardData()
 	} else {
 		if (!result) result = api_get_error_result("ERR_INVALID_TOKEN")
@@ -1598,24 +1599,34 @@ private api_execute() {
 }
 
 def recoveryHandler() {
-	def t = now()
-	def lastRecovered = state.lastRecovered
-	def recTime = 300000
-	if (lastRecovered && (now() - lastRecovered < recTime)) return
-	atomicState.lastRecovered = now()
-	def name = handle() + ' Piston'
-	long threshold = now() - recTime
 	if (state.version != version() || state.versionHE != HEversion()) {
 		atomicState.version = version()
 		atomicState.versionHE = HEversion()
 		updated()
+		state.lastRecovered = 0
 	}
+	def t = now()
+	def lastRecovered = state.lastRecovered
+	def recTime = 900000  // 15 min in ms
+	if (lastRecovered && (now() - lastRecovered < recTime)) return
+
+	atomicState.lastRecovered = now()
+	int delay = (int) Math.round(500 * Math.random()) // seconds
+	runIn(delay, finishRecovery)
+}
+
+def finishRecovery() {
+	def recTime = 300000  // 5 min in ms
+	def name = handle() + ' Piston'
+	long threshold = now() - recTime
 	def updateCache = true
 	def failedPistons = getChildApps().findAll{ it.name == name }.collect{ [ id: hashId(it.id, updateCache), 'name': it.label, 'meta': state[hashId(it.id, !updateCache)] ] }.findAll{ it.meta && it.meta.a && it.meta.n && (it.meta.n < threshold) }
 	if (failedPistons.size()) {
 		for (piston in failedPistons) {
 			warn "Piston $piston.name was sent a recovery signal because it was ${now() - piston.meta.n}ms late"
+			int delay = (int) Math.round(5000 * Math.random()) // 5 sec in ms
 			sendLocationEvent(name: piston.id, value: 'recovery', isStateChange: true, displayed: false, linkText: "Recovery event", descriptionText: "Recovery event for piston $piston.name")
+			pause(delay)
 		}
 	}
 	//log.trace "RECOVERY took ${now() - t}ms"
@@ -1760,7 +1771,7 @@ private String getDashboardRegistrationUrl() {
 }
 
 public Map listAvailableDevices(raw = false, updateCache = false) {
-	def storageApp = getStorageApp()
+	def storageApp // = getStorageApp()
 	Map result = [:]
 	if (storageApp) {
 		result = storageApp.listAvailableDevices(raw)
@@ -2171,6 +2182,8 @@ public void updateRunTimeData(data) {
 	//broadcast variable change events
 	for (variable in variableEvents) {
 		sendVariableEvent(variable)
+		//int delay = (int) Math.round(2000 * Math.random())
+		//pause(delay)
 	}
 /*
 	//release semaphores
@@ -2214,11 +2227,11 @@ public executePiston(pistonId, data, source) {
 }
 
 private sendVariableEvent(variable) {
-	sendLocationEvent([name: variable.name.startsWith('@@') ? '@@' + handle() : hashId(app.id), value: variable.name, isStateChange: true, displayed: false, linkText: "${handle()} global variable ${variable.name} changed", descriptionText: "${handle()} global variable ${variable.name} changed", data: [id: hashId(app.id), name: app.label, event: 'variable', variable: variable]])
+	sendLocationEvent([name: (variable.name.startsWith('@@') ? '@@' + handle() : hashId(app.id)) + ".${variable.name}", value: variable.name, isStateChange: true, displayed: false, linkText: "${handle()} global variable ${variable.name} changed", descriptionText: "${handle()} global variable ${variable.name} changed", data: [id: hashId(app.id), name: app.label, event: 'variable', variable: variable]])
 }
 
 private broadcastPistonList() {
-	sendLocationEvent([name: handle(), value: 'pistonList', isStateChange: true, displayed: false, data: [id: hashId(app.id), name: app.label, pistons: getChildApps().findAll{ it.name == "${handle()} Piston" }.collect{[id: hashId(it.id), name: it.label]}]])
+	//sendLocationEvent([name: handle(), value: 'pistonList', isStateChange: true, displayed: false, data: [id: hashId(app.id), name: app.label, pistons: getChildApps().findAll{ it.name == "${handle()} Piston" }.collect{[id: hashId(it.id), name: it.label]}]])
 }
 
 def webCoREHandler(event) {
@@ -2851,7 +2864,7 @@ private Map virtualCommands() {
 		flash					: [ n: "Flash...",	 r: ["on", "off"], 			i: "toggle-on",				d: "Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
 		flashLevel				: [ n: "Flash (level)...",	 r: ["setLevel"], 			i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",						p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
 		flashColor				: [ n: "Flash (color)...",	 r: ["setColor"], 			i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",							p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-//		iftttMaker				: [ n: "Send an IFTTT Maker event...",	a: true,							d: "Send the {0} IFTTT Maker event{1}{2}{3}",							p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
+		iftttMaker				: [ n: "Send an IFTTT Maker event...",	a: true,							d: "Send the {0} IFTTT Maker event{1}{2}{3}",							p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
 //		lifxScene					: [ n: "LIFX - Activate scene...",	  	a: true, 							d: "Activate LIFX Scene '{0}'{1}", 										p: [[n: "Scene", t:"lifxScene"],[n: "Duration", t:"duration", d:" for {v}"]],					],
 		writeToFuelStream			: [ n: "Write to fuel stream...",  		a: true, 							d: "Write data point '{2}' to fuel stream {0}{1}{3}", 					p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],					],
 		storeMedia				: [ n: "Store media...",		 		a: true, 							d: "Store media", 														p: [],					],
@@ -2884,10 +2897,10 @@ private Map virtualCommands() {
 /*	+ (location.contactBookEnabled ? [
 		sendNotificationToContacts : [n: "Send notification to contacts", p: ["Message:text","Contacts:contacts","Save notification:bool"], l: true, dd: "Send notification '{0}' to {1}", aggregated: true],
 	] : [:])
-	+ (getIftttKey() ? [
+	+ (getIftttKey() ? [ */
 		iftttMaker : [n: "Send IFTTT Maker event", p: ["Event:text", "?Value1:string", "?Value2:string", "?Value3:string"], l: true, dd: "Send IFTTT Maker event '{0}' with parameters '{1}', '{2}', and '{3}'", aggregated: true],
-	] : [:])
-	+ (getLifxToken() ? [
+//	] : [:])
+/*	+ (getLifxToken() ? [
 		lifxScene: [n: "Activate LIFX scene", p: ["Scene:lifxScenes"], l: true, dd: "Activate LIFX Scene '{0}'", aggregated: true],
 	] : [:])*/	
 	
@@ -3093,12 +3106,11 @@ private static Map functions() {
 	]
 }
 
-/*
 def getIftttKey() {
 	def module = state.modules?.IFTTT
 	return (module && module.connected ? module.key : null)
 }
-
+/*
 def getLifxToken() {
 	def module = state.modules?.LIFX
 	return (module && module.connected ? module.token : null)
