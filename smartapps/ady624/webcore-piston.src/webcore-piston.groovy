@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 14, 2019 for Hubitat
+ * Last update March 15, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190314" }
+public static String HEversion() { return "v0.3.10a.20190315" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -214,7 +214,6 @@ def get(boolean minimal = false) {
 			active: state.active,
 			category: state.category ?: 0
 		],
-		//piston: getStoredPiston()
 		piston: state.piston
 	] + (minimal ? [:] : [
 		systemVars: getSystemVariablesAndValues(),
@@ -230,45 +229,6 @@ def get(boolean minimal = false) {
 		nextSchedule: state.nextSchedule,
 		schedules: state.schedules
 	])
-}
-
-private Map getStoredPiston() {
-	if(state.piston) {
-		def t0 = state.piston
-		def tt0 = new groovy.json.JsonOutput().toJson(t0)
-		def t1 = zip(tt0)
-		//state.piston = null
-		//state.remove("piston")
-		//state.zpiston = t1
-		def t2 = unzip(t1)
-		def t3 = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(t2)
-//log.debug "piston size ${"$t0".size()}  pistonC: ${"$t1".size()}, res: ${"$t3".size()}"
-		return t0
-	} else if(state.zpiston) {
-		def tt0 = unzip(state.zpiston)
-		def t0 = new groovy.json.JsonSlurper().parseText(tt0)
-		return t0
-	}
-	return null
-}
-
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
-
-private String zip(String s){
-	def targetStream = new ByteArrayOutputStream()
-	def zipStream = new GZIPOutputStream(targetStream)
-	zipStream.write(s.getBytes('UTF-8'))
-	zipStream.close()
-	def zippedBytes = targetStream.toByteArray()
-	targetStream.close()
-	return zippedBytes.encodeBase64()
-}
- 
-private String unzip(String compressed){
-	def inflaterStream = new GZIPInputStream(new ByteArrayInputStream(compressed.decodeBase64()))
-	def uncompressedStr = inflaterStream.getText('UTF-8')
-	return uncompressedStr
 }
 
 def activity(lastLogTimestamp) {
@@ -324,13 +284,6 @@ def setup(data, chunks) {
 	app.updateSetting('bin', [type: 'text', value: state.bin ?: ''])
 	app.updateSetting('author', [type: 'text', value: state.author ?: ''])
 	state.piston = piston
-	if(state.piston) {
-		def t0 = new groovy.json.JsonOutput().toJson(piston)
-		def t1 = zip(t0)
-		//state.piston = null
-		//state.zpiston = t1
-		//state.remove("piston")
-	}
 	state.trace = [:]
 	state.schedules = []
 	state.vars = state.vars ?: [:];
@@ -604,7 +557,7 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 						descriptionText: event.descriptionText,
 						unit: event?.unit,
 						physical: event?.physical,
-						index: event?.index,
+//						index: event?.index,
 						jsonData: event?.jsonData,
 						recovery: event?.recovery,
 						schedule: event?.schedule
@@ -661,7 +614,6 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 			rtData = (rtData && !rtData.temporary) ? rtData : getLocalRunTimeData(timestamp, retSt)
 		}
 		def piston = state.piston
-		//def piston = getStoredPiston()
 		def appId = hashId(app.id)
 		rtData.id = appId
 		rtData.active = state.active
@@ -794,7 +746,7 @@ def getPistonLimits(){
 def handleEvents(event, queue=true, callMySelf=false) {
 	def tstr = " active, aborting piston execution."
 	if (!state.active) { // this is pause/resume piston
-		warn "Piston is not${tstr}"
+		warn "Piston is not${tstr} (Paused)"
 		return
 	}
 	def startTime = now()
@@ -833,8 +785,6 @@ def handleEvents(event, queue=true, callMySelf=false) {
 	unschedule(timeRecoveryHandler)
 	Map rtData = getRunTimeData(tempRtData, retSt )
 	piston = state.piston
-	//piston = getStoredPiston()
-	//def mmmpiston = getStoredPiston() // ERS testing
 	checkVersion(rtData)
 	def ver = version()
 
@@ -1924,22 +1874,17 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 		if (!lastRun) {
 			//first run, just adjust the time so we're in the future
 			while (time <= now()) {
-				//add days to bring it to next occurrence
-				//we need to go through local time to support DST
-				time = localToUtcTime(utcToLocalTime(time) + 86400000)
+				//add days to bring it to next occurrence and support DST changes (ie if you want to run at 3:00 AM, ensure it is 3:00 AM
+				def t0 = time
+				def t1 = time + 86400000
+				time = t1 + (location.timeZone.getOffset(t0) - location.timeZone.getOffset(t1))
 			}
 		}
 	}
 	delta = delta * interval
 	def priorActivity = !!lastRun
 
-
-	//switch to local date/times
-	//hubitat timezone is already local
-	//time = isHubitat() ? time : utcToLocalTime(time)
-	//long rightNow = isHubitat() ? now() : utcToLocalTime(now())
 	long rightNow = now()
-	//lastRun = lastRun ? (isHubitat() ? lastRun : utcToLocalTime(lastRun)) : rightNow
 	lastRun = lastRun ?: rightNow
 	long nextSchedule = lastRun
 
@@ -2055,8 +2000,6 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 	}
 
 	if (nextSchedule > lastRun) {
-		//convert back to UTC
-		//nextSchedule = isHubitat() ? nextSchedule : localToUtcTime(nextSchedule)
 		rtData.schedules.removeAll{ it.s == timer.$ }
 		requestWakeUp(rtData, timer, [$: -1], nextSchedule)
 	}
@@ -2149,11 +2092,11 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 		if (!((owm.indexOf(getWeekOfMonth(date)) >= 0) || (owm.indexOf(getWeekOfMonth(date, true)) >= 0))) {
 		switch (level) {
 		case 2: //by second
-		result = interval * (Math.floor(((7 - date.day) * 86400 - date.hours * 3600 - date.minutes * 60) / interval) - 2) * 1000
-		break
+			result = interval * (Math.floor(((7 - date.day) * 86400 - date.hours * 3600 - date.minutes * 60) / interval) - 2) * 1000
+			break
 		case 3: //by minute
-		result = interval * (Math.floor(((7 - date.day) * 1440 - date.hours * 60 - date.minutes) / interval) - 2) * 60000
-		break
+			result = interval * (Math.floor(((7 - date.day) * 1440 - date.hours * 60 - date.minutes) / interval) - 2) * 60000
+			break
 		}
 		return (result > 0) ? result : -1
 	}
@@ -2162,25 +2105,25 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
  	//day of month restrictions
 	if (odm) {
 		if (odm.indexOf(date.date) < 0) {
-		def lastDayOfMonth = (new Date(date.year, date.month + 1, 0)).date
-		if (odm.find{ it < 1 }) {
-		//we need to add the last days
-		odm = [] + odm //copy the array
-		if (odm.indexOf(-1) >= 0) odm.push(lastDayOfMonth)
-		if (odm.indexOf(-2) >= 0) odm.push(lastDayOfMonth - 1)
-		if (odm.indexOf(-3) >= 0) odm.push(lastDayOfMonth - 2)
-		odm.removeAll{ it < 1 }
+			def lastDayOfMonth = (new Date(date.year, date.month + 1, 0)).date
+			if (odm.find{ it < 1 }) {
+				//we need to add the last days
+				odm = [] + odm //copy the array
+				if (odm.indexOf(-1) >= 0) odm.push(lastDayOfMonth)
+				if (odm.indexOf(-2) >= 0) odm.push(lastDayOfMonth - 1)
+				if (odm.indexOf(-3) >= 0) odm.push(lastDayOfMonth - 2)
+				odm.removeAll{ it < 1 }
+			}
+			switch (level) {
+			case 2: //by second
+				result = interval * (Math.floor((((odm.sort{ it }.find{ it > date.date } ?: lastDayOfMonth + odm.sort{ it }[0]) - date.date) * 86400 - date.hours * 3600 - date.minutes * 60) / interval) - 2) * 1000
+				break
+			case 3: //by minute
+				result = interval * (Math.floor((((odm.sort{ it }.find{ it > date.date } ?: lastDayOfMonth + odm.sort{ it }[0]) - date.date) * 1440 - date.hours * 60 - date.minutes) / interval) - 2) * 60000
+				break
+			}
+			return (result > 0) ? result : -1
 		}
-		switch (level) {
-		case 2: //by second
-		result = interval * (Math.floor((((odm.sort{ it }.find{ it > date.date } ?: lastDayOfMonth + odm.sort{ it }[0]) - date.date) * 86400 - date.hours * 3600 - date.minutes * 60) / interval) - 2) * 1000
-		break
-		case 3: //by minute
-		result = interval * (Math.floor((((odm.sort{ it }.find{ it > date.date } ?: lastDayOfMonth + odm.sort{ it }[0]) - date.date) * 1440 - date.hours * 60 - date.minutes) / interval) - 2) * 60000
-		break
-		}
-		return (result > 0) ? result : -1
-	}
 	}
 
 	//day of week restrictions
@@ -2188,11 +2131,11 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 		switch (level) {
 		case 2: //by second
 			result = interval * (Math.floor((((odw.sort{ it }.find{ it > date.day } ?: 7 + odw.sort{ it }[0]) - date.day) * 86400 - date.hours * 3600 - date.minutes * 60) / interval) - 2) * 1000
-		break
+			break
 		case 3: //by minute
 			result = interval * (Math.floor((((odw.sort{ it }.find{ it > date.day } ?: 7 + odw.sort{ it }[0]) - date.day) * 1440 - date.hours * 60 - date.minutes) / interval) - 2) * 60000
-		break
-	}
+			break
+		}
 		return (result > 0) ? result : -1
 	}
 
@@ -2201,11 +2144,11 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 		switch (level) {
 		case 2: //by second
 			result = interval * (Math.floor((((oh.sort{ it }.find{ it > date.hours } ?: 24 + oh.sort{ it }[0]) - date.hours) * 3600 - date.minutes * 60) / interval) - 2) * 1000
-		break
+			break
 		case 3: //by minute
 			result = interval * (Math.floor((((oh.sort{ it }.find{ it > date.hours } ?: 24 + oh.sort{ it }[0]) - date.hours) * 60 - date.minutes) / interval) - 2) * 60000
-		break
-	}
+			break
+		}
 		return (result > 0) ? result : -1
 	}
 
@@ -7239,9 +7182,9 @@ private getThreeAxisOrientation(value, getIndex = false) {
 }
 
 private long getTimeToday(long time) {
-	long result = localToUtcTime(time + utcToLocalTime(getMidnightTime()))
+	long result = time + getMidnightTime()
 	//we need to adjust for time overlapping during DST changes
-	return result + time - (utcToLocalTime(result) % 86400000)
+	return result + (location.timeZone.getOffset(now()) - location.timeZone.getOffset(result))
 }
 
 private cast(rtData, value, dataType, srcDataType = null) {
@@ -7382,15 +7325,20 @@ private cast(rtData, value, dataType, srcDataType = null) {
 			return !!value
 		case "time":
 			if ("$value".isNumber() && (value < 86400000)) return value
-			def n = localTime()
-			return utcToLocalTime((srcDataType == 'string') ? localToUtcTime(value) : cast(rtData, value, "long")) % 86400000
+			//return ( ((srcDataType == 'string') ? stringToTime(value) : cast(rtData, value, "long")) % 86400000)
+			def d = (srcDataType == 'string') ? stringToTime(value) : cast(rtData, value, "long")
+			def t1 = new Date(d)
+			long t2 = (t1.hours * 3600 + t1.minutes * 60 + t1.seconds) * 1000
+			return t2
 		case "date":
 			if ((srcDataType == 'time') && (value < 86400000)) value = getTimeToday(value)
-			def d = utcToLocalTime((srcDataType == 'string') ? localToUtcTime(value) : cast(rtData, value, "long"))
-			return localToUtcTime(d - (d % 86400000))
+			def d = (srcDataType == 'string') ? stringToTime(value) : cast(rtData, value, "long")
+			def t1 = new Date(d)
+			long t2 = ( (d/1000) * 1000 ) - ((t1.hours * 3600 + t1.minutes * 60 + t1.seconds) * 1000) + (3 * 3600000) // normalize to 3:00 AM for DST
+			return t2
 		case "datetime":
-			if ((srcDataType == 'time') && (value < 86400000)) value = getTimeToday(value) //localToUtcTime(value + utcToLocalTime(getMidnightTime()))
-			return ((srcDataType == 'string') ? localToUtcTime(value) : cast(rtData, value, "long"))
+			if ((srcDataType == 'time') && (value < 86400000)) value = getTimeToday(value)
+			return ((srcDataType == 'string') ? stringToTime(value) : cast(rtData, value, "long"))
 		case "vector3":
 			return (value instanceof Map) && (value.x != null) && (value.y != null) && (value.z != null) ? value : [x:0, y:0, z:0]
 		case "orientation":
@@ -7418,12 +7366,11 @@ private cast(rtData, value, dataType, srcDataType = null) {
 	return value
 }
 
-private utcToLocalDate(dateOrTimeOrString = null) {
+private utcToLocalDate(dateOrTimeOrString = null) { // this is really cast something to Date
 	if (dateOrTimeOrString instanceof String) {
-		//get UTC time
+		//get time
 		try {
-			//dateOrTimeOrString = timeToday(dateOrTimeOrString, location.timeZone).getTime()
-			dateOrTimeOrString = localToUtcTime(dateOrTimeOrString)
+			dateOrTimeOrString = stringToTime(dateOrTimeOrString)
 		} catch (all) {
 			error "Error converting $dateOrTimeOrString to Date: ", null, null, all
 		}
@@ -7433,22 +7380,21 @@ private utcToLocalDate(dateOrTimeOrString = null) {
 		dateOrTimeOrString = dateOrTimeOrString.getTime()
 	}
 	if (!dateOrTimeOrString) {
-		//dateOrTimeOrString = utcToLocalDate(now())
-		return new Date(now())
+		dateOrTimeOrString = now()
 	}
 	if (dateOrTimeOrString instanceof Long) {
-		//ST the system time is UTC, hubitat is user's local timezone. No need to convert
-		return new Date(dateOrTimeOrString + ( (/* !isHubitat() &&*/ location.timeZone) ? location.timeZone.getOffset(dateOrTimeOrString) : 0))
+		//HE adjusts Date fields (except for getTime() to local timezone of hub)
+		return new Date(dateOrTimeOrString)
 	}
 	return null
 }
 private localDate() { return utcToLocalDate() }
 
-private utcToLocalTime(dateOrTimeOrString = null) {
+/*private utcToLocalTime(dateOrTimeOrString = null) {
 	if (dateOrTimeOrString instanceof String) {
 		//get UTC time
 //		dateOrTimeOrString = timeToday(dateOrTimeOrString, location.timeZone).getTime()
-		dateOrTimeOrString = localToUtcTime(dateOrTimeOrString)
+		dateOrTimeOrString = stringToTime(dateOrTimeOrString)
 	}
 	if (dateOrTimeOrString instanceof Date) {
 		//get unix time
@@ -7459,72 +7405,93 @@ private utcToLocalTime(dateOrTimeOrString = null) {
 		return now()
 	}
 	if (dateOrTimeOrString instanceof Long) {
-		return dateOrTimeOrString + (location.timeZone ? location.timeZone.getOffset(dateOrTimeOrString) : 0)
+		return dateOrTimeOrString 
 	}
 	return null
-}
-private localTime() { return utcToLocalTime() }
+}*/
 
-private localToUtcDate(dateOrTime) {
+private localTime() { return now() } //utcToLocalTime() }
+
+/* private localToUtcDate(dateOrTime) {
 	if (dateOrTime instanceof Date) {
 		//get unix time
 		dateOrTime = dateOrTime.getTime()
 	}
 	if (dateOrTime instanceof Long) {
-		return new Date(dateOrTime - (location.timeZone ? location.timeZone.getOffset(dateOrTime) : 0))
+		return new Date(dateOrTime)
 	}
 	return null
-}
+}*/
 
-private safeTimeToday(dateOrTimeOrString, tz = null){
-	//if(isHubitat()){
-		dateOrTimeOrString = dateOrTimeOrString?.trim() ?: ""
-		if(dateOrTimeOrString.toLowerCase().endsWith('am') || dateOrTimeOrString.toLowerCase().endsWith('pm')){
-			dateOrTimeOrString = dateOrTimeOrString[0..-3].trim()
-		}
-	//}
-	return timeToday(dateOrTimeOrString, tz)
-}
-
-private localToUtcTime(dateOrTimeOrString) {
+private stringToTime(dateOrTimeOrString) { // this is convert something to time
 	if (dateOrTimeOrString instanceof Date) {
 		//get unix time
 		dateOrTimeOrString = dateOrTimeOrString.getTime()
 	}
 	if ("$dateOrTimeOrString".isNumber()) {
 		if (dateOrTimeOrString < 86400000) dateOrTimeOrString += getMidnightTime()
-		return dateOrTimeOrString - (location.timeZone ? location.timeZone.getOffset(dateOrTimeOrString) : 0)
+		return dateOrTimeOrString /* - (location.timeZone ? location.timeZone.getOffset(dateOrTimeOrString) : 0) */
 	}
 	if (dateOrTimeOrString instanceof String) {
 		//get unix time
+		def result
 		try {
 			if (!(dateOrTimeOrString =~ /(\s[A-Z]{3}((\+|\-)[0-9]{2}\:[0-9]{2}|\s[0-9]{4})?$)/)) {
 				def newDate = (new Date()).parse(dateOrTimeOrString + ' ' + formatLocalTime(now(), 'Z'))
-				return newDate + (location.timeZone.getOffset(now()) - location.timeZone.getOffset(newDate))
+				result =  newDate + (location.timeZone.getOffset(now()) - location.timeZone.getOffset(newDate))
+				return result
 			}
-			return (new Date()).parse(dateOrTimeOrString)
+			result = (new Date()).parse(dateOrTimeOrString)
+			return result
 		} catch (all) {
 			try {
-				return (new Date(dateOrTimeOrString)).getTime()
+				result = (new Date(dateOrTimeOrString)).getTime()
+				return result
 			} catch(all2) {
 				try {
 					def tz = location.timeZone
-					if (dateOrTimeOrString =~ /\s[A-Z]{3}$/) {
+					if (dateOrTimeOrString =~ /\s[A-Z]{3}$/) { // ERS this is not the timezone... strings like CET are not unique.
 						try {
 							tz = TimeZone.getTimeZone(dateOrTimeOrString[-3..-1])
 							dateOrTimeOrString = dateOrTimeOrString.take(dateOrTimeOrString.size() - 3).trim()
 						} catch (all4) {
 						}
 					}
-					long time = safeTimeToday(dateOrTimeOrString, tz).getTime()
-					//adjust for PM - timeToday has no clue....
-					dateOrTimeOrString = dateOrTimeOrString.trim().toLowerCase()
-					def twelve = dateOrTimeOrString.startsWith('12')
-					if (twelve && dateOrTimeOrString.endsWith('am')) time -= 43200000
-					if (!twelve && dateOrTimeOrString.endsWith('pm')) time += 43200000
-					return time
+					
+					def t0 = dateOrTimeOrString?.trim() ?: ""
+					def hasMeridian = false
+					def hasAM
+					if(t0.toLowerCase().endsWith('am')) {
+						hasMeridian = true
+						hasAM = true
+					}
+					if(t0.toLowerCase().endsWith('pm')) {
+						hasMeridian = true
+						hasAM = false
+					}
+					if(hasMeridian) t0 = t0[0..-3].trim()
+
+					long time = timeToday(t0, tz).getTime() //DST
+
+					if(hasMeridian) {
+						def t1 = new Date( time )
+						def hr = t1.hours
+						def min = t1.minutes
+						def twelve = hr == 12 ? true : false
+						if (twelve && hasAM) hr -= 12
+						if (!twelve && !hasAM) hr += 12
+						def str1 = "${hr}"
+						def str2 = "${min}"
+						if(hr < 10) str1 = String.format('%02d', hr)
+						if(min < 10) str2 = String.format('%02d', min)
+						def str = str1 + ':' + str2
+						time = timeToday(str, tz).getTime()
+					}
+					result = time
+					return result
 				} catch (all3) {
-					return (new Date()).getTime()
+					result = (new Date()).getTime()
+					return result
 				}
 			}
 		}
@@ -7535,18 +7502,20 @@ private localToUtcTime(dateOrTimeOrString) {
 private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss a z") {
 	if ("$time".isNumber()) {
 		if (time < 86400000) time += getMidnightTime()
+//DST??
 		time = new Date(time)
 	}
 	if (time instanceof String) {
-		//get UTC time
-		//time = timeToday(time, location.timeZone)
-		time = new Date(localToUtcTime(time))
+		//get time
+		time = new Date(stringToTime(time))
 	}
 	if (!(time instanceof Date)) {
 		return null
 	}
+//log.debug "formatTime ${time.getTime()} ${format}" //ERS
 	def formatter = new java.text.SimpleDateFormat(format)
 	formatter.setTimeZone(location.timeZone)
+//log.debug "formatTime ${time.getTime()}  ${formatter.format(time)}" //ERS
 	return formatter.format(time)
 }
 
@@ -7796,8 +7765,6 @@ private initSunriseAndSunset(rtData) {
 			updated: now()
 		]
 	}
-	//rtData.sunrise = localToUtcTime(rightNow - rightNow.mod(86400000) + utcToLocalTime(rtData.sunTimes.sunrise).mod(86400000))
-	//rtData.sunset = localToUtcTime(rightNow - rightNow.mod(86400000) + utcToLocalTime(rtData.sunTimes.sunset).mod(86400000))
 	rtData.sunrise = rtData.sunTimes.sunrise
 	rtData.sunset = rtData.sunTimes.sunset
 }
@@ -7813,34 +7780,47 @@ private getSunsetTime(rtData) {
 }
 
 private getNextSunriseTime(rtData) {
-	if (!(rtData.sunrise instanceof Date)) initSunriseAndSunset(rtData)
-	return rtData.sunrise + (rtData.sunrise < now() ? 86400000 : 0)
+	def t0 = getSunriseTime(rtData)
+
+//convert time to hh:mm string
+	def t1 = new Date(t0)
+	def str1 = "${t1.hours}"
+	def str2 = "${t1.minutes}"
+	if(t1.hours < 10) str1 = String.format('%02d', t1.hours)
+	if(t1.minutes < 10) str2 = String.format('%02d', t1.minutes)
+	def str = str1 + ':' + str2
+
+	return new Date(timeTodayAfter("23:59", str, location.timeZone).getTime())
 }
 
 private getNextSunsetTime(rtData) {
-	if (!(rtData.sunset instanceof Date)) initSunriseAndSunset(rtData)
-	return rtData.sunset + (rtData.sunset < now() ? 86400000 : 0)
+	def t0 = getSunsetTime(rtData)
+
+//convert time to hh:mm string
+	def t1 = new Date(t0)
+	def str1 = "${t1.hours}"
+	def str2 = "${t1.minutes}"
+	if(t1.hours < 10) str1 = String.format('%02d', t1.hours)
+	if(t1.minutes < 10) str2 = String.format('%02d', t1.minutes)
+	def str = str1 + ':' + str2
+
+	return new Date(timeTodayAfter("23:59", str, location.timeZone).getTime())
 }
 
 private getMidnightTime(rtData) {
-	def rightNow = localTime()
-	return localToUtcTime(rightNow - rightNow.mod(86400000))
+	return timeToday("00:00", location.timeZone).getTime()
 }
 
 private getNextMidnightTime(rtData) {
-	def rightNow = utcToLocalTime(localToUtcTime(localTime() + 86400000))
-	return localToUtcTime(rightNow - rightNow.mod(86400000))
+	return timeTodayAfter("23:59", "00:00", location.timeZone).getTime()
 }
 
 private getNoonTime(rtData) {
-	def rightNow = localTime()
-	return localToUtcTime(rightNow - rightNow.mod(86400000) + 43200000)
+	return timeToday("12:00", location.timeZone).getTime()
 }
 
 private getNextNoonTime(rtData) {
-	def rightNow = localTime()
-	rightNow = utcToLocalTime(localToUtcTime(rightNow + (rightNow.mod(86400000) >= 43200000 ? 86400000 : 0)))
-	return localToUtcTime(rightNow - rightNow.mod(86400000) + 43200000)
+	return timeTodayAfter("23:59", "12:00", location.timeZone).getTime()
 }
 
 private Map getLocalVariables(rtData, vars, atomState) {
