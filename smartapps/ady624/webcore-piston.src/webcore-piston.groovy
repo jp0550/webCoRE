@@ -529,7 +529,8 @@ private getLocalRunTimeData(timestamp, retSt) {
 private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 	semaphore = semaphore ?: 0
 	def semaphoreDelay = 0
-	def semaphoreName = "sph"
+	def semaphoreName
+	def tsemaphoreName = "sph"
 	def waited = false
 	def tt1 = now()
 	def startTime = tt1
@@ -537,16 +538,15 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 		//if we need to wait for a semaphore, we do it here
 		def lastSemaphore
 		while (semaphore) {
-			def tt0 = atomicState[semaphoreName]
-			lastSemaphore = tt0 ?: 0
+			def tt0 = atomicState.sph
+			lastSemaphore = tt0 ?: null
 			if (!lastSemaphore || (tt1 - lastSemaphore > 100000)) {
-				atomicState[semaphoreName] = tt1
+				atomicState.sph = tt1
+				semaphoreName = tsemaphoreName
 				semaphoreDelay = waited ? tt1  - startTime : 0
 				semaphore = tt1
-				if(rtData.logging > 2) debug "Set Lock", rtData
 				break
 			}
-			waited = true
 			if(queue) {
 				if(event) {
 					def eventlst = []
@@ -578,16 +578,17 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 				semaphoreName = null
 				break
 			} else {
+				waited = true
 				pause(500)
+				tt1 = now()
 			}
-			tt1 = now()
 		}
 	}
 	def t0 = [
 		semaphore: semaphore,
 		semaphoreName: semaphoreName,
 		semaphoreDelay: semaphoreDelay,
-		waited: (semaphoreDelay > 0)  ? true: false
+		waited: waited
 	]
 	if(waited && queue) {
 		t0.exitOut = true
@@ -596,8 +597,8 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 }
 
 private relSem(rtData) {
-	if (rtData.semaphoreName && (atomicState[rtData.semaphoreName] <= rtData.semaphore)) {
-		atomicState[rtData.semaphoreName] = 0
+	if (rtData.semaphoreName && (atomicState.sph <= rtData.semaphore)) {
+		atomicState.sph = 0
 		if (rtData.logging > 2) debug "Released Lock", rtData
 	}
 }
@@ -889,7 +890,7 @@ def handleEvents(event, queue=true, callMySelf=false) {
 		//} catch (all) {
 		//}
 	}
-	pause(350) // time buffer for atomicState lock propagation
+	pause(350) // time buffer for event propagation
 
 // process queued events in time order
 	while(!callMySelf) {
