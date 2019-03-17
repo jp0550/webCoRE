@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 15, 2019 for Hubitat
+ * Last Updated March 16, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190315" }
+public String HEversion() { return "v0.3.10a.20190316" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -393,13 +393,13 @@ def pageSettings() {
 private pageFuelStreams(){
 	dynamicPage(name: "pageFuelStreams", title: "", uninstall: false, install: false){
 		section(){
-			app([title: isHubitat() ? 'Do not click - Launches automatically' : 'Fuel Streams', multiple: true, install: true, uninstall: false], 'fuelStreams', 'ady624', "${handle()} Fuel Stream")
+			app([title: isHubitat() ? 'Do not click - List of streams below that launches automatically' : 'Fuel Streams', multiple: true, install: true, uninstall: false], 'fuelStreams', 'ady624', "${handle()} Fuel Stream")
 		}
 	}
 }
 
 private pageChangePassword() {
-	dynamicPage(name: "pageChangePassword", title: "", nextPage: "pageSavePassword") {
+	dynamicPage(name: "pageChangePassword", title: "", uninstall: false, install: false, nextPage: "pageSavePassword") {
 		section() {
 			paragraph "Choose a security password for your dashboard. You will need to enter this password when accessing your dashboard for the first time and possibly from time to time.", required: false
 		}
@@ -417,9 +417,9 @@ private pageSectionPIN() {
 
 private pageSavePassword() {
 	initTokens()
-	dynamicPage(name: "pageSavePassword", title: "") {
+	dynamicPage(name: "pageSavePassword", /* nextPage: "pageSettings", */ install: false, uninstall: false, title: "") {
 		section() {
-			paragraph "Your password has been changed. Please note you may need to reauthenticate when opening the dashboard.", required: false
+			paragraph "Your password has been changed. Please note you may need to reauthenticate when opening the dashboard."
 		}
 	}
 }
@@ -600,6 +600,7 @@ def updated() {
 		t0.each {
 			updatePistonsW(it, chg1, chg2, chg3)
 		}
+		resetFuelStreamList()
 	}
 
 	return true
@@ -634,22 +635,6 @@ private initialize() {
 		} catch (all) { }
 	}
 
-	//move lifx
-/*
-	if (state.settings && state.settings.lifx_scenes) {
-		state.lifx = [
-			scenes: state.settings.lifx_scenes,
-			lights: state.settings.lifx_lights,
-			groups: state.settings.lifx_groups,
-			locations: state.settings.lifx_locations
-		]
-		state.settings.remove('lifx_scenes')
-		state.settings.remove('lifx_lights')
-		state.settings.remove('lifx_groups')
-		state.settings.remove('lifx_locations')
-	}
-*/
-	
 	if(state.accessToken){
 		updateEndpoint(state.accessToken)
 	}
@@ -708,10 +693,10 @@ private getHub() {
 private subscribeAll() {
 	subscribe(location, "${handle()}.poll", webCoREHandler)
 	subscribe(location, "${'@@' + handle()}", webCoREHandler)
-//	subscribe(location, "askAlexa", askAlexaHandler)
-//	subscribe(location, "echoSistant", echoSistantHandler)
-	subscribe(location, "HubUpdated", hubUpdatedHandler, [filterEvents: false])
-	subscribe(location, "summary", summaryHandler, [filterEvents: false])
+//	subscribe(location, "systemStart", startHandler)
+//below unused
+//	subscribe(location, "HubUpdated", hubUpdatedHandler, [filterEvents: false])
+//	subscribe(location, "summary", summaryHandler, [filterEvents: false])
 	if(isHubitat()) subscribe(location, "hsmStatus", hsmHandler, [filterEvents: false])
 	setPowerSource(getHub()?.isBatteryInUse() ? 'battery' : 'mains')
 }
@@ -845,6 +830,7 @@ private getFuelStreamUrls(iid){
 							: apiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}/")
 	
 	def params = baseUrl.contains(state.accessToken) ? "" : "access_token=${state.accessToken}"
+	
 	return [
 		list : [l: true, u: baseUrl + "intf/fuelstreams/list?${params}"],
 		get  : [l: true, u: baseUrl + "intf/fuelstreams/get?id={fuelStreamId}${params ? "&" + params : ""}", p: 'fuelStreamId']
@@ -966,7 +952,7 @@ private api_intf_dashboard_piston_get() {
 	debug "Dashboard: Request received to get piston ${params?.id}"
 	if (verifySecurityToken(params.token)) {
 		def pistonId = params.id
-		def serverDbVersion = version()
+		def serverDbVersion = HEversion()
 		def clientDbVersion = params.db
 		def requireDb = serverDbVersion != clientDbVersion
 		if (pistonId) {
@@ -1154,6 +1140,7 @@ private api_intf_dashboard_piston_set_end() {
 				i++
 			}
 			atomicState.chunks = null
+			state.remove("chunks")
 			if (ok) {
 				//save the piston here
 				def saved = api_intf_dashboard_piston_set_save(chunks.id, data, chunks.findAll{ it.key.startsWith('chunk:') })
@@ -1433,6 +1420,11 @@ private api_intf_variable_set() {
 
 public resetFuelStreamList(){
 	state.fuelStreams = []
+/*
+	name = "${handle()} Fuel Stream"
+	fuelStreams = getChildApps().findAll{ it.name == name }.collect { it.label }
+	state.fuelStreams = fuelStreams
+*/
 	state.remove("fuelStreams")
 }
 
@@ -1441,21 +1433,25 @@ public writeToFuelStream(req){
 	def streamName = "${(req.c ?: "")}||${req.n}"
 	
 	def result = getChildApps().find{ it.name == name && it.label.contains(streamName)}
-	def fuelStreams = isHubitat() ? [] : atomicState.fuelStreams ?: []
+//	def fuelStreams = isHubitat() ? [] : atomicState.fuelStreams ?: []
 	
 	if(!result){
+/*
 		if(fuelStreams.find{ it.contains(streamName) } ?: false){ //bug in smartthings doesn't remember state,childapps between multiple calls in the same piston
 			error "Found duplicate stream, not adding point"
 			return
 		}
+*/
 		def id =  (getChildApps().findAll{ it.name == name }.collect{ it.label.split(' - ')[0].toInteger()}.max() ?: 0) + 1
 		try {
 			result = addChildApp('ady624', name, "$id - $streamName")
+/*
 			if(!isHubitat()){
 				fuelStreams = getChildApps().find{ it.name == name }.collect { it.label }
 				fuelStreams << result.label
 				atomicState.fuelStreams = fuelStreams
 			}		
+*/
 	   		result.createStream([id: id, name: req.n, canister: req.c ?: ""])
 		}
 		catch(e){
@@ -1468,6 +1464,7 @@ public writeToFuelStream(req){
 
 private api_intf_fuelstreams_list() {
 	def result = []
+	debug "Dashboard: Request received to list fuelstreams"
 	def name = "${handle()} Fuel Stream"
 	result = getChildApps().findAll{ it.name == name }*.getFuelStream()
 	
@@ -1477,6 +1474,7 @@ private api_intf_fuelstreams_list() {
 private api_intf_fuelstreams_get() {
 	def result = []
 	def id = params.id
+	debug "Dashboard: Request received to get fuelstream data $id"
 	
 	def name = "${handle()} Fuel Stream"
 	def stream = getChildApps().find { it.name == name && it.label.startsWith("$id -")}
@@ -1545,11 +1543,11 @@ def api_ifttt() {
 	def remoteAddr = isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
 	if (params) {
 		data.params = [:]
-	for(param in params) {
-		if (!(param.key in ['theAccessToken', 'appId', 'action', 'controller'])) {
-			data[param.key] = param.value
+		for(param in params) {
+			if (!(param.key in ['theAccessToken', 'appId', 'action', 'controller'])) {
+				data[param.key] = param.value
+			}
 		}
-	}
 	}
 	data = data + (request?.JSON ?: [:])
 	data.remoteAddr = remoteAddr
@@ -1791,6 +1789,19 @@ public Map listAvailableDevices(raw = false, updateCache = false) {
 			result << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}.collectEntries{ id, dev -> [ (id): [ n: dev.getDisplayName(), cn: dev.getCapabilities()*.name, a: dev.getSupportedAttributes().unique{ it.name }.collect{def x = [n: it.name, t: it.getDataType(), o: it.getValues()]; try {x.v = dev.currentValue(x.n);} catch(all) {}; x}, c: dev.getSupportedCommands().unique{ it.getName() }.collect{[n: it.getName(), p: it.getArguments()]} ]]}
 		}
 	}
+
+//To add devices to the poll list:
+//sendLocationEvent(name: "startZwavePoll", value: devList)
+
+//To remove devices from the poll list:
+//sendLocationEvent(name: "stopZwavePoll", value: devList)
+
+//Z-Wave Poller only supports Generic Z-Wave Dimmer and Generic Z-Wave Switch. It won't work with other drivers, as there is a handshake with the driver.
+
+//You can determine if Z-Wave Poller is installed with this:
+//isAppInstalled("hubitat", "Z-Wave Poller", "SYSTEM")
+
+
 	return result
 }
 
@@ -2467,7 +2478,6 @@ private isCustomEndpoint(){
 /*** DATABASE																***/
 /******************************************************************************/
 
-private Map capabilities() {
 	//n = name
 	//d = friendly devices name
 	//a = default attribute
@@ -2475,7 +2485,8 @@ private Map capabilities() {
 	//m = momentary
 	//s = number of subdevices
 	//i = subdevice index in event data
-	def capabilities = [
+private static Map capabilities() {
+	return [
 		accelerationSensor		: [ n: "Acceleration Sensor",		d: "acceleration sensors",		a: "acceleration",								],
 		actuator			: [ n: "Actuator", 			d: "actuators",														],
 		alarm				: [ n: "Alarm",				d: "alarms and sirens",			a: "alarm",		c: ["off", "strobe", "siren", "both"],			],
@@ -2483,7 +2494,6 @@ private Map capabilities() {
 		battery				: [ n: "Battery",			d: "battery powered devices",		a: "battery",									],
 		beacon				: [ n: "Beacon",			d: "beacons",				a: "presence",									],
 		bulb				: [ n: "Bulb",				d: "bulbs",				a: "switch",		c: ["off", "on"],					],
-//		button				: [ n: "Button",			d: "buttons",				a: "button",		m: true,	s: "numberOfButtons,numButtons", i: "buttonNumber",		],
 		carbonDioxideMeasurement	: [ n: "Carbon Dioxide Measurement",	d: "carbon dioxide sensors",		a: "carbonDioxide",								],
 		carbonMonoxideDetector		: [ n: "Carbon Monoxide Detector",	d: "carbon monoxide detectors",		a: "carbonMonoxide",								],
 		colorControl			: [ n: "Color Control",			d: "adjustable color lights",		a: "color",		c: ["setColor", "setHue", "setSaturation"],		],
@@ -2547,25 +2557,15 @@ private Map capabilities() {
 		voltageMeasurement		: [ n: "Voltage Measurement",		d: "voltmeters",			a: "voltage",											],
 		waterSensor			: [ n: "Water Sensor",			d: "water and leak sensors",		a: "water",											],
 		windowShade			: [ n: "Window Shade",			d: "automatic window shades",		a: "windowShade",	c: ["close", "open", "presetPosition"],					],
-	//]  + (isHubitat() ? [
 		doubleTapableButton		: [ n: "Double Tapable Button",		d: "double tapable buttons",		a: "doubleTapped",	c: ["doubleTap"],							],
 		holdableButton			: [ n: "Holdable Button",		d: "holdable buttons",			a: "held",		c: ["hold"]								],
 		momentary			: [ n: "Momentary",			d: "momentary switches",					c: ["pushMomentary"],							],
 		pushableButton			: [ n: "Pushable Button",		d: "pushable buttons",			a: "pushed",		c: ["push"],								]
-	
-	]// : [:])
-	
-/*
-	if(isHubitat()){
-	 	capabilities.remove('button')
-	}
-*/
-	
-	return capabilities
+	]
 }
 
-private Map attributes() {
-	def attrs = [
+private static Map attributes() {
+	return [
 		acceleration			: [ n: "acceleration",			t: "enum",		o: ["active", "inactive"],						],
 		activities			: [ n: "activities", 			t: "object",											],
 		alarm				: [ n: "alarm", 			t: "enum",		o: ["both", "off", "siren", "strobe"],					],
@@ -2573,7 +2573,6 @@ private Map attributes() {
 		axisY				: [ n: "Y axis",			t: "integer",	r: [-1024, 1024],	s: "threeAxis",						],
 		axisZ				: [ n: "Z axis",			t: "integer",	r: [-1024, 1024],	s: "threeAxis",						],
 		battery				: [ n: "battery", 			t: "integer",	r: [0, 100],		u: "%",							],
-//		button				: [ n: "button", 			t: "enum",		o: ["pushed", "held"],									c: "button",					m: true, s: "numberOfButtons,numButtons", i: "buttonNumber"		],
 		carbonDioxide			: [ n: "carbon dioxide",		t: "decimal",	r: [0, null],									],
 		carbonMonoxide			: [ n: "carbon monoxide",		t: "enum",		o: ["clear", "detected", "tested"],					],
 		color				: [ n: "color",				t: "color",											],
@@ -2588,7 +2587,6 @@ private Map attributes() {
 		goal				: [ n: "goal",				t: "integer",	r: [0, null],									],
 		heatingSetpoint			: [ n: "heating setpoint",		t: "decimal",	r: [-127, 127],		u: '°?',						],
 		hex				: [ n: "hexadecimal code",		t: "hexcolor",											],
-//		holdableButton			: [ n: "holdable button",		t: "enum",		o: ["held", "pushed"],								c: "holdableButton",			m: true,		],
 		hue				: [ n: "hue",				t: "integer",	r: [0, 360],		u: "°",							],
 		humidity			: [ n: "relative humidity",		t: "integer",	r: [0, 100],		u: "%",							],
 		illuminance			: [ n: "illuminance",			t: "integer",	r: [0, null],		u: "lux",						],
@@ -2660,20 +2658,10 @@ private Map attributes() {
 		speed				: [ n: "speed",				t: "decimal",	r: [null, null],	u: "ft/s",						],
 		speedMetric			: [ n: "speed (metric)",		t: "decimal",	r: [null, null],	u: "m/s",						],
 		bearing				: [ n: "bearing",			t: "decimal",	r: [0, 360],		u: "°",							],
-	//]  + (isHubitat() ? [
 		doubleTapped			: [ n: "double tapped button", 	t: "integer",	c: "doubleTapableButton"								],
 		held				: [ n: "held button", 			t: "integer",	c: "holdableButton"								],
 		pushed				: [ n: "pushed button", 		t: "integer",	c: "pushableButton"								]
-	]// : [:])
-	
-/*
-	if(isHubitat()){
-		attrs.remove('button')
-		attrs.remove('holdableButton')
-	}
-*/
-	
-	return attrs
+	]
 }
 
 /* Push command has multiple overloads in hubitat */
@@ -2684,7 +2672,7 @@ public Map commandOverrides(){
 	] : [:])
 }
 
-private Map commands() {
+private static Map commands() {
 	return [
 		auto				: [ n: "Set to Auto",				a: "thermostatMode",				v: "auto",						],
 		beep				: [ n: "Beep",																		],
@@ -2695,7 +2683,7 @@ private Map commands() {
 		cool				: [ n: "Set to Cool",		i: 'snowflake', is: 'l',	a: "thermostatMode",		v: "cool",						],
 		deviceNotification		: [ n: "Send device notification...",	d: "Send device notification \"{0}\"",			p: [[n:"Message",t:"string"]],  			],
 		eco				: [ n: "Set to Eco",		i: 'leaf', 	a: "thermostatMode",				v: "eco",						],
-		emergencyHeat			: [ n: "Set to Emergency Heat",															a: "thermostatMode",				v: "emergency heat",																																	],
+		emergencyHeat			: [ n: "Set to Emergency Heat",			a: "thermostatMode",				v: "emergency heat",																																	],
 		fanAuto				: [ n: "Set fan to Auto",																a: "thermostatFanMode",				v: "auto",																																			],
 		fanCirculate			: [ n: "Set fan to Circulate",															a: "thermostatFanMode",				v: "circulate",																																		],
 		fanOn				: [ n: "Set fan to On",																	a: "thermostatFanMode",				v: "on",																																			],
@@ -2803,22 +2791,22 @@ private Map commands() {
 		low				: [ n: "Set to Low",																																																															],
 		med				: [ n: "Set to Medium",																																																															],
 		high				: [ n: "Set to High",																																																															],
-//	] + (isHubitat() ? [
+
 		doubleTap			: [ n: "Double Tap",					d: "Double tap button {0}",						a: "doubleTapped",										p:[[n: "Button #", t: "integer"]]																																																										],
 		flashNative			: [ n: "Flash",																		   																																															],
 		hold				: [ n: "Hold",							d: "Hold Button {0}",							a: "held",													p: [[n:"Button #", t: "integer"]]																																						],
 		push				: [ n: "Push",							d: "Push button {0}",							a: "pushed",												p:[[n: "Button #", t: "integer"]]																																																										],
 		pushMomentary			: [ n: "Push"																																																																						]
-	]// : [:])
+	]
 }
 
-private Map virtualCommands() {
 	//a = aggregate
 	//d = display
 	//n = name
 	//t = type
+private static Map virtualCommands() {
 	List tileIndexes = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16']
-	def commands = [
+	return [
 		noop					: [	n: "No operation",				a: true,	i: "circle",				d: "No operation",																										],
 		wait					: [	n: "Wait...", 					a: true,	i: "clock", is: "r",				d: "Wait {0}",															p: [[n:"Duration", t:"duration"]],				],
 		waitRandom				: [ n: "Wait randomly...",			a: true,	i: "clock", is: "r",				d: "Wait randomly between {0} and {1}",									p: [[n:"At least", t:"duration"],[n:"At most", t:"duration"]],	],
@@ -2827,7 +2815,6 @@ private Map virtualCommands() {
 		executePiston				: [ n: "Execute piston...",			a: true,	i: "clock", is: "r",				d: "Execute piston \"{0}\"{1}",											p: [[n:"Piston", t:"piston"], [n:"Arguments", t:"variables", d:" with arguments {v}"],[n:"Wait for execution",t:"boolean",d:" and wait for execution to finish",w:"webCoRE can only wait on piston executions of pistons within the same instance as the caller. Please note that global variables updated in the callee piston do NOT get reflected immediately in the caller piston, the new values will be available on the next run."]],	],
 		pausePiston				: [ n: "Pause piston...",			a: true,	i: "clock", is: "r",				d: "Pause piston \"{0}\"",												p: [[n:"Piston", t:"piston"]],	],
 		resumePiston				: [ n: "Resume piston...",			a: true,	i: "clock", is: "r",				d: "Resume piston \"{0}\"",												p: [[n:"Piston", t:"piston"]],	],
-//		executeRoutine				: [ n: "Execute routine...",		a: true,	i: "clock", is: "r",				d: "Execute routine \"{0}\"",											p: [[n:"Routine", t:"routine"]],	],
 		toggle					: [ n: "Toggle", r: ["on", "off"], 				i: "toggle-on"																				],
 		toggleRandom				: [ n: "Random toggle", r: ["on", "off"], 		i: "toggle-on",				d: "Random toggle{0}",													p: [[n:"Probability for on", t:"level", d:" with a {v}% probability for on"]],	],
 		setSwitch				: [ n: "Set switch...", r: ["on", "off"], 			i: "toggle-on",			d: "Set switch to {0}",													p: [[n:"Switch value", t:"switch"]],																],
@@ -2836,7 +2823,6 @@ private Map virtualCommands() {
 		sendNotification			: [ n: "Send notification...",		a: true,	i: "comment-alt", is: "r",			d: "Send notification \"{0}\"",											p: [[n:"Message", t:"string"]],												],
 		sendPushNotification		: [ n: "Send PUSH notification...",	a: true,	i: "comment-alt", is: "r",			d: "Send PUSH notification \"{0}\"{1}",									p: [[n:"Message", t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 		sendSMSNotification			: [ n: "Send SMS notification...",	a: true,	i: "comment-alt", is: "r",			d: "Send SMS notification \"{0}\" to {1}{2}",							p: [[n:"Message", t:"string"],[n:"Phone number",t:"phone"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
-//		sendNotificationToContacts	: [ n: "Send notification to contacts...",a: true,i: "comment-alt", is: "r",		d: "Send notification \"{0}\" to {1}{2}",								p: [[n:"Message", t:"string"],[n:"Contacts",t:"contacts"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 		log					: [ n: "Log to console...",			a: true,	i: "bug",					d: "Log {0} \"{1}\"{2}",												p: [[n:"Log type", t:"enum", o:["info","trace","debug","warn","error"]],[n:"Message",t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 		httpRequest				: [ n: "Make a web request",		a: true, 	i: "anchor", is: "r",				d: "Make a {1} request to {0}",					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
 		setVariable				: [ n: "Set variable...",			a: true,	i: "superscript", is:"r",			d: "Set variable {0} = {1}",											p: [[n:"Variable",t:"variable"],[n:"Value", t:"dynamic"]],	],
@@ -2848,7 +2834,6 @@ private Map virtualCommands() {
 		setTile					: [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",			d: "Set piston tile #{0} title  to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
 		clearTile				: [ n: "Clear piston tile...",		a: true,	i: "info-square", is:"l",			d: "Clear piston tile #{0}",											p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
 		setLocationMode				: [ n: "Set location mode...",		a: true,	i: "", 						d: "Set location mode to {0}", 											p: [[n:"Mode",t:"mode"]],																														],
-		//setAlarmSystemStatus			: [ n: "Set Smart Home Monitor status...",	a: true, i: "",					d: "Set Smart Home Monitor status to {0}",								p: [[n:"Status", t:"alarmSystemStatus"]],																										],
 		sendEmail				: [ n: "Send email...",				a: true,	i: "envelope", 				d: "Send email with subject \"{1}\" to {0}", 							p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],																							],
 		wolRequest				: [ n: "Wake a LAN device", 		a: true,	i: "", 						d: "Wake LAN device at address {0}{1}",									p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
 		adjustLevel				: [ n: "Adjust level...",	 r: ["setLevel"], 	i: "toggle-on",				d: "Adjust level by {0}%{1}",											p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
@@ -2864,57 +2849,20 @@ private Map virtualCommands() {
 		flash					: [ n: "Flash...",	 r: ["on", "off"], 			i: "toggle-on",				d: "Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
 		flashLevel				: [ n: "Flash (level)...",	 r: ["setLevel"], 			i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",						p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
 		flashColor				: [ n: "Flash (color)...",	 r: ["setColor"], 			i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",							p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		iftttMaker				: [ n: "Send an IFTTT Maker event...",	a: true,							d: "Send the {0} IFTTT Maker event{1}{2}{3}",							p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
-//		lifxScene					: [ n: "LIFX - Activate scene...",	  	a: true, 							d: "Activate LIFX Scene '{0}'{1}", 										p: [[n: "Scene", t:"lifxScene"],[n: "Duration", t:"duration", d:" for {v}"]],					],
 		writeToFuelStream			: [ n: "Write to fuel stream...",  		a: true, 							d: "Write data point '{2}' to fuel stream {0}{1}{3}", 					p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],					],
+		iftttMaker				: [ n: "Send an IFTTT Maker event...",	a: true,							d: "Send the {0} IFTTT Maker event{1}{2}{3}",							p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
 		storeMedia				: [ n: "Store media...",		 		a: true, 							d: "Store media", 														p: [],					],
 		saveStateLocally			: [ n: "Capture attributes to local store...", 								d: "Capture attributes {0} to local state{1}{2}",						p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'], d:' only if store is empty']], ],
-//		saveStateGlobally			: [ n: "Capture attributes to global store...", 							d: "Capture attributes {0} to global state{1}{2}",						p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'],, d:' only if store is empty']], ],
 		loadStateLocally			: [ n: "Restore attributes from local store...", 							d: "Restore attributes {0} from local state{1}{2}",						p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
-//		loadStateGlobally			: [ n: "Restore attributes from global store...", 							d: "Restore attributes {0} from global state{1}{2}",					p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
 		parseJson				: [ n: "Parse JSON data...",			a: true,							d: "Parse JSON data {0}",												p: [[n: "JSON string", t:"string"]],																											],
 		cancelTasks				: [ n: "Cancel all pending tasks",		a: true,							d: "Cancel all pending tasks",											p: [],																											],
-//		lifxState				: [ n: "LIFX - Set State...",			a: true,							d: "Set LIFX lights matching {0} to {1}{2}{3}{4}{5}",					p: [[n: "Selector", t:"lifxSelector"],[n: "Switch (power)",t:"enum",o:["on","off"],d:" switch '{v}'"],[n: "Color",t:"color",d:" color '{v}'"],[n: "Level (brightness)",t:"level",d:" level {v}%"],[n: "Infrared level",t:"infraredLevel",d:" infrared {v}%"],[n: "Duration",t:"duration",d:" in {v}"]], ],
-//		lifxToggle				: [ n: "LIFX - Toggle...",				a: true,							d: "Toggle LIFX lights matching {0}{1}",								p: [[n: "Selector", t:"lifxSelector"],[n: "Duration",t:"duration",d:" in {v}"]], ],
-//		lifxBreathe				: [ n: "LIFX - Breathe...",				a: true,							d: "Breathe LIFX lights matching {0} to color {1}{2}{3}{4}{5}{6}{7}",	p: [[n: "Selector", t:"lifxSelector"],[n: "Color",t:"color"],[n: "From color",t:"color",d:" from color '{v}'"],[n: "Period", t:"duration", d:" with a period of {v}"],[n: "Cycles", t:"integer", d:" for {v} cycles"],[n:"Peak",t:"level",d:" with a peak at {v}% of the period"],[n:"Power on",t:"boolean",d:" and power on at start"],[n:"Persist",t:"boolean",d:" and persist"] ], ],
-//		lifxPulse				: [ n: "LIFX - Pulse...",				a: true,							d: "Pulse LIFX lights matching {0} to color {1}{2}{3}{4}{5}{6}",		p: [[n: "Selector", t:"lifxSelector"],[n: "Color",t:"color"],[n: "From color",t:"color",d:" from color '{v}'"],[n: "Period", t:"duration", d:" with a period of {v}"],[n: "Cycles", t:"integer", d:" for {v} cycles"],[n:"Power on",t:"boolean",d:" and power on at start"],[n:"Persist",t:"boolean",d:" and persist"] ], ],
-	//lifxCycle					: [ n: "LIFX - Cycle...",				a: true,							d: "Cycle LIFX lights matching {0}",									p: [[n: "Selector", t:"lifxSelector"]], ],
-/*		[ n: "waitState",											d: "Wait for piston state change",	p: ["Change to:enum[any,false,true]"],															i: true,	l: true,						dd: "Wait for {0} state"],
-		[ n: "flash",				r: ["on", "off"], 				d: "Flash",							p: ["On interval (milliseconds):number[250..5000]","Off interval (milliseconds):number[250..5000]","Number of flashes:number[1..10]"],					dd: "Flash {0}ms/{1}ms for {2} time(s)",		],
-		[ n: "saveState",		d: "Save state to variable",			p: ["Attributes:attributes","Aggregation:aggregation","?Convert to data t:dataType","Save to state variable:string"],			stateVarEntry: 3,	dd: "Save state of attributes {0} to variable |[{3}]|'",	aggregated: true,	],
-		[ n: "saveStateLocally",	d: "Capture state to local store",	p: ["Attributes:attributes","?Only if state is empty:bool"],																															dd: "Capture state of attributes {0} to local store",		],
-		[ n: "saveStateGlobally",d: "Capture state to global store",	p: ["Attributes:attributes","?Only if state is empty:bool"],																															dd: "Capture state of attributes {0} to global store",	],
-		[ n: "loadState",		d: "Load state from variable",		p: ["Attributes:attributes","Load from state variable:stateVariable","Allow translations:bool","Negate translation:bool"],								dd: "Load state of attributes {0} from variable |[{1}]|"				],
-		[ n: "loadStateLocally",	d: "Restore state from local store",	p: ["Attributes:attributes","?Empty the state:bool"],																															dd: "Restore state of attributes {0} from local store",			],
-		[ n: "loadStateGlobally",d: "Restore state from global store",	p: ["Attributes:attributes","?Empty the state:bool"],																															dd: "Restore state of attributes {0} from global store",			],
-		[ n: "queueAskAlexaMessage",d: "Queue AskAlexa message",			p: ["Message:text", "?Unit:text", "?Application:text"],																		l: true, dd: "Queue AskAlexa message '{0}' in unit {1}",aggregated: true,	],
-		[ n: "deleteAskAlexaMessages",d: "Delete AskAlexa messages",			p: ["Unit:text", "?Application:text"],																	l: true, dd: "Delete AskAlexa messages in unit {1}",aggregated: true,	],
-		[ n: "cancelPendingTasks",d: "Cancel pending tasks",			p: ["Scope:enum[Local,Global]"],																														dd: "Cancel all pending {0} tasks",		],
-*/
 
-//	]
-
-/*	+ (location.contactBookEnabled ? [
-		sendNotificationToContacts : [n: "Send notification to contacts", p: ["Message:text","Contacts:contacts","Save notification:bool"], l: true, dd: "Send notification '{0}' to {1}", aggregated: true],
-	] : [:])
-	+ (getIftttKey() ? [ */
-		iftttMaker : [n: "Send IFTTT Maker event", p: ["Event:text", "?Value1:string", "?Value2:string", "?Value3:string"], l: true, dd: "Send IFTTT Maker event '{0}' with parameters '{1}', '{2}', and '{3}'", aggregated: true],
-//	] : [:])
-/*	+ (getLifxToken() ? [
-		lifxScene: [n: "Activate LIFX scene", p: ["Scene:lifxScenes"], l: true, dd: "Activate LIFX Scene '{0}'", aggregated: true],
-	] : [:])*/	
 	
-//	if(isHubitat()){
-//	commands += [
 		setAlarmSystemStatus		: [ n: "Set Hubitat Safety Monitor status...",	a: true, i: "",				d: "Set Hubitat Safety Monitor status to {0}",							p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions().collect {[n: it.value, v: it.key]}]],																										],
 		//keep emulated flash to not break old pistons
-		emulatedFlash				: [ n: "(Old do not use) Emulated Flash",	 r: ["on", "off"], 			i: "toggle-on",				d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		//add back emulated flash with "o" option so that it overrides the native flash command
+		emulatedFlash				: [ n: "(Old do not use) Emulated Flash",	 r: ["on", "off"], 			i: "toggle-on",				d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																], //add back emulated flash with "o" option so that it overrides the native flash command
 		flash						: [ n: "Flash...",	 r: ["on", "off"], 			i: "toggle-on",				d: "Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		o: true /*override physical command*/													]
 	]
-	//}
-	
-	return commands
 }
 
 
@@ -3004,7 +2952,7 @@ private static Map comparisons() {
 			stays_outside_of_range 		: [ d: "stays outside of range",	dd: "stay outside of range",			g:"di",		p: 2,			t: 1,	],
 			stays_even			: [ d: "stays even",			dd: "stay even",				g:"di",					t: 1,	],
 			stays_odd			: [ d: "stays odd",			dd: "stay odd",					g:"di",					t: 1,	],
-	]
+		]
 	]
 }
 
@@ -3207,24 +3155,20 @@ private Map virtualDevices(updateCache = false) {
 		date:			[ n: 'Date',			t: 'date',		],
 		datetime:		[ n: 'Date & Time',		t: 'datetime',	],
 		time:			[ n: 'Time',			t: 'time',		],
-//		askAlexa:		[ n: 'Ask Alexa',		t: 'enum',	o: getAskAlexaOptions(),		m: true	],
-//		echoSistant:		[ n: 'EchoSistant',		t: 'enum',	o: getEchoSistantOptions(),		m: true	],
 		email:			[ n: 'Email',			t: 'email',						m: true	],
 		powerSource:		[ n: 'Hub power source',	t: 'enum',	o: [battery: 'battery', mains: 'mains'],					x: true	],
 		ifttt:			[ n: 'IFTTT',			t: 'string',						m: true	],
 		mode:			[ n: 'Location mode',		t: 'enum', 	o: getLocationModeOptions(updateCache),	x: true],
 		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
-//		routine:		[ n: 'Routine',			t: 'enum',	o: getRoutineOptions(updateCache),	m: true],
-//		alarmSystemStatus:	[ n: 'Smart Home Monitor status',	t: 'enum',	o: getAlarmSystemStatusOptions(),	x: true]
-//	] + (isHubitat() ? [
-		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),			x: true], //ac - actions. hubitat doesn't reuse the status for actions
+//ac - actions. hubitat doesn't reuse the status for actions
+		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),			x: true], 
 		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],
 		alarmSystemAlert: 	[ n: 'Hubitat Safety Monitor alert',t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true],
 		alarmSystemRule: 	[ n: 'Hubitat Safety Monitor rule',t: 'enum',		o: getAlarmSystemRuleOptions(),		m: true]	
-	]// : [:])
+	]
 }
 
-public List getColors(){
+private static List getColors(){
 	return [
 		[name:"Alice Blue",	 rgb:"#F0F8FF",	 h:208,	 s:100,	 l:97],
 		[name:"Antique White",	 rgb:"#FAEBD7",	 h:34,	 s:78,	 l:91],
