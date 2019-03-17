@@ -19,7 +19,7 @@
  * Last update March 15, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190315" }
+public static String HEversion() { return "v0.3.10a.20190316" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -8395,7 +8395,6 @@ private isHubitat(){
 	executePiston:	 [ 		a: true,				p: [[n:"Piston", t:"piston"], [n:"Arguments", t:"variables", d:" with arguments {v}"],[n:"Wait for execution",t:"boolean",d:" and wait for execution to finish",w:"webCoRE can only wait on piston executions of pistons within the same instance as the caller. Please note that global variables updated in the callee piston do NOT get reflected immediately in the caller piston, the new values will be available on the next run."]],	],
 	pausePiston:	 [ n: "Pause piston...",	a: true,	i: "clock", is: "r",		d: "Pause piston \"{0}\"",				p: [[n:"Piston", t:"piston"]],	],
 	resumePiston:	 [ n: "Resume piston...",	a: true,	i: "clock", is: "r",		d: "Resume piston \"{0}\"",				p: [[n:"Piston", t:"piston"]],	],
-//	executeRoutine:	 [ n: "Execute routine...",		a: true,	i: "clock", is: "r",		d: "Execute routine \"{0}\"",					p: [[n:"Routine", t:"routine"]],	],
 	toggle:		 [ 		r: ["on", "off"], 				],
 	toggleRandom:	 [ 		r: ["on", "off"], 							p: [[n:"Probability for on", t:"level", d:" with a {v}% probability for on"]],	],
 	setSwitch:	 [ 		r: ["on", "off"], 							p: [[n:"Switch value", t:"switch"]],			],
@@ -8404,7 +8403,6 @@ private isHubitat(){
 	sendNotification: [ 		a: true,					p: [[n:"Message", t:"string"]],	],
 	sendPushNotification:		 [ 	a: true,				p: [[n:"Message", t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 	sendSMSNotification:		 [ 	a: true,				p: [[n:"Message", t:"string"],[n:"Phone number",t:"phone"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
-//	sendNotificationToContacts:	 [ a: true,					p: [[n:"Message", t:"string"],[n:"Contacts",t:"contacts"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 	log:		 [ 	a: true,					p: [[n:"Log type", t:"enum", o:["info","trace","debug","warn","error"]],[n:"Message",t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 	httpRequest:	 [ 	a: true, 					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
 	setVariable:	 [ 	a: true,					p: [[n:"Variable",t:"variable"],[n:"Value", t:"dynamic"]],	],
@@ -8416,7 +8414,6 @@ private isHubitat(){
 	setTile:		 [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} title  to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
 	clearTile:	 [ n: "Clear piston tile...",		a: true,	i: "info-square", is:"l",	d: "Clear piston tile #{0}",					p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
 	setLocationMode:	 [ n: "Set location mode...",		a: true,	i: "", 		d: "Set location mode to {0}", 					p: [[n:"Mode",t:"mode"]],	],
-//	setAlarmSystemStatus:		 [ n: "Set Smart Home Monitor status...",	a: true, i: "",			d: "Set Smart Home Monitor status to {0}",				p: [[n:"Status", t:"alarmSystemStatus"]],				],
 	sendEmail:	 [ n: "Send email...",		a: true,	i: "envelope", 		d: "Send email with subject \"{1}\" to {0}", 			p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],			],
 	wolRequest:		 [ n: "Wake a LAN device", 		a: true,	i: "", 		d: "Wake LAN device at address {0}{1}",			p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
 	adjustLevel:	 [ n: "Adjust level...",	r: ["setLevel"], 	i: "toggle-on",		d: "Adjust level by {0}%{1}",					p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
@@ -8429,12 +8426,11 @@ private isHubitat(){
 	fadeSaturation:	 [ n: "Fade saturation...",	r: ["setSaturation"], 		i: "toggle-on",		d: "Fade saturation{0} to {1}% in {2}{3}",			p: [[n:"Starting saturation",t:"level",d:" from {v}%"],[n:"Final saturation",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	fadeHue:		 [ n: "Fade hue...",	r: ["setHue"], 		i: "toggle-on",		d: "Fade hue{0} to {1}° in {2}{3}",				p: [[n:"Starting hue",t:"hue",d:" from {v}°"],[n:"Final hue",t:"hue"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	fadeColorTemperature:		 [ n: "Fade color temperature...",		r: ["setColorTemperature"], 		i: "toggle-on",		d: "Fade color temperature{0} to {1}°K in {2}{3}",			p: [[n:"Starting color temperature",t:"colorTemperature",d:" from {v}°K"],[n:"Final color temperature",t:"colorTemperature"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-//	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	flashLevel:	 [ n: "Flash (level)...",	r: ["setLevel"], 	i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",		p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 	flashColor:	 [ n: "Flash (color)...",	r: ["setColor"], 	i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",			p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 
 	iftttMaker:	 [ n: "Send an IFTTT Maker event...",	a: true,			d: "Send the {0} IFTTT Maker event{1}{2}{3}",				p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
-//	lifxScene					: [ n: "LIFX - Activate scene...",	  	a: true, 							d: "Activate LIFX Scene '{0}'{1}", 										p: [[n: "Scene", t:"lifxScene"],[n: "Duration", t:"duration", d:" for {v}"]],					],
 	writeToFuelStream:		 [ n: "Write to fuel stream...",  		a: true, 			d: "Write data point '{2}' to fuel stream {0}{1}{3}", 			p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],	],
 	storeMedia:	 [ n: "Store media...",				a: true, 			d: "Store media", 						p: [],	],
 	saveStateLocally:		 [ n: "Capture attributes to local store...", 				d: "Capture attributes {0} to local state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'], d:' only if store is empty']], ],
@@ -8444,16 +8440,9 @@ private isHubitat(){
 	parseJson:	 [ n: "Parse JSON data...",	a: true,			d: "Parse JSON data {0}",				p: [[n: "JSON string", t:"string"]],			],
 	cancelTasks:		 [ n: "Cancel all pending tasks",		a: true,			d: "Cancel all pending tasks",					p: [],			],
 
-//	+ (getIftttKey() ? [
-	iftttMaker : [n: "Send IFTTT Maker event", p: ["Event:text", "?Value1:string", "?Value2:string", "?Value3:string"], l: true, dd: "Send IFTTT Maker event '{0}' with parameters '{1}', '{2}', and '{3}'", aggregated: true],
-//	] : [:])
-/*	+ (getLifxToken() ? [
-		lifxScene: [n: "Activate LIFX scene", p: ["Scene:lifxScenes"], l: true, dd: "Activate LIFX Scene '{0}'", aggregated: true],
-	] : [:])*/	
-	
 	setAlarmSystemStatus:		 [ n: "Set Hubitat Safety Monitor status...",	a: true, /* i: "",		d: "Set Hubitat Safety Monitor status to {0}",			p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions.collect {[n: it.value, v: it.key]}]],*/				],
 		//keep emulated flash to not break old pistons
-//	emulatedFlash:	 [ n: "(Old do not use) Emulated Flash",	r: ["on", "off"], 	i: "toggle-on",		d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	emulatedFlash:	 [ n: "(Old do not use) Emulated Flash",	r: ["on", "off"], 	i: "toggle-on",		d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
 		//add back emulated flash with "o" option so that it overrides the native flash command
 	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		o: true /*override physical command*/					]
 ]
