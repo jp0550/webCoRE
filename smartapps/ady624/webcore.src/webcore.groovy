@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 16, 2019 for Hubitat
+ * Last Updated March 20, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190316" }
+public String HEversion() { return "v0.3.10a.20190320" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -334,7 +334,7 @@ def pageSettings() {
 		//}
 
 		section(sectionTitleStr("Fuel Streams")){
-			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFueStreams != null) ? settings.localFueStreams : isHubitat() ? true : false, submitOnChange: true
+			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFuelStreams != null) ? settings.localFuelStreams : isHubitat() ? true : false, submitOnChange: true
 			if(settings.localFuelStreams){
 				href "pageFuelStreams", title: "Fuel Streams", description: "Tap here to manage fuel streams"		
 			}	 	
@@ -832,8 +832,8 @@ private getFuelStreamUrls(iid){
 	def params = baseUrl.contains(state.accessToken) ? "" : "access_token=${state.accessToken}"
 	
 	return [
-		list : [l: true, u: baseUrl + "intf/fuelstreams/list?${params}"],
-		get  : [l: true, u: baseUrl + "intf/fuelstreams/get?id={fuelStreamId}${params ? "&" + params : ""}", p: 'fuelStreamId']
+		list : [l: true, u: baseUrl + "intf/fuelstreams/list?${params}" ],
+		get  : [l: true, u: baseUrl + "intf/fuelstreams/get?id={fuelStreamId}${params ? "&" + params : ""}", p: 'fuelStreamId' ]
 	]
 }
 
@@ -862,6 +862,7 @@ private String transformHsmStatus(status){
 
 private api_intf_dashboard_load() {
 	def result
+	//debug "Dashboard: load ${params}"
 	recoveryHandler()
 	//install storage app
 	def storageApp //= getStorageApp(true)
@@ -1758,6 +1759,7 @@ private String getDashboardInitUrl(register = false) {
 	}
 	//log.debug "Url: $t0"
 	return t0
+		//state.endpoint = isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}") : apiServerUrl("/api/token/${accessToken}/smartapps/installations/${app.id}/")
 //						isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/")
 //							: apiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}/")
 //		state.endpoint = isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}") : apiServerUrl("/api/token/${accessToken}/smartapps/installations/${app.id}/")
@@ -2899,8 +2901,8 @@ private static Map comparisons() {
 			was_greater_than_or_equal_to 	: [ d: "was greater than or equal to",	dd: "were greater than or equal to",		g:"di",		p: 1,			t: 2,	],
 			was_inside_of_range 		: [ d: "was inside of range",		dd: "were inside of range",			g:"di",		p: 2,			t: 2,	],
 			was_outside_of_range 		: [ d: "was outside of range",		dd: "were outside of range",			g:"di",		p: 2,			t: 2,	],
-			was_even			: [ d: "was even",			dd: "were even",						g:"di",			t: 2,	],
-			was_odd				: [ d: "was odd",			dd: "were odd",							g:"di",			t: 2,	],
+			was_even			: [ d: "was even",			dd: "were even",				g:"di",					t: 2,	],
+			was_odd				: [ d: "was odd",			dd: "were odd",					g:"di",					t: 2,	],
 			is_any				: [ d: "is any",									g:"t",		p: 0					],
 			is_before			: [ d: "is before",									g:"t",		p: 1					],
 			is_after			: [ d: "is after",									g:"t",		p: 1					],
