@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 15, 2019 for Hubitat
+ * Last update March 20, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190316" }
+public static String HEversion() { return "v0.3.10a.20190320" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -1803,9 +1803,9 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 				if (delay) { //not supported in hubitat
 					pause(delay)
 					//device."$command"((params as Object[]) + [delay: delay])
-					msg.m = "Executed command [${device.label ?: device.name}].$command($params, [delay: $delay])"
+					msg.m = "Executed physical command [${device.label ?: device.name}].$command($params, [delay: $delay])"
 				} else {
-					device."$command"(params as Object[])
+					//device."$command"(params as Object[])
 					msg.m = "Executed physical command [${device.label ?: device.name}].$command($params)"
 				}
 				device."$command"(params as Object[])
@@ -2024,7 +2024,7 @@ private scheduleTimeCondition(rtData, condition) {
 	def tv1 = condition.ro && (condition.ro.t != 'c') ? evaluateOperand(rtData, null, condition.to) : null
 	def v1 = evaluateExpression(rtData, evaluateOperand(rtData, null, condition.ro), 'datetime').v + (tv1 ? evaluateExpression(rtData, [t: 'duration', v: tv1.v, vt: tv1.vt], 'long').v : 0)
 	def tv2 = condition.ro2 && (condition.ro2.t != 'c') && (comparison.p > 1) ? evaluateOperand(rtData, null, condition.to2) : null
-	def v2 = trigger ? v1 : ((comparison.p > 1) ? (evaluateExpression(rtData, evaluateOperand(rtData, null, condition.ro2, null, false, true), 'datetime').v + (tv2 ? evaluateExpression(rtData, [t: 'duration', v: tv2.v, vt: tv2.vt]).v : 0)) : (condition.lo.v == 'time' ? getMidnightTime(rtData) : v1))
+	def v2 = trigger ? v1 : ((comparison.p > 1) ? (evaluateExpression(rtData, evaluateOperand(rtData, null, condition.ro2, null, false, true), 'datetime').v + (tv2 ? evaluateExpression(rtData, [t: 'duration', v: tv2.v, vt: tv2.vt]).v : 0)) : (condition.lo.v == 'time' ? getMidnightTime() : v1))
 	def n = now() + 2000
 	if (condition.lo.v == 'time') {
 		//v1 = (v1 % 86400000) + getMidnightTime()
@@ -3561,9 +3561,9 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		case 'datetime':
 			def v = 0;
 			switch (operand.s) {
-			case 'midnight': v = nextMidnight ? getNextMidnightTime(rtData) : getMidnightTime(rtData); break;
+			case 'midnight': v = nextMidnight ? getNextMidnightTime() : getMidnightTime(); break;
 			case 'sunrise': v = getSunriseTime(rtData); break;
-			case 'noon': v = getNoonTime(rtData); break;
+			case 'noon': v = getNoonTime(); break;
 			case 'sunset': v = getSunsetTime(rtData); break;
 			}
 			values = [[i: "${node?.$}:$index:0", v:[t:operand.vt, v:v]]]
@@ -4535,7 +4535,7 @@ private void subscribeAll(rtData) {
 	for (d in devices.findAll{ ((it.value.c <= 0) || (rtData.piston.o.des)) && (it.key != rtData.locationId) }) {
 		def device = d.key.startsWith(':') ? getDevice(rtData, d.key) : null
 		if (device && (device != location)) {
-			if (rtData.logging > 1) trace "Subscribing to $device...", rtData
+			if (rtData.logging > 1) trace "Piston controls $device...", rtData
 			ss.controls = ss.controls + 1
 			if (!dds[device.id]) {
 				ss.devices = ss.devices + 1
@@ -7183,9 +7183,10 @@ private getThreeAxisOrientation(value, getIndex = false) {
 }
 
 private long getTimeToday(long time) {
-	long result = time + getMidnightTime()
+	long t0 = getMidnightTime()
+	long result = time + t0
 	//we need to adjust for time overlapping during DST changes
-	return result + (location.timeZone.getOffset(now()) - location.timeZone.getOffset(result))
+	return result + (location.timeZone.getOffset(t0)) - location.timeZone.getOffset(result)
 }
 
 private cast(rtData, value, dataType, srcDataType = null) {
@@ -7335,8 +7336,11 @@ private cast(rtData, value, dataType, srcDataType = null) {
 			if ((srcDataType == 'time') && (value < 86400000)) value = getTimeToday(value)
 			def d = (srcDataType == 'string') ? stringToTime(value) : cast(rtData, value, "long")
 			def t1 = new Date(d)
-			long t2 = ( (d/1000) * 1000 ) - ((t1.hours * 3600 + t1.minutes * 60 + t1.seconds) * 1000) + (3 * 3600000) // normalize to 3:00 AM for DST
-			return t2
+			long t2 = ((d/1000) * 1000) - ((t1.hours * 3600 + t1.minutes * 60 + t1.seconds) * 1000)  // take ms off and first guess at midnight (could be earlier/later depending if DST change day
+			long t3 = ( t2 - (1 * 3600000) ) // guess at 11 PM
+			long t4 = ( t2 + (4 * 3600000) ) // guess at 04 AM
+			long t5 = ( t2 + (3 * 3600000) + (location.timeZone.getOffset(t3) - location.timeZone.getOffset(t4)) ) // normalize to 3:00 AM for DST
+			return t5
 		case "datetime":
 			if ((srcDataType == 'time') && (value < 86400000)) value = getTimeToday(value)
 			return ((srcDataType == 'string') ? stringToTime(value) : cast(rtData, value, "long"))
@@ -7426,20 +7430,19 @@ private localTime() { return now() } //utcToLocalTime() }
 
 private stringToTime(dateOrTimeOrString) { // this is convert something to time
 	if (dateOrTimeOrString instanceof Date) {
-		//get unix time
 		dateOrTimeOrString = dateOrTimeOrString.getTime()
 	}
 	if ("$dateOrTimeOrString".isNumber()) {
-		if (dateOrTimeOrString < 86400000) dateOrTimeOrString += getMidnightTime()
-		return dateOrTimeOrString /* - (location.timeZone ? location.timeZone.getOffset(dateOrTimeOrString) : 0) */
+		if (dateOrTimeOrString < 86400000) dateOrTimeOrString = getTimeToday(dateOrTImeOrString)
+		return dateOrTimeOrString
 	}
 	if (dateOrTimeOrString instanceof String) {
 		//get unix time
 		def result
 		try {
 			if (!(dateOrTimeOrString =~ /(\s[A-Z]{3}((\+|\-)[0-9]{2}\:[0-9]{2}|\s[0-9]{4})?$)/)) {
-				def newDate = (new Date()).parse(dateOrTimeOrString + ' ' + formatLocalTime(now(), 'Z'))
-				result =  newDate + (location.timeZone.getOffset(now()) - location.timeZone.getOffset(newDate))
+				def newDate = (new Date()).parse(dateOrTimeOrString) // + ' ' + formatLocalTime(now(), 'Z'))   // this takes a time whenever and uses current DST Offset??
+				result =  newDate // + (location.timeZone.getOffset(now()) - location.timeZone.getOffset(newDate))   //ERS may be backward?
 				return result
 			}
 			result = (new Date()).parse(dateOrTimeOrString)
@@ -7502,7 +7505,7 @@ private stringToTime(dateOrTimeOrString) { // this is convert something to time
 
 private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss a z") {
 	if ("$time".isNumber()) {
-		if (time < 86400000) time += getMidnightTime()
+		if (time < 86400000) time = getTimeToday(time)
 //DST??
 		time = new Date(time)
 	}
@@ -7808,19 +7811,19 @@ private getNextSunsetTime(rtData) {
 	return new Date(timeTodayAfter("23:59", str, location.timeZone).getTime())
 }
 
-private getMidnightTime(rtData) {
+private getMidnightTime() {
 	return timeToday("00:00", location.timeZone).getTime()
 }
 
-private getNextMidnightTime(rtData) {
+private getNextMidnightTime() {
 	return timeTodayAfter("23:59", "00:00", location.timeZone).getTime()
 }
 
-private getNoonTime(rtData) {
+private getNoonTime() {
 	return timeToday("12:00", location.timeZone).getTime()
 }
 
-private getNextNoonTime(rtData) {
+private getNextNoonTime() {
 	return timeTodayAfter("23:59", "12:00", location.timeZone).getTime()
 }
 
@@ -7969,12 +7972,12 @@ private getSystemVariableValue(rtData, name) {
 	case "\$month": return localDate().month + 1
 	case "\$monthName": return yearMonths()[localDate().month + 1]
 	case "\$year": return localDate().year + 1900
-	case "\$midnight": return getMidnightTime(rtData)
-	case "\$noon": return getNoonTime(rtData)
+	case "\$midnight": return getMidnightTime()
+	case "\$noon": return getNoonTime()
 	case "\$sunrise": return getSunriseTime(rtData);
 	case "\$sunset": return getSunsetTime(rtData);
-	case "\$nextMidnight":  return getNextMidnightTime(rtData);
-	case "\$nextNoon": return getNextNoonTime(rtData);
+	case "\$nextMidnight":  return getNextMidnightTime();
+	case "\$nextNoon": return getNextNoonTime();
 	case "\$nextSunrise": return getNextSunriseTime(rtData);
 	case "\$nextSunset": return getNextSunsetTime(rtData);
 	case "\$time": def t = localDate(); def h = t.hours; def m = t.minutes; return (h == 0 ? 12 : (h > 12 ? h - 12 : h)) + ":" + (m < 10 ? "0$m" : "$m") + " " + (h <12 ? "A.M." : "P.M.")
