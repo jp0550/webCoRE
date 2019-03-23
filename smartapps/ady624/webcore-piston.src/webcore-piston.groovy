@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 20, 2019 for Hubitat
+ * Last update March 23, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190320" }
+public static String HEversion() { return "v0.3.10a.20190323" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -284,6 +284,7 @@ def setup(data, chunks) {
 	app.updateSetting('bin', [type: 'text', value: state.bin ?: ''])
 	app.updateSetting('author', [type: 'text', value: state.author ?: ''])
 	state.piston = piston
+	state.pep = null
 	state.trace = [:]
 	state.schedules = []
 	state.vars = state.vars ?: [:];
@@ -890,7 +891,7 @@ def handleEvents(event, queue=true, callMySelf=false) {
 		//} catch (all) {
 		//}
 	}
-	pause(350) // time buffer for event propagation
+	//pause(350) // time buffer for event propagation
 
 // process queued events in time order
 	while(!callMySelf) {
@@ -4298,6 +4299,7 @@ private void subscribeAll(rtData) {
 				subscriptionId = "$deviceId${operand.v}"
 				attribute = operand.v
 				break
+/* HE does not have routines
 			case 'routine':
 				if (value && (value.t == 'c') && (value.c)) {
 					def routine = getRoutineById(value.c)
@@ -4307,13 +4309,17 @@ private void subscribeAll(rtData) {
 					}
 				}
 				break
+*/
 			case 'email':
 				subscriptionId = "$deviceId${operand.v}${hashId(app.id)}"
-				attribute = "email${isHubitat() ? "" : ("." + hashId(app.id))}"
+				//attribute = "email${isHubitat() ? "" : ("." + hashId(app.id))}"
+				attribute = "email.${hashId(app.id)}" // receive email does not work in webcore
 				break
 			case 'ifttt':
+/*
 			case 'askAlexa':
 			case 'echoSistant':
+*/
 				if (value && (value.t == 'c') && (value.c)) {
 					def options = rtData.virtualDevices[operand.v]?.o
 					//def options = VirtualDevices[operand.v]?.o
@@ -4321,16 +4327,18 @@ private void subscribeAll(rtData) {
 					if (item) {
 						subscriptionId = "$deviceId${operand.v}${item}"
 
-						def attrVal = isHubitat() ? "" : ".${item}"
+						//def attrVal = isHubitat() ? "" : ".${item}"
+						def attrVal = ".${item}"
 						attribute = "${operand.v}${attrVal}"
-						switch (operand.v) {
+/*						switch (operand.v) {
 						case 'askAlexa':
 							attribute = "askAlexaMacro${attrVal}"
 							break;
 						case 'echoSistant':
 							attribute = "echoSistantProfile${attrVal}"
-						break;
+							break;
 						}
+*/
 					}
 				}
 				break
@@ -7433,73 +7441,100 @@ private stringToTime(dateOrTimeOrString) { // this is convert something to time
 		dateOrTimeOrString = dateOrTimeOrString.getTime()
 	}
 	if ("$dateOrTimeOrString".isNumber()) {
-		if (dateOrTimeOrString < 86400000) dateOrTimeOrString = getTimeToday(dateOrTImeOrString)
+		if (dateOrTimeOrString < 86400000) dateOrTimeOrString = getTimeToday(dateOrTimeOrString)
 		return dateOrTimeOrString
 	}
 	if (dateOrTimeOrString instanceof String) {
 		//get unix time
 		def result
+//debug "stringToTime ${dateOrTimeOrString}"
 		try {
 			if (!(dateOrTimeOrString =~ /(\s[A-Z]{3}((\+|\-)[0-9]{2}\:[0-9]{2}|\s[0-9]{4})?$)/)) {
-				def newDate = (new Date()).parse(dateOrTimeOrString) // + ' ' + formatLocalTime(now(), 'Z'))   // this takes a time whenever and uses current DST Offset??
-				result =  newDate // + (location.timeZone.getOffset(now()) - location.timeZone.getOffset(newDate))   //ERS may be backward?
+//debug "trying1"
+				def newDate = (new Date()).parse(dateOrTimeOrString + ' ' + formatLocalTime(now(), 'Z'))
+				result =  newDate
+//debug "worked $result"
 				return result
 			}
+//debug "trying2"
 			result = (new Date()).parse(dateOrTimeOrString)
+//debug "worked $result"
 			return result
 		} catch (all) {
-			try {
-				result = (new Date(dateOrTimeOrString)).getTime()
-				return result
-			} catch(all2) {
+		}
+		// ISO 8601
+		try {
+//debug "trying3"
+			//result = toDateTime(dateOrTimeOrString).getTime()
+			result = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").parse(dateOrTimeOrString).getTime()
+//debug "worked $result"
+			return result
+		} catch(all1) {
+		}
+		try {
+//debug "trying4"
+			result = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX").parse(dateOrTimeOrString).getTime()
+//debug "worked $result"
+			return result
+		} catch(all2) {
+		}
+		try {
+//debug "trying5"
+			result = (new Date(dateOrTimeOrString)).getTime()
+//debug "worked $result"
+			return result
+		} catch(all3) {
+		}
+		try {
+//debug "trying6"
+			def tz = location.timeZone
+			if (dateOrTimeOrString =~ /\s[A-Z]{3}$/) { // ERS this is not the timezone... strings like CET are not unique.
 				try {
-					def tz = location.timeZone
-					if (dateOrTimeOrString =~ /\s[A-Z]{3}$/) { // ERS this is not the timezone... strings like CET are not unique.
-						try {
-							tz = TimeZone.getTimeZone(dateOrTimeOrString[-3..-1])
-							dateOrTimeOrString = dateOrTimeOrString.take(dateOrTimeOrString.size() - 3).trim()
-						} catch (all4) {
-						}
-					}
-					
-					def t0 = dateOrTimeOrString?.trim() ?: ""
-					def hasMeridian = false
-					def hasAM
-					if(t0.toLowerCase().endsWith('am')) {
-						hasMeridian = true
-						hasAM = true
-					}
-					if(t0.toLowerCase().endsWith('pm')) {
-						hasMeridian = true
-						hasAM = false
-					}
-					if(hasMeridian) t0 = t0[0..-3].trim()
-
-					long time = timeToday(t0, tz).getTime() //DST
-
-					if(hasMeridian) {
-						def t1 = new Date( time )
-						def hr = t1.hours
-						def min = t1.minutes
-						def twelve = hr == 12 ? true : false
-						if (twelve && hasAM) hr -= 12
-						if (!twelve && !hasAM) hr += 12
-						def str1 = "${hr}"
-						def str2 = "${min}"
-						if(hr < 10) str1 = String.format('%02d', hr)
-						if(min < 10) str2 = String.format('%02d', min)
-						def str = str1 + ':' + str2
-						time = timeToday(str, tz).getTime()
-					}
-					result = time
-					return result
-				} catch (all3) {
-					result = (new Date()).getTime()
-					return result
+					tz = TimeZone.getTimeZone(dateOrTimeOrString[-3..-1])
+					dateOrTimeOrString = dateOrTimeOrString.take(dateOrTimeOrString.size() - 3).trim()
+				} catch (all4) {
 				}
 			}
+					
+			def t0 = dateOrTimeOrString?.trim() ?: ""
+			def hasMeridian = false
+			def hasAM
+			if(t0.toLowerCase().endsWith('am')) {
+				hasMeridian = true
+				hasAM = true
+			}
+			if(t0.toLowerCase().endsWith('pm')) {
+				hasMeridian = true
+				hasAM = false
+			}
+			if(hasMeridian) t0 = t0[0..-3].trim()
+
+			long time = timeToday(t0, tz).getTime() //DST
+
+			if(hasMeridian) {
+				def t1 = new Date( time )
+				def hr = t1.hours
+				def min = t1.minutes
+				def twelve = hr == 12 ? true : false
+				if (twelve && hasAM) hr -= 12
+				if (!twelve && !hasAM) hr += 12
+				def str1 = "${hr}"
+				def str2 = "${min}"
+				if(hr < 10) str1 = String.format('%02d', hr)
+				if(min < 10) str2 = String.format('%02d', min)
+				def str = str1 + ':' + str2
+				time = timeToday(str, tz).getTime()
+			}
+			result = time
+//debug "worked $result"
+			return result
+		} catch (all5) {
 		}
+//debug "returning local time"
+		result = (new Date()).getTime()
+		return result
 	}
+//debug "erroring out"
 	return null
 }
 
@@ -7516,10 +7551,10 @@ private formatLocalTime(time, format = "EEE, MMM d yyyy @ h:mm:ss a z") {
 	if (!(time instanceof Date)) {
 		return null
 	}
-//log.debug "formatTime ${time.getTime()} ${format}" //ERS
+//log.debug "formatTime ${time.getTime()} ${format}"
 	def formatter = new java.text.SimpleDateFormat(format)
 	formatter.setTimeZone(location.timeZone)
-//log.debug "formatTime ${time.getTime()}  ${formatter.format(time)}" //ERS
+//log.debug "formatTime ${time.getTime()}  ${formatter.format(time)}"
 	return formatter.format(time)
 }
 
