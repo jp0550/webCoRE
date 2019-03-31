@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 20, 2019 for Hubitat
+ * Last Updated March 30, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190320" }
+public String HEversion() { return "v0.3.10a.20190330" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -572,7 +572,7 @@ def installed() {
 }
 
 def updated() {
-	warn "Updating webCoRE ${version()} HE: ${HEversion()}"
+	info "Updated ran webCoRE ${version()} HE: ${HEversion()}"
 	unsubscribe()
 	unschedule()
 	initialize()
@@ -1009,7 +1009,7 @@ private api_intf_dashboard_piston_get() {
 
 private api_intf_dashboard_piston_backup() {
 	def result = [pistons: []]
-	debug "Dashboard: Request received to backup pistons ${params?.id}"
+	debug "Dashboard: Request received to backup pistons ${params?.ids}"
 	if (verifySecurityToken(params.token)) {
 		def pistonIds = (params.ids ?: '').tokenize(',')
 		for(pistonId in pistonIds) {
@@ -1017,8 +1017,15 @@ private api_intf_dashboard_piston_backup() {
 				def piston = getChildApps().find{ hashId(it.id) == pistonId };
 				if (piston) {
 					def pd = piston.get(true)
-					pd.instance = [id: hashId(app.id), name: app.label]
-					if (pd) result.pistons.push(pd)
+					if (pd) {
+						pd.instance = [id: hashId(app.id), name: app.label]
+						result.pistons.push(pd)
+						def jsonData = groovy.json.JsonOutput.toJson(result)
+						def responseLength = jsonData.getBytes("UTF-8").length
+						if(responseLength > 100 * 1024) {
+							log.warn "Backup too big ${ (int)(responseLength/1024) }KB response"
+						}
+					}
 				}
 			}
 		}
@@ -1554,7 +1561,7 @@ def api_ifttt() {
 	data.remoteAddr = remoteAddr
 	def eventName = params?.eventName
 	if (eventName) {
-		sendLocationEvent([name: "ifttt", value: eventName, isStateChange: true, linkText: "IFTTT event", descriptionText: "${handle()} has received an IFTTT event: $eventName", data: data])
+		sendLocationEvent([name: "ifttt.${eventName}", value: eventName, isStateChange: true, linkText: "IFTTT event", descriptionText: "${handle()} has received an IFTTT event: $eventName", data: data])
 	}
 	render contentType: "text/html", data: "<!DOCTYPE html><html lang=\"en\">Received event $eventName.<body></body></html>"
 }
@@ -1565,7 +1572,7 @@ def api_email() {
 	def from = data.from ?: ''
 	def pistonId = params?.pistonId
 	if (pistonId) {
-		sendLocationEvent([name: "email", value: pistonId, isStateChange: true, linkText: "Email event", descriptionText: "${handle()} has received an email from $from", data: data])
+		sendLocationEvent([name: "email.${pistonId}", value: pistonId, isStateChange: true, linkText: "Email event", descriptionText: "${handle()} has received an email from $from", data: data])
 	}
 	render contentType: "text/plain", data: "OK"
 }
@@ -1599,6 +1606,7 @@ private api_execute() {
 
 def recoveryHandler() {
 	if (state.version != version() || state.versionHE != HEversion()) {
+		info "webCoRE software updated to ${version()} HE: ${HEversion()}"
 		atomicState.version = version()
 		atomicState.versionHE = HEversion()
 		updated()
