@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 23, 2019 for Hubitat
+ * Last update March 30, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190323" }
+public static String HEversion() { return "v0.3.10a.20190330" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -39,7 +39,6 @@ definition(
 	iconX2Url: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png",
 	iconX3Url: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png"
 )
-
 
 preferences {
 	//common pages
@@ -147,6 +146,7 @@ private clear1() {
 	state.stats = [:]
 	state.temp = [:]
 	state.trace = [:]
+	state.piston = null
 	for(sph in state.findAll{ it.key.startsWith('sph') }) {
 		state.remove(sph.key as String)
 	}
@@ -214,7 +214,7 @@ def get(boolean minimal = false) {
 			active: state.active,
 			category: state.category ?: 0
 		],
-		piston: state.piston
+		piston: recreatePiston()
 	] + (minimal ? [:] : [
 		systemVars: getSystemVariablesAndValues(),
 		subscriptions: state.subscriptions,
@@ -255,12 +255,43 @@ def clearLogs() {
 	return [:]
 }
 
+private decodeEmoji(value) {
+        if (!value) return ''
+        return value.replaceAll(/(\:%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}\:)/, { m -> URLDecoder.decode(m[0].substring(1, 13), 'UTF-8') })
+}
+
+def recreatePiston() {
+	def sdata = ""
+	def i = 0
+	while(true) {
+		def s = settings?."chunk:$i"
+		if(s) {
+			sdata += s
+		} else {
+			break
+		}
+		i++
+	}
+	if(sdata) {
+		def data = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(decodeEmoji(new String(sdata.decodeBase64(), "UTF-8")))
+		def piston = [
+			o: data.o ?: {},
+			r: data.r ?: [],
+			rn: !!data.rn,
+			rop: data.rop ?: 'and',
+			s: data.s ?: [],
+			v: data.v ?: [],
+			z: data.z ?: ''
+		]
+		setIds(piston)
+		return piston
+	}
+	return null
+}
 
 def setup(data, chunks) {
 	if (!data) return false
-	state.trace = [:]
-	state.logs = []
-	state.hash = [:]
+	clear1()
 	state.modified = now()
 	state.build = (int)(state.build ? (int)state.build + 1 : 1)
 	def piston = [
@@ -283,14 +314,17 @@ def setup(data, chunks) {
 	}
 	app.updateSetting('bin', [type: 'text', value: state.bin ?: ''])
 	app.updateSetting('author', [type: 'text', value: state.author ?: ''])
-	state.piston = piston
+	state.piston = null
+	//state.piston = piston
 	state.pep = null
-	state.trace = [:]
+	// pep is parallel execution - this serializes execution of events
+	state.pep = piston.o?.pep ? true : false
 	state.schedules = []
 	state.vars = state.vars ?: [:];
 	state.modifiedVersion = version()
 	//todo replace this
 	Map rtData = [:]
+	rtData.piston = piston
 	if ((state.build == 1) || (!!state.active)) {
 		rtData = resume()
 	}
@@ -356,6 +390,7 @@ private int setIds(node, maxId = 0, existingIds = [:], requiringIds = [], level 
 }
 
 def settingsToState(myKey, setval) {
+	state.piston = null
 	if(setval) {
 		atomicState."${myKey}" = setval
 		state."${myKey}" = setval
@@ -453,7 +488,6 @@ def test() {
 }
 
 def execute(data, source) {
-	pause(10)
 	//log.debug "execute() called  ${data}"
 	handleEvents([date: new Date(), device: location, name: 'execute', value: source ?: now(), jsonData: data], false)
 	return [:]
@@ -573,7 +607,7 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 					eventlst = mt0 ?: []
 					eventlst.push(myEvent)
 					atomicState.aevQ = eventlst
-					runIn(getPistonLimits().recovery.toInteger(), lockRecoveryHandler) // atomicState takes time to propogate causing a race
+					runIn(getPistonLimits().recovery.toInteger(), lockRecoveryHandler)
 				}
 				semaphore = null
 				semaphoreName = null
@@ -609,13 +643,13 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 //	try {
  		def timestamp = rtData?.timestamp ?: now()
 		def logs = (rtData && rtData.temporary) ? rtData.logs : null
+		def piston = (rtData && rtData.piston) ? rtData.piston : null
 		def t0 = null
 		if(!!fetchWrappers) { // this is a resume piston from pause
 			rtData = (rtData && !rtData.temporary) ? rtData : parent.getRunTimeData(t0, !!fetchWrappers)
 		} else {
 			rtData = (rtData && !rtData.temporary) ? rtData : getLocalRunTimeData(timestamp, retSt)
 		}
-		def piston = state.piston
 		def appId = hashId(app.id)
 		rtData.id = appId
 		rtData.active = state.active
@@ -623,6 +657,7 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		logging = logging.isInteger() ? logging.toInteger() : 0
 		rtData.logging = (int) logging
 		rtData.category = state.category
+		piston = piston ?: recreatePiston() // state.piston
 		rtData.piston = piston
 		rtData.locationId = hashId(location.id + '-L')
 		rtData.pistonLimits = getPistonLimits()
@@ -663,16 +698,6 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		rtData.systemVars = getSystemVariables()
 		rtData.localVars = getLocalVariables(rtData, piston.v, atomState)
 
-		//if(!rtData.commands) {
-			//rtData.attributes = attributes()
-			//rtData.commands.physical = commands()
-			//rtData.commands.virtual = virtualCommands()
-			//rtData.commands.overrides = commandOverrides()
-			//rtData.commands = [ physical: commands(), virtual: virtualCommands(), overrides: commandOverrides() ]
-			//rtData.comparisons = comparisons()
-			//rtData.virtualDevices = virtualDevices()
-			//rtData.colors = getColors()
-		//}
 //	} catch(all) {
 //			error "Error while getting runtime data:", rtData, null, all
 //	}
@@ -721,6 +746,7 @@ def timeRecoveryHandler(event) {
 }
 
 def lockRecoveryHandler(event) {
+	//log.debug "lockRecoveryHandler called"
 	timeHandler([t:now()], true)
 }
 
@@ -745,7 +771,7 @@ def getPistonLimits(){
 	]
 }
 //handler for all events
-def handleEvents(event, queue=true, callMySelf=false) {
+def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 	def tstr = " active, aborting piston execution."
 	if (!state.active) { // this is pause/resume piston
 		warn "Piston is not${tstr} (Paused)"
@@ -761,12 +787,15 @@ def handleEvents(event, queue=true, callMySelf=false) {
 		warn "Kill switch is${tstr}"
 		return;
 	}
-	def piston
+	def piston = pist
+
+// temp upgrade stuff
 	if(state.pep == null) {
-		piston = state.piston
-		// pep is parallel execution - this serializes execution of events
+		piston = recreatePiston()
 		state.pep = piston.o?.pep ? true : false
 	}
+
+	tempRtData.piston = piston
 	def appId = hashId(app.id)
 	def t0 = (true && !(state.pep)) ? appId : null
 	def retSt = [:]
@@ -786,7 +815,7 @@ def handleEvents(event, queue=true, callMySelf=false) {
 	unschedule(timeHandler)
 	unschedule(timeRecoveryHandler)
 	Map rtData = getRunTimeData(tempRtData, retSt )
-	piston = state.piston
+	piston = piston ?: rtData.piston // state.piston
 	checkVersion(rtData)
 	def ver = version()
 
@@ -871,7 +900,7 @@ def handleEvents(event, queue=true, callMySelf=false) {
 		syncTime = true
 
 		//if (rtData.semaphoreDelay) break //if we waited at a semaphore, we don't want to process too many events  // ACTUALLY WE DO WANT TO CATCH UP
-		pause(30)
+		//pause(30)
 	}
 
 	rtData.stats.timing.e = now() - startTime
@@ -891,21 +920,19 @@ def handleEvents(event, queue=true, callMySelf=false) {
 		//} catch (all) {
 		//}
 	}
-	//pause(350) // time buffer for event propagation
 
 // process queued events in time order
 	while(!callMySelf) {
-		def qsize 
+		unschedule(lockRecoveryHandler)
 		def evtQ = atomicState.aevQ
 		if (evtQ == null || evtQ == [] || evtQ.size() == 0) break
-		qsize = evtQ.size()
 		def evtList = evtQ.sort { it.t }
 		def theEvent = evtList.remove(0)
 		atomicState.aevQ = evtList
+		def qsize = evtQ.size()
 		if(qsize > 8) { error "large queue size ${qsize}" }
-		unschedule(lockRecoveryHandler)
 		theEvent.date = new Date(theEvent.t)
-		handleEvents(theEvent, false, true)
+		handleEvents(theEvent, false, true, rtData.piston)
 	}
 	relSem(rtData)
 	if(rtData.logging > 2) debug "Exiting", rtData
@@ -939,7 +966,6 @@ private Boolean executeEvent(rtData, event) {
 		rtData.currentEvent = [
 			date: event.date.getTime(),
 			delay: rtData.stats?.timing?.d ?: 0,
-			//device: srcEvent ? srcEvent.device : hashId((event.device?:location).id + (isHubitat() ? !isDeviceLocation(device) ? '' : '-L' : '')),
 			device: srcEvent ? srcEvent.device : hashId((event.device?:location).id + (!isDeviceLocation(device) ? '' : '-L' )),
 			name: srcEvent ? srcEvent.name : event.name,
 			value: srcEvent ? srcEvent.value : event.value,
@@ -1051,21 +1077,7 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 	stats.timing.push(rtData.stats.timing)
 	if (stats.timing.size() > rtData.pistonLimits.maxStats) stats.timing = stats.timing[stats.timing.size() - rtData.pistonLimits.maxStats..stats.timing.size() - 1]
 	rtData.trace.d = now() - rtData.trace.t
-/*
-	//temporary fix for migration from single to multiple tiles
-	if (rtData.state.i || rtData.state.t) {
-		rtData.state.i1 = rtData.state.i
-		rtData.state.t1 = rtData.state.t
-		rtData.state.c1 = rtData.state.c
-		rtData.state.b1 = rtData.state.b
-		rtData.state.f1 = rtData.state.f
-		rtData.state.remove('i')
-		rtData.state.remove('t')
-		rtData.state.remove('c')
-		rtData.state.remove('b')
-		rtData.state.remove('f')
-	}
-*/
+
 	state.state = rtData.state
 	state.stats = stats
 	state.trace = rtData.trace
@@ -1084,6 +1096,9 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 		state.schedules = atomicState.schedules
 		atomicState.cache = rtData.cache
 		atomicState.store = rtData.store
+/*	} else {
+		def vars = state.vars
+		atomicState.vars = vars */
 	}
 	state.cache = rtData.cache
 	state.store = rtData.store
@@ -1146,8 +1161,9 @@ private processSchedules(rtData, scheduleJob = false) {
 			t = (t < 1 ? 1 : t)
 			rtData.stats.nextSchedule = next.t
 			if (rtData.logging) info "Setting up scheduled job for ${formatLocalTime(next.t)} (in ${t}s)" + (schedules.size() > 1 ? ', with ' + (schedules.size() - 1).toString() + ' more job' + (schedules.size() > 2 ? 's' : '') + ' pending' : ''), rtData
-			runIn(t.toInteger(), timeHandler, [data: next])
-			runIn((t.toInteger() + rtData.pistonLimits.recovery).toInteger(), timeRecoveryHandler, [data: next])
+			int t1 = Math.round((t+0.34))
+			runIn(t1, timeHandler, [data: next])
+			runIn((t1 + rtData.pistonLimits.recovery), timeRecoveryHandler, [data: next])
 		} else {
 			rtData.stats.nextSchedule = 0
 			//remove the recovery
@@ -1751,10 +1767,8 @@ private long executeVirtualCommand(rtData, devices, command, params)
 
 private executePhysicalCommand(rtData, device, command, params = [], delay = null, scheduleDevice = null, disableCommandOptimization = false) {
 	if (!!delay && !!scheduleDevice) {
-//		if(isHubitat() ) {
-			//delay without schedules is not supported in hubitat
-			scheduleDevice = hashId(device.id)
-//		}
+		//delay without schedules is not supported in hubitat
+		scheduleDevice = hashId(device.id)
 		//we're using schedules instead
 		def statement = rtData.currentAction
 		def cs = [] + ((statement.tcp == 'b') || (statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
@@ -2929,6 +2943,7 @@ private long vcmd_executePiston(rtData, device, params) {
 	}
 	if (wait) {
 		wait = !!parent.executePiston(pistonId, data, selfId)
+		pause(100)
 	}
 	if (!wait) {
 		sendLocationEvent(name: pistonId, value: selfId, isStateChange: true, displayed: false, linkText: description, descriptionText: description, data: data)
@@ -3188,7 +3203,6 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 */
 			requestContentType: "application/json"
 		]
-		//if (asynchttp_v1) asynchttp_v1.put(null, requestParams)
 		asynchttpPut('myDone', requestParams, [bbb:0])
 	} /* else {
 		log.error "Fuel stream app is not installed. Install it to write to local fuel streams"
@@ -3483,7 +3497,7 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		updateCache(rtData, value)
 			values.push(value)
 			j++
-			}
+		}
 		if ((values.size() > 1) && !(operand.g in ['any', 'all'])) {
 			//if we have multiple values and a grouping other than any or all we need to apply that function
 			try {
@@ -3547,12 +3561,6 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 			break;
 		case 'email':
 			values = [[i: "${node?.$}:v", v:[t: 'email', v: (rtData.event.name == operand.v ? rtData.event.value : null)]]];
-			break;
-		case 'askAlexa':
-			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == 'askAlexaMacro' ? hashId(rtData.event.value) : null)]]];
-			break;
-		case 'echoSistant':
-			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == 'echoSistantProfile' ? hashId(rtData.event.value) : null)]]];
 			break;
 		}
 		break
@@ -4170,17 +4178,7 @@ private traverseExpressions(node, closure, param, parentNode = null) {
 }
 
 private getRoutineById(routineId) {
-	//if(isHubitat()) return [ id : routineId ]
 	return [ id : routineId ]
-/*
-	def routines = location.helloHome?.getPhrases()
-	for(routine in routines) {
-		if (routine && routine?.label && (hashId(routine.id) == routineId)) {
-			return routine
-	}
-	}
-	return null
-*/
 }
 
 private void updateDeviceList(rtData, deviceIdList) {
@@ -4299,27 +4297,12 @@ private void subscribeAll(rtData) {
 				subscriptionId = "$deviceId${operand.v}"
 				attribute = operand.v
 				break
-/* HE does not have routines
-			case 'routine':
-				if (value && (value.t == 'c') && (value.c)) {
-					def routine = getRoutineById(value.c)
-					if (routine) {
-						subscriptionId = "$deviceId${operand.v}${routine.id}"
-						attribute = "routineExecuted${isHubitat() ? "" : ("." + routine.id)}"
-					}
-				}
-				break
-*/
 			case 'email':
 				subscriptionId = "$deviceId${operand.v}${hashId(app.id)}"
 				//attribute = "email${isHubitat() ? "" : ("." + hashId(app.id))}"
 				attribute = "email.${hashId(app.id)}" // receive email does not work in webcore
 				break
 			case 'ifttt':
-/*
-			case 'askAlexa':
-			case 'echoSistant':
-*/
 				if (value && (value.t == 'c') && (value.c)) {
 					def options = rtData.virtualDevices[operand.v]?.o
 					//def options = VirtualDevices[operand.v]?.o
@@ -4330,15 +4313,6 @@ private void subscribeAll(rtData) {
 						//def attrVal = isHubitat() ? "" : ".${item}"
 						def attrVal = ".${item}"
 						attribute = "${operand.v}${attrVal}"
-/*						switch (operand.v) {
-						case 'askAlexa':
-							attribute = "askAlexaMacro${attrVal}"
-							break;
-						case 'echoSistant':
-							attribute = "echoSistantProfile${attrVal}"
-							break;
-						}
-*/
 					}
 				}
 				break
@@ -4886,14 +4860,6 @@ private Map getWeather(rtData, name) {
 	warn 'Hubitat does not support $weather', rtData
 	List parts = name.tokenize('.');
 	rtData.weather = rtData.weather ?: [:]
-/*
-	if (parts.size() > 0) {
-		def dataFeature = parts[0]
-		if (rtData.weather[dataFeature] == null) {
-			rtData.weather[dataFeature] = app.getWeatherFeature(dataFeature) // getTwcConditions()  dataFeature == "conditions"
-		}
-	}
-*/
 	return getJsonData(rtData, rtData.weather, name)
 }
 
@@ -5068,7 +5034,9 @@ private Map setVariable(rtData, name, value) {
 				def vars = state.vars
 				vars[name] = variable.v
 				state.vars = vars
-				atomicState.vars = vars
+				if(rtData.piston.o?.pep) {
+					atomicState.vars = vars
+				}
 			}
 			return variable
 
@@ -5077,6 +5045,7 @@ private Map setVariable(rtData, name, value) {
  	result = [t: 'error', v: 'Invalid variable']
 }
 
+/*
 def setLocalVariable(name, value) {
 	name = sanitizeVariableName(name)
 	if (!name || name.startsWith('@')) return
@@ -5085,6 +5054,7 @@ def setLocalVariable(name, value) {
 	atomicState.vars = vars
 	return vars
 }
+*/
 
 /******************************************************************************/
 /*** 										***/
@@ -5534,9 +5504,9 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 			switch (o) {
 				case '?':
 				case ':':
-				error "Invalid ternary operator. Ternary operator's syntax is ( condition ? trueValue : falseValue ). Please check your syntax and try again.", rtData
-				v = '';
-				break
+					error "Invalid ternary operator. Ternary operator's syntax is ( condition ? trueValue : falseValue ). Please check your syntax and try again.", rtData
+					v = '';
+					break
 				case '-':
 					v = v1 - v2
 					break
@@ -5648,11 +5618,11 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 	if (dataType && (dataType != 'device') && (result.t == 'device')) {
 		//if not a list, make it a list
 		if (!(result.v instanceof List)) result.v = [result.v]
-	switch (result.v.size()) {
-		case 0: result = [t: 'error', v: 'Empty device list']; break;
-		case 1: result = getDeviceAttribute(rtData, result.v[0], result.a, result.i); break;
-		default: result = [t: 'string', v: buildDeviceAttributeList(rtData, result.v, result.a)]; break;
-	}
+		switch (result.v.size()) {
+			case 0: result = [t: 'error', v: 'Empty device list']; break;
+			case 1: result = getDeviceAttribute(rtData, result.v[0], result.a, result.i); break;
+			default: result = [t: 'string', v: buildDeviceAttributeList(rtData, result.v, result.a)]; break;
+		}
 	}
 	if (dataType) {
 		result = [t: dataType, v: cast(rtData, result.v, dataType, result.t)] + (result.a ? [a: result.a] : [:]) + (result.i ? [a: result.i] : [:])
@@ -7403,38 +7373,8 @@ private utcToLocalDate(dateOrTimeOrString = null) { // this is really cast somet
 }
 private localDate() { return utcToLocalDate() }
 
-/*private utcToLocalTime(dateOrTimeOrString = null) {
-	if (dateOrTimeOrString instanceof String) {
-		//get UTC time
-//		dateOrTimeOrString = timeToday(dateOrTimeOrString, location.timeZone).getTime()
-		dateOrTimeOrString = stringToTime(dateOrTimeOrString)
-	}
-	if (dateOrTimeOrString instanceof Date) {
-		//get unix time
-		dateOrTimeOrString = dateOrTimeOrString.getTime()
-	}
-	if (!dateOrTimeOrString) {
-		//dateOrTimeOrString = now()
-		return now()
-	}
-	if (dateOrTimeOrString instanceof Long) {
-		return dateOrTimeOrString 
-	}
-	return null
-}*/
-
 private localTime() { return now() } //utcToLocalTime() }
 
-/* private localToUtcDate(dateOrTime) {
-	if (dateOrTime instanceof Date) {
-		//get unix time
-		dateOrTime = dateOrTime.getTime()
-	}
-	if (dateOrTime instanceof Long) {
-		return new Date(dateOrTime)
-	}
-	return null
-}*/
 
 private stringToTime(dateOrTimeOrString) { // this is convert something to time
 	if (dateOrTimeOrString instanceof Date) {
@@ -8058,162 +7998,21 @@ private void resetRandomValues() {
 }
 
 private Map getColorByName(rtData, name){
-	//return (rtData.colors ?: parent.getColors()).find{ it.name == name }
-	return Colors.find{ it.name == name }
+	if(rtData.colors == null) { rtData.colors = parent.getColors() }
+	return rtData.colors.find{ it.name == name }
+	//return Colors.find{ it.name == name }
 }
 
 private Map getRandomColor(rtData){
-	//def colors = Colors //(rtData.colors ?: parent.getColors())
-	def random = (int)(Math.random() * Colors.size())
-	return Colors[random]
+	if(rtData.colors == null) { rtData.colors = parent.getColors() }
+	def colors = rtData.colors
+	//def random = (int)(Math.random() * Colors.size())
+	//return Colors[random]
+	def random = (int)(Math.random() * colors.size())
+	return colors[random]
 }
 
 import groovy.transform.Field
-
-@Field final List Colors = [
-	[name:"Alice Blue",	rgb:"#F0F8FF",	h:208,	s:100,	l:97],
-	[name:"Antique White",	rgb:"#FAEBD7",	h:34,	s:78,	l:91],
-	[name:"Aqua",		rgb:"#00FFFF",	h:180,	s:100,	l:50],
-	[name:"Aquamarine",	rgb:"#7FFFD4",	h:160,	s:100,	l:75],
-	[name:"Azure",		rgb:"#F0FFFF",	h:180,	s:100,	l:97],
-	[name:"Beige",		rgb:"#F5F5DC",	h:60,	s:56,	l:91],
-	[name:"Bisque",		rgb:"#FFE4C4",	h:33,	s:100,	l:88],
-	[name:"Blanched Almond", rgb:"#FFEBCD",	h:36,	s:100,	l:90],
-	[name:"Blue",		rgb:"#0000FF",	h:240,	s:100,	l:50],
-	[name:"Blue Violet",	rgb:"#8A2BE2",	h:271,	s:76,	l:53],
-	[name:"Brown",		rgb:"#A52A2A",	h:0,	s:59,	l:41],
-	[name:"Burly Wood",	rgb:"#DEB887",	h:34,	s:57,	l:70],
-	[name:"Cadet Blue",	rgb:"#5F9EA0",	h:182,	s:25,	l:50],
-	[name:"Chartreuse",	rgb:"#7FFF00",	h:90,	s:100,	l:50],
-	[name:"Chocolate",	rgb:"#D2691E",	h:25,	s:75,	l:47],
-	[name:"Cool White",	rgb:"#F3F6F7",	h:187,	s:19,	l:96],
-	[name:"Coral",		rgb:"#FF7F50",	h:16,	s:100,	l:66],
-	[name:"Corn Flower Blue",	rgb:"#6495ED",	h:219,	s:79,	l:66],
-	[name:"Corn Silk",	rgb:"#FFF8DC",	h:48,	s:100,	l:93],
-	[name:"Crimson",	rgb:"#DC143C",	h:348,	s:83,	l:58],
-	[name:"Cyan",		rgb:"#00FFFF",	h:180,	s:100,	l:50],
-	[name:"Dark Blue",	rgb:"#00008B",	h:240,	s:100,	l:27],
-	[name:"Dark Cyan",	rgb:"#008B8B",	h:180,	s:100,	l:27],
-	[name:"Dark Golden Rod",rgb:"#B8860B",	h:43,	s:89,	l:38],
-	[name:"Dark Gray",	rgb:"#A9A9A9",	h:0,	s:0,	l:66],
-	[name:"Dark Green",	rgb:"#006400",	h:120,	s:100,	l:20],
-	[name:"Dark Khaki",	rgb:"#BDB76B",	h:56,	s:38,	l:58],
-	[name:"Dark Magenta",	rgb:"#8B008B",	h:300,	s:100,	l:27],
-	[name:"Dark Olive Green",	rgb:"#556B2F",	h:82,	s:39,	l:30],
-	[name:"Dark Orange",	rgb:"#FF8C00",	h:33,	s:100,	l:50],
-	[name:"Dark Orchid",	rgb:"#9932CC",	h:280,	s:61,	l:50],
-	[name:"Dark Red",	rgb:"#8B0000",	h:0,	s:100,	l:27],
-	[name:"Dark Salmon",	rgb:"#E9967A",	h:15,	s:72,	l:70],
-	[name:"Dark Sea Green",	rgb:"#8FBC8F",	h:120,	s:25,	l:65],
-	[name:"Dark Slate Blue",rgb:"#483D8B",	h:248,	s:39,	l:39],
-	[name:"Dark Slate Gray",rgb:"#2F4F4F",	h:180,	s:25,	l:25],
-	[name:"Dark Turquoise",	rgb:"#00CED1",	h:181,	s:100,	l:41],
-	[name:"Dark Violet",	rgb:"#9400D3",	h:282,	s:100,	l:41],
-	[name:"Daylight White",	rgb:"#CEF4FD",	h:191,	s:9,	l:90],
-	[name:"Deep Pink",	rgb:"#FF1493",	h:328,	s:100,	l:54],
-	[name:"Deep Sky Blue",	rgb:"#00BFFF",	h:195,	s:100,	l:50],
-	[name:"Dim Gray",	rgb:"#696969",	h:0,	s:0,	l:41],
-	[name:"Dodger Blue",	rgb:"#1E90FF",	h:210,	s:100,	l:56],
-	[name:"Fire Brick",	rgb:"#B22222",	h:0,	s:68,	l:42],
-	[name:"Floral White",	rgb:"#FFFAF0",	h:40,	s:100,	l:97],
-	[name:"Forest Green",	rgb:"#228B22",	h:120,	s:61,	l:34],
-	[name:"Fuchsia",	rgb:"#FF00FF",	h:300,	s:100,	l:50],
-	[name:"Gainsboro",	rgb:"#DCDCDC",	h:0,	s:0,	l:86],
-	[name:"Ghost White",	rgb:"#F8F8FF",	h:240,	s:100,	l:99],
-	[name:"Gold",		rgb:"#FFD700",	h:51,	s:100,	l:50],
-	[name:"Golden Rod",	rgb:"#DAA520",	h:43,	s:74,	l:49],
-	[name:"Gray",		rgb:"#808080",	h:0,	s:0,	l:50],
-	[name:"Green",		rgb:"#008000",	h:120,	s:100,	l:25],
-	[name:"Green Yellow",	rgb:"#ADFF2F",	h:84,	s:100,	l:59],
-	[name:"Honeydew",	rgb:"#F0FFF0",	h:120,	s:100,	l:97],
-	[name:"Hot Pink",	rgb:"#FF69B4",	h:330,	s:100,	l:71],
-	[name:"Indian Red",	rgb:"#CD5C5C",	h:0,	s:53,	l:58],
-	[name:"Indigo",		rgb:"#4B0082",	h:275,	s:100,	l:25],
-	[name:"Ivory",		rgb:"#FFFFF0",	h:60,	s:100,	l:97],
-	[name:"Khaki",		rgb:"#F0E68C",	h:54,	s:77,	l:75],
-	[name:"Lavender",	rgb:"#E6E6FA",	h:240,	s:67,	l:94],
-	[name:"Lavender Blush",	rgb:"#FFF0F5",	h:340,	s:100,	l:97],
-	[name:"Lawn Green",	rgb:"#7CFC00",	h:90,	s:100,	l:49],
-	[name:"Lemon Chiffon",	rgb:"#FFFACD",	h:54,	s:100,	l:90],
-	[name:"Light Blue",	rgb:"#ADD8E6",	h:195,	s:53,	l:79],
-	[name:"Light Coral",	rgb:"#F08080",	h:0,	s:79,	l:72],
-	[name:"Light Cyan",	rgb:"#E0FFFF",	h:180,	s:100,	l:94],
-	[name:"Light Golden Rod Yellow",	rgb:"#FAFAD2",	h:60,	s:80,	l:90],
-	[name:"Light Gray",	rgb:"#D3D3D3",	h:0,	s:0,	l:83],
-	[name:"Light Green",	rgb:"#90EE90",	h:120,	s:73,	l:75],
-	[name:"Light Pink",	rgb:"#FFB6C1",	h:351,	s:100,	l:86],
-	[name:"Light Salmon",	rgb:"#FFA07A",	h:17,	s:100,	l:74],
-	[name:"Light Sea Green",rgb:"#20B2AA",	h:177,	s:70,	l:41],
-	[name:"Light Sky Blue",	rgb:"#87CEFA",	h:203,	s:92,	l:75],
-	[name:"Light Slate Gray",rgb:"#778899",	h:210,	s:14,	l:53],
-	[name:"Light Steel Blue",rgb:"#B0C4DE",	h:214,	s:41,	l:78],
-	[name:"Light Yellow",	rgb:"#FFFFE0",	h:60,	s:100,	l:94],
-	[name:"Lime",		rgb:"#00FF00",	h:120,	s:100,	l:50],
-	[name:"Lime Green",	rgb:"#32CD32",	h:120,	s:61,	l:50],
-	[name:"Linen",		rgb:"#FAF0E6",	h:30,	s:67,	l:94],
-	[name:"Maroon",		rgb:"#800000",	h:0,	s:100,	l:25],
-	[name:"Medium Aquamarine",	rgb:"#66CDAA",	h:160,	s:51,	l:60],
-	[name:"Medium Blue",	rgb:"#0000CD",	h:240,	s:100,	l:40],
-	[name:"Medium Orchid",	rgb:"#BA55D3",	h:288,	s:59,	l:58],
-	[name:"Medium Purple",	rgb:"#9370DB",	h:260,	s:60,	l:65],
-	[name:"Medium Sea Green",	rgb:"#3CB371",	h:147,	s:50,	l:47],
-	[name:"Medium Slate Blue",	rgb:"#7B68EE",	h:249,	s:80,	l:67],
-	[name:"Medium Spring Green",	rgb:"#00FA9A",	h:157,	s:100,	l:49],
-	[name:"Medium Turquoise",	rgb:"#48D1CC",	h:178,	s:60,	l:55],
-	[name:"Medium Violet Red",	rgb:"#C71585",	h:322,	s:81,	l:43],
-	[name:"Midnight Blue",	rgb:"#191970",	h:240,	s:64,	l:27],
-	[name:"Mint Cream",	rgb:"#F5FFFA",	h:150,	s:100,	l:98],
-	[name:"Misty Rose",	rgb:"#FFE4E1",	h:6,	s:100,	l:94],
-	[name:"Moccasin",	rgb:"#FFE4B5",	h:38,	s:100,	l:85],
-	[name:"Navajo White",	rgb:"#FFDEAD",	h:36,	s:100,	l:84],
-	[name:"Navy",		rgb:"#000080",	h:240,	s:100,	l:25],
-	[name:"Old Lace",	rgb:"#FDF5E6",	h:39,	s:85,	l:95],
-	[name:"Olive",		rgb:"#808000",	h:60,	s:100,	l:25],
-	[name:"Olive Drab",	rgb:"#6B8E23",	h:80,	s:60,	l:35],
-	[name:"Orange",		rgb:"#FFA500",	h:39,	s:100,	l:50],
-	[name:"Orange Red",	rgb:"#FF4500",	h:16,	s:100,	l:50],
-	[name:"Orchid",		rgb:"#DA70D6",	h:302,	s:59,	l:65],
-	[name:"Pale Golden Rod",	rgb:"#EEE8AA",	h:55,	s:67,	l:80],
-	[name:"Pale Green",	rgb:"#98FB98",	h:120,	s:93,	l:79],
-	[name:"Pale Turquoise",	rgb:"#AFEEEE",	h:180,	s:65,	l:81],
-	[name:"Pale Violet Red",	rgb:"#DB7093",	h:340,	s:60,	l:65],
-	[name:"Papaya Whip",	rgb:"#FFEFD5",	h:37,	s:100,	l:92],
-	[name:"Peach Puff",	rgb:"#FFDAB9",	h:28,	s:100,	l:86],
-	[name:"Peru",		rgb:"#CD853F",	h:30,	s:59,	l:53],
-	[name:"Pink",		rgb:"#FFC0CB",	h:350,	s:100,	l:88],
-	[name:"Plum",		rgb:"#DDA0DD",	h:300,	s:47,	l:75],
-	[name:"Powder Blue",	rgb:"#B0E0E6",	h:187,	s:52,	l:80],
-	[name:"Purple",		rgb:"#800080",	h:300,	s:100,	l:25],
-	[name:"Red",		rgb:"#FF0000",	h:0,	s:100,	l:50],
-	[name:"Rosy Brown",	rgb:"#BC8F8F",	h:0,	s:25,	l:65],
-	[name:"Royal Blue",	rgb:"#4169E1",	h:225,	s:73,	l:57],
-	[name:"Saddle Brown",	rgb:"#8B4513",	h:25,	s:76,	l:31],
-	[name:"Salmon",		rgb:"#FA8072",	h:6,	s:93,	l:71],
-	[name:"Sandy Brown",	rgb:"#F4A460",	h:28,	s:87,	l:67],
-	[name:"Sea Green",	rgb:"#2E8B57",	h:146,	s:50,	l:36],
-	[name:"Sea Shell",	rgb:"#FFF5EE",	h:25,	s:100,	l:97],
-	[name:"Sienna",		rgb:"#A0522D",	h:19,	s:56,	l:40],
-	[name:"Silver",		rgb:"#C0C0C0",	h:0,	s:0,	l:75],
-	[name:"Sky Blue",	rgb:"#87CEEB",	h:197,	s:71,	l:73],
-	[name:"Slate Blue",	rgb:"#6A5ACD",	h:248,	s:53,	l:58],
-	[name:"Slate Gray",	rgb:"#708090",	h:210,	s:13,	l:50],
-	[name:"Snow",		rgb:"#FFFAFA",	h:0,	s:100,	l:99],
-	[name:"Soft White",	rgb:"#B6DA7C",	h:83,	s:44,	l:67],
-	[name:"Spring Green",	rgb:"#00FF7F",	h:150,	s:100,	l:50],
-	[name:"Steel Blue",	rgb:"#4682B4",	h:207,	s:44,	l:49],
-	[name:"Tan",		rgb:"#D2B48C",	h:34,	s:44,	l:69],
-	[name:"Teal",		rgb:"#008080",	h:180,	s:100,	l:25],
-	[name:"Thistle",	rgb:"#D8BFD8",	h:300,	s:24,	l:80],
-	[name:"Tomato",		rgb:"#FF6347",	h:9,	s:100,	l:64],
-	[name:"Turquoise",	rgb:"#40E0D0",	h:174,	s:72,	l:56],
-	[name:"Violet",		rgb:"#EE82EE",	h:300,	s:76,	l:72],
-	[name:"Warm White",	rgb:"#DAF17E",	h:72,	s:20,	l:72],
-	[name:"Wheat",		rgb:"#F5DEB3",	h:39,	s:77,	l:83],
-	[name:"White",		rgb:"#FFFFFF",	h:0,	s:0,	l:100],
-	[name:"White Smoke",	rgb:"#F5F5F5",	h:0,	s:0,	l:96],
-	[name:"Yellow",		rgb:"#FFFF00",	h:60,	s:100,	l:50],
-	[name:"Yellow Green",	rgb:"#9ACD32",	h:80,	s:61,	l:50]
-]
 
 private static Class HubActionClass() {
 		return 'hubitat.device.HubAction' as Class
