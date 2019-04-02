@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 30, 2019 for Hubitat
+ * Last update April 2, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190330" }
+public static String HEversion() { return "v0.3.10a.20190402" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -286,7 +286,7 @@ def recreatePiston() {
 		setIds(piston)
 		return piston
 	}
-	return null
+	return [:]
 }
 
 def setup(data, chunks) {
@@ -962,6 +962,7 @@ private Boolean executeEvent(rtData, event) {
 			setSystemVariableValue(rtData, '$devices', event.schedule.stack.devices)
 			rtData.json = event.schedule.stack.json ?: [:]
 			rtData.response = event.schedule.stack.response ?: [:]
+// more to restore here?
 		}
 		rtData.currentEvent = [
 			date: event.date.getTime(),
@@ -1716,17 +1717,6 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 	boolean reschedule = (delay < 0)
 	delay = reschedule ? -delay : delay
 
-	//get remaining piston time
-	def overBy = checkForSlowdown(rtData)
-	if(overBy > 0) {
-		def mdelay = rtData.pistonLimits.taskShortDelay
-		if(overBy > 30000) {
-			mdelay = rtData.pistonLimits.taskLongDelay
-		}
-		def actDelay = doPause("ExecuteTask: Execution time exceeded ${overBy}ms, Waiting for ${mdelay}ms ($delay)", mdelay, rtData)
-		if(actDelay && delay && delay > mdelay) delay -= actDelay
-	}
-
 	if (delay) {
 		//get remaining piston time
 //		def timeLeft = rtData.pistonLimits.executionTime + rtData.timestamp - now()
@@ -1747,6 +1737,17 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 		}
 	}
 	tracePoint(rtData, "t:${task.$}", now() - t, delay)
+
+	//get remaining piston time
+	def overBy = checkForSlowdown(rtData)
+	if(overBy > 0) {
+		def mdelay = rtData.pistonLimits.taskShortDelay
+		if(overBy > 30000) {
+			mdelay = rtData.pistonLimits.taskLongDelay
+		}
+		def actDelay = doPause("ExecuteTask: Execution time exceeded ${overBy}ms, Waiting for ${mdelay}ms", mdelay, rtData)
+	}
+
 	return true
 }
 
@@ -2198,6 +2199,7 @@ private requestWakeUp(rtData, statement, task, timeOrDelay, data = null) {
 	def cs = [] + ((statement.tcp == 'b') || (statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
 	def ps = (statement.tcp == 'b') || (statement.tcp == 'p') ? 1 : 0
 	cs.removeAll{ it == 0 }
+// state to save across a sleep
 	def schedule = [
 		t: time,
 		s: statement.$,
@@ -2213,6 +2215,7 @@ private requestWakeUp(rtData, statement, task, timeOrDelay, data = null) {
 			devices: getVariable(rtData, '$devices').v,
 			json: rtData.json ?: [:],
 			response: rtData.response ?: [:]
+// what about previousEvent httpContentType  httpStatusCode  httpStatusOk  iftttStatusCode  iftttStatusOk  "\$mediaId" "\$mediaUrl"  "\$mediaType"   mediaData (big)
 		]
 	]
 
@@ -4920,78 +4923,78 @@ private Map getVariable(rtData, name) {
 		if (!(result instanceof Map)) result = [t: "error", v: "Variable '$name' not found"]
 	} else {
 		if (name.startsWith('$')) {
-		if (name.startsWith('$args.') && (name.size() > 6)) {
-			result = getArgument(rtData, name.substring(6))
-		} else if (name.startsWith('$args[') && (name.size() > 6)) {
-			result = getArgument(rtData, name.substring(5))
-		} else if (name.startsWith('$json.') && (name.size() > 6)) {
-			result = getJson(rtData, name.substring(6))
-		} else if (name.startsWith('$json[') && (name.size() > 6)) {
-			result = getJson(rtData, name.substring(5))
-		} else if (name.startsWith('$places.') && (name.size() > 8)) {
-			result = getPlaces(rtData, name.substring(7))
-		} else if (name.startsWith('$places[') && (name.size() > 8)) {
-			result = getPlaces(rtData, name.substring(7))
-		} else if (name.startsWith('$response.') && (name.size() > 10)) {
-			result = getResponse(rtData, name.substring(10))
-		} else if (name.startsWith('$response[') && (name.size() > 10)) {
-			result = getResponse(rtData, name.substring(9))
-		} else if (name.startsWith('$nfl.') && (name.size() > 5)) {
-			result = getNFL(rtData, name.substring(5))
+			if (name.startsWith('$args.') && (name.size() > 6)) {
+				result = getArgument(rtData, name.substring(6))
+			} else if (name.startsWith('$args[') && (name.size() > 6)) {
+				result = getArgument(rtData, name.substring(5))
+			} else if (name.startsWith('$json.') && (name.size() > 6)) {
+				result = getJson(rtData, name.substring(6))
+			} else if (name.startsWith('$json[') && (name.size() > 6)) {
+				result = getJson(rtData, name.substring(5))
+			} else if (name.startsWith('$places.') && (name.size() > 8)) {
+				result = getPlaces(rtData, name.substring(7))
+			} else if (name.startsWith('$places[') && (name.size() > 8)) {
+				result = getPlaces(rtData, name.substring(7))
+			} else if (name.startsWith('$response.') && (name.size() > 10)) {
+				result = getResponse(rtData, name.substring(10))
+			} else if (name.startsWith('$response[') && (name.size() > 10)) {
+				result = getResponse(rtData, name.substring(9))
+			} else if (name.startsWith('$nfl.') && (name.size() > 5)) {
+				result = getNFL(rtData, name.substring(5))
 /*
-		} else if (name.startsWith('$weather.') && (name.size() > 9)) {
-			result = getWeather(rtData, name.substring(9))
+			} else if (name.startsWith('$weather.') && (name.size() > 9)) {
+				result = getWeather(rtData, name.substring(9))
 */
-		} else if (name.startsWith('$incidents.') && (name.size() > 11)) {
-			result = getIncidents(rtData, name.substring(11))
-		} else if (name.startsWith('$incidents[') && (name.size() > 11)) {
-			result = getIncidents(rtData, name.substring(10))
-		} else {
-			result = rtData.systemVars[name]
-			if (!(result instanceof Map)) result = [t: "error", v: "Variable '$name' not found"]
-			if (result && result.d) {
-				result = [t: result.t, v: getSystemVariableValue(rtData, name)]
+			} else if (name.startsWith('$incidents.') && (name.size() > 11)) {
+				result = getIncidents(rtData, name.substring(11))
+			} else if (name.startsWith('$incidents[') && (name.size() > 11)) {
+				result = getIncidents(rtData, name.substring(10))
+			} else {
+				result = rtData.systemVars[name]
+				if (!(result instanceof Map)) result = [t: "error", v: "Variable '$name' not found"]
+				if (result && result.d) {
+					result = [t: result.t, v: getSystemVariableValue(rtData, name)]
+				}
 			}
-		}
 		} else {
 			def localVar = rtData.localVars[name]
-		if (!(localVar instanceof Map)) {
-			result = [t: "error", v: "Variable '$name' not found"]
-		} else {
-			result = [t: localVar.t, v: localVar.v]
-		//make a local copy of the list
-		if (result.v instanceof List) result.v = [] + result.v
-		//make a local copy of the map
-		if (result.v instanceof Map) result.v = [:] + result.v
-		}
+			if (!(localVar instanceof Map)) {
+				result = [t: "error", v: "Variable '$name' not found"]
+			} else {
+				result = [t: localVar.t, v: localVar.v]
+				//make a local copy of the list
+				if (result.v instanceof List) result.v = [] + result.v
+				//make a local copy of the map
+				if (result.v instanceof Map) result.v = [:] + result.v
+			}
 		}
 	}
 	if (result && (result.t.endsWith(']'))) {
 		result.t = result.t.replace('[]', '')
 		if ((result.v instanceof Map) && (var.index != null) && (var.index != '')) {
-		Map indirectVar = getVariable(rtData, var.index)
-		//indirect variable addressing
-		if (indirectVar && (indirectVar.t != 'error')) {
-			def value = indirectVar.t == 'decimal' ? cast(rtData, indirectVar.v, 'integer', indirectVar.t) : indirectVar.v
-			def dataType = indirectVar.t == 'decimal' ? 'integer' : indirectVar.t
-			var.index = cast(rtData, value, 'string', dataType)
+			Map indirectVar = getVariable(rtData, var.index)
+			//indirect variable addressing
+			if (indirectVar && (indirectVar.t != 'error')) {
+				def value = indirectVar.t == 'decimal' ? cast(rtData, indirectVar.v, 'integer', indirectVar.t) : indirectVar.v
+				def dataType = indirectVar.t == 'decimal' ? 'integer' : indirectVar.t
+				var.index = cast(rtData, value, 'string', dataType)
+			}
+			result.v = result.v[var.index]
+//		} else {
+			//result.v = "$result.v"
 		}
-		result.v = result.v[var.index]
-//	} else {
-		//result.v = "$result.v"
-	}
 	} else {
-	/*if (result && (result.t == 'device')) {
-		def deviceIds = []
-		def devices = []
-		for(deviceId in ((result.v instanceof List) ? result.v : [result.v])) {
-		deviceIds.push(deviceId)
+	/*	if (result && (result.t == 'device')) {
+			def deviceIds = []
+			def devices = []
+			for(deviceId in ((result.v instanceof List) ? result.v : [result.v])) {
+				deviceIds.push(deviceId)
+			}
+			result = [t: result.t, v: deviceIds]
+		} else*/ if (result.v instanceof Map) {
+			//we're dealing with an operand, let's parse it
+			result = evaluateExpression(rtData, evaluateOperand(rtData, null, result.v), result.t)
 		}
-		result = [t: result.t, v: deviceIds]
-	} else*/ if (result.v instanceof Map) {
-		//we're dealing with an operand, let's parse it
-		result = evaluateExpression(rtData, evaluateOperand(rtData, null, result.v), result.t)
-	}
 	}
 	return [t: result.t, v: result.v]
 }
