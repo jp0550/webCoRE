@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 30, 2019 for Hubitat
+ * Last Updated April 02, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190330" }
+public String HEversion() { return "v0.3.10a.20190402" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -785,6 +785,7 @@ private api_get_base_result(deviceVersion = 0, updateCache = false) {
 			uri: state.endpoint,
 			deviceVersion: currentDeviceVersion,
 			coreVersion: version(),
+			heVersion: HEversion(),
 			enabled: !settings.disabled,
 			settings: state.settings ?: [:],
 			lifx: state.lifx ?: [:],
@@ -931,7 +932,7 @@ private api_intf_dashboard_piston_new() {
 
 private api_intf_dashboard_piston_create() {
 	def result
-	debug "Dashboard: Request received to generate a new piston name"
+	debug "Dashboard: Request received to create a new piston"
 	if (verifySecurityToken(params.token)) {
 		def piston = addChildApp("ady624", "${handle()} Piston", params.name?:generatePistonName())
 		if (params.author || params.bin) {
