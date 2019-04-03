@@ -779,21 +779,25 @@ def getPistonLimits(){
 }
 //handler for all events
 def handleEvents(event, queue=true, callMySelf=false, pist=null) {
-	def tstr = " active, aborting piston execution."
-	if (!state.active) { // this is pause/resume piston
-		warn "Piston is not${tstr} (Paused)"
-		return
-	}
 	def startTime = now()
 	state.lastExecuted = startTime
 	def eventDelay = startTime - event.date.getTime()
 	def msg = timer "Event processed successfully", null, -1
 	def tempRtData = getTemporaryRunTimeData()
 	if (tempRtData.logging) info "Received event [${event?.device?.label?: event?.device?.name?:location}].${(event.name == 'time') ? event.name + (event.recovery ? '/recovery' : '') : event.name} = ${event.value} with a delay of ${eventDelay}ms, canQueue: ${queue}, calledMyself: ${callMySelf}", tempRtData, 0
-	if(!!state.disabled) {
-		warn "Kill switch is${tstr}"
-		return;
+
+	def tstr = " active, aborting piston execution."
+	if (!state.active) { // this is pause/resume piston
+		msg.m = "Piston is not${tstr} (Paused)"
 	}
+	if(!!state.disabled) {
+		msg.m = "Kill switch is${tstr}"
+	}
+	if (!state.active || !!state.disabled) {
+		if(tempRtData.logging) info msg, tempRtData
+		return
+	}
+
 	def piston = pist
 
 // temp upgrade stuff
@@ -809,7 +813,8 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 	if(t0 && !callMySelf) {
 		retSt = lockOrQueueSemaphore(t0, event, queue, tempRtData)
 		if(retSt.exitOut) {  // we queued the event - release thread; will run event later
-			if(tempRtData.logging > 1) trace "Event Queued", tempRtData, -1
+			msg.m = "Event queued"
+			if(tempRtData.logging) info msg, tempRtData
 			return retSt
 		}
 	}
