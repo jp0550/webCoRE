@@ -567,6 +567,7 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 	def semaphoreName
 	def tsemaphoreName = "sph"
 	def waited = false
+	def didQ = false
 	def tt1 = now()
 	def startTime = tt1
 	if(semaphore) {
@@ -586,7 +587,7 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 				if(event) {
 					def eventlst = []
 					def myEvent = [
-						t: event.date.getTime(),
+						date: event.date,
 						name: event.name,
 						value: event.value,
 						descriptionText: event.descriptionText,
@@ -594,9 +595,13 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 						physical: event?.physical,
 						jsonData: event?.jsonData,
 					] + (event instanceof com.hubitat.hub.domain.Event ? [:] : [
-//						index: event?.index,
+						index: event?.index,
 						recovery: event?.recovery,
-						schedule: event?.schedule
+						schedule: event?.schedule,
+						contentType: event?.contentType,
+						responseData: event?.responseData,
+						responseCode: event?.responseCode,
+						setRtData: event?.setRtData
 					])
 					if(event.device) {
 						myEvent.device = [id: event.device?.id, name: event.device?.name, label: event.device?.label ]
@@ -608,6 +613,7 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 					eventlst = mt0 ?: []
 					eventlst.push(myEvent)
 					atomicState.aevQ = eventlst
+					didQ = true
 					runIn(getPistonLimits().recovery.toInteger(), lockRecoveryHandler)
 				}
 				semaphore = null
@@ -626,7 +632,7 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 		semaphoreDelay: semaphoreDelay,
 		waited: waited
 	]
-	if(waited && queue) {
+	if(didQ) {
 		t0.exitOut = true
 	}
 	return t0
