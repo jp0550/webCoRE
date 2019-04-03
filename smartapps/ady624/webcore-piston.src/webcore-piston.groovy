@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 2, 2019 for Hubitat
+ * Last update April 3, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190402" }
+public static String HEversion() { return "v0.3.10a.20190403" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -592,11 +592,12 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 						descriptionText: event.descriptionText,
 						unit: event?.unit,
 						physical: event?.physical,
-//						index: event?.index,
 						jsonData: event?.jsonData,
+					] + (event instanceof com.hubitat.hub.domain.Event ? [:] : [
+//						index: event?.index,
 						recovery: event?.recovery,
 						schedule: event?.schedule
-					]
+					])
 					if(event.device) {
 						myEvent.device = [id: event.device?.id, name: event.device?.name, label: event.device?.label ]
 						if(event.device?.hubs) {
@@ -3186,8 +3187,7 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 
 	if(rtData.useLocalFuelStreams){
 		parent.writeToFuelStream(req)
-	}
-	else /* if(!isHubitat()) */  {
+	} /* else if(!isHubitat()) {
 		def requestParams = [
 			uri:  "https://api-${rtData.region}-${rtData.instanceId[32]}.webcore.co:9247",
 			path: "/fuelStream/write",
@@ -3195,21 +3195,12 @@ private long vcmd_writeToFuelStream(rtData, device, params) {
 				'ST' : rtData.instanceId
 				],
 			body: req,
-/*
-				[
-				c: canister,
-				n: name,
-				s: source,
-				d: data,
-				i: rtData.instanceId
-				],
-*/
 			requestContentType: "application/json"
 		]
 		asynchttpPut('myDone', requestParams, [bbb:0])
-	} /* else {
+	}*/  else {
 		log.error "Fuel stream app is not installed. Install it to write to local fuel streams"
-	} */
+	} 
 
 	return 0
 }
@@ -3234,7 +3225,6 @@ private long vcmd_storeMedia(rtData, device, params) {
 		body: data,
 		requestContentType: rtData.mediaType
 	]
-	//if (asynchttp_v1) asynchttp_v1.put(asyncHttpRequestHandler, requestParams, [command: 'storeMedia'])
 	asynchttpPut(asyncHttpRequestHandler, requestParams, [command: 'storeMedia'])
 	return 24000
 }
