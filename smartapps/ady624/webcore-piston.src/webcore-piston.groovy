@@ -938,7 +938,7 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 		unschedule(lockRecoveryHandler)
 		def evtQ = atomicState.aevQ
 		if (evtQ == null || evtQ == [] || evtQ.size() == 0) break
-		def evtList = evtQ.sort { it.t }
+		def evtList = evtQ.sort { it.date.getTime() }
 		def theEvent = evtList.remove(0)
 		atomicState.aevQ = evtList
 		def qsize = evtQ.size()
