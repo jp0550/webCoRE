@@ -587,8 +587,7 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 				if(event) {
 					def eventlst = []
 					def myEvent = [
-						//date: event.date,
-						date: new Date(event.date.getTime()),
+						t: event.date.getTime(),
 						name: event.name,
 						value: event.value,
 						descriptionText: event.descriptionText,
@@ -937,15 +936,19 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 // process queued events in time order
 	while(!callMySelf) {
 		unschedule(lockRecoveryHandler)
+try {
 		def evtQ = atomicState.aevQ
 		if (evtQ == null || evtQ == [] || evtQ.size() == 0) break
-		def evtList = evtQ.sort { it.date.getTime() }
+		def evtList = evtQ.sort { it.t }
 		def theEvent = evtList.remove(0)
 		atomicState.aevQ = evtList
 		def qsize = evtQ.size()
 		if(qsize > 8) { error "large queue size ${qsize}" }
-		//theEvent.date = new Date(theEvent.t)
+		theEvent.date = new Date(theEvent.t)
 		handleEvents(theEvent, false, true, rtData.piston)
+} catch (e) {
+		atomicState.aevQ =  [:]
+}
 	}
 	relSem(rtData)
 	if(rtData.logging > 2) debug "Exiting", rtData
