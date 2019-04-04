@@ -587,7 +587,8 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 				if(event) {
 					def eventlst = []
 					def myEvent = [
-						date: event.date,
+						//date: event.date,
+						date: new Date(event.date.getTime()),
 						name: event.name,
 						value: event.value,
 						descriptionText: event.descriptionText,
