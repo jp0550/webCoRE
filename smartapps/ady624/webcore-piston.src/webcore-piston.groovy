@@ -943,7 +943,7 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 		atomicState.aevQ = evtList
 		def qsize = evtQ.size()
 		if(qsize > 8) { error "large queue size ${qsize}" }
-		theEvent.date = new Date(theEvent.t)
+		//theEvent.date = new Date(theEvent.t)
 		handleEvents(theEvent, false, true, rtData.piston)
 	}
 	relSem(rtData)
