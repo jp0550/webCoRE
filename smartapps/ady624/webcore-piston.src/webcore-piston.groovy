@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 4, 2019 for Hubitat
+ * Last update April 6, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190404" }
+public static String HEversion() { return "v0.3.10a.20190406" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -936,7 +936,6 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 // process queued events in time order
 	while(!callMySelf) {
 		unschedule(lockRecoveryHandler)
-try {
 		def evtQ = atomicState.aevQ
 		if (evtQ == null || evtQ == [] || evtQ.size() == 0) break
 		def evtList = evtQ.sort { it.t }
@@ -946,9 +945,6 @@ try {
 		if(qsize > 8) { error "large queue size ${qsize}" }
 		theEvent.date = new Date(theEvent.t)
 		handleEvents(theEvent, false, true, rtData.piston)
-} catch (e) {
-		atomicState.aevQ =  [:]
-}
 	}
 	relSem(rtData)
 	if(rtData.logging > 2) debug "Exiting", rtData
@@ -3565,10 +3561,11 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 			break;
 		case 'tile':
 		case 'ifttt':
-			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == operand.v ? rtData.event.value : null)]]];
+			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rtData.event.name == ('ifttt.' + rtData.event.value) /* operand.v*/ ? rtData.event.value : null)]]];
+//log.debug "ifttt evaluate operand values: ${values},  operand: ${operand.v}   rtData.event: ${rtData.event.name} ${rtData.event.value}"
 			break;
 		case 'email':
-			values = [[i: "${node?.$}:v", v:[t: 'email', v: (rtData.event.name == operand.v ? rtData.event.value : null)]]];
+			values = [[i: "${node?.$}:v", v:[t: 'email', v: (rtData.event.name == ('email.' + rtData.event.value) /* operand.v*/ ? rtData.event.value : null)]]];
 			break;
 		}
 		break
