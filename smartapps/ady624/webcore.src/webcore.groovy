@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated April 04, 2019 for Hubitat
+ * Last Updated April 06, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190404" }
+public String HEversion() { return "v0.3.10a.20190406" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -1548,6 +1548,7 @@ private api_intf_dashboard_piston_activity() {
 }
 
 def api_ifttt() {
+	debug "Request received ifttt call"
 	def data = [:]
 	def remoteAddr = isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
 	if (params) {
