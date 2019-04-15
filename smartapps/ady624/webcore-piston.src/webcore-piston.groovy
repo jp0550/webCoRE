@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 6, 2019 for Hubitat
+ * Last update April 14, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190406" }
+public static String HEversion() { return "v0.3.10a.20190414" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -170,7 +170,6 @@ def isInstalled(){
 }
 
 def installed() {
-	//if(isHubitat() && !app.id) return
 	if(!app.id) return
 	state.created = now()
 	state.modified = now()
@@ -256,8 +255,8 @@ def clearLogs() {
 }
 
 private decodeEmoji(value) {
-        if (!value) return ''
-        return value.replaceAll(/(\:%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}\:)/, { m -> URLDecoder.decode(m[0].substring(1, 13), 'UTF-8') })
+	if (!value) return ''
+	return value.replaceAll(/(\:%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}\:)/, { m -> URLDecoder.decode(m[0].substring(1, 13), 'UTF-8') })
 }
 
 def recreatePiston() {
@@ -326,7 +325,7 @@ def setup(data, chunks) {
 	Map rtData = [:]
 	rtData.piston = piston
 	if ((state.build == 1) || (!!state.active)) {
-		rtData = resume()
+		rtData = resume(piston)
 	}
 	return [active: state.active, build: state.build, modified: state.modified, state: state.state, rtData: rtData]
 }
@@ -447,12 +446,13 @@ Map pausePiston() {
 	return rtData
 }
 
-Map resume() {
+Map resume(piston=null) {
 	state.active = true;
 	atomicState.sph = 0
 	def tempRtData = getTemporaryRunTimeData()
 	def msg = timer "Piston successfully started", null, -1
 	if (tempRtData.logging) info "Starting piston... (${version()})", tempRtData, 0
+	if(piston) tempRtData.piston = piston
 	def rtData = getRunTimeData(tempRtData, null, true)
 	checkVersion(rtData)
 	state.hash = null
@@ -2302,21 +2302,21 @@ private getColor(rtData, colorValue) {
 	def color = (colorValue == 'Random') ? (colorUtil?.RANDOM ?: getRandomColor(rtData)) : (colorUtil?.findByName(colorValue) ?: getColorByName(rtData, colorValue))
 	if (color) {
 		color = [
-		hex: color.rgb,
-		hue: Math.round(color.h / 3.6),
-		saturation: color.s,
-		level: color.l
+			hex: color.rgb,
+			hue: Math.round(color.h / 3.6),
+			saturation: color.s,
+			level: color.l
 		]
 	} else {
 		color = hexToColor(colorValue)
-	if (color) {
-		color = [
-		hex: color.hex,
-		hue: color.hue,
-		saturation: color.saturation,
-		level: color.level
-		]
-	}
+		if (color) {
+			color = [
+				hex: color.hex,
+				hue: Math.round(color.hue / 3.6),
+				saturation: color.saturation,
+				level: color.level
+			]
+		}
 	}
 	return color
 }
@@ -2482,7 +2482,6 @@ private long vcmd_setAlarmSystemStatus(rtData, device, params) {
 	def status = options?.find{ (it.key == statusIdOrName) || (it.value == statusIdOrName)}.collect{ [id: it.key, name: it.value] }
 
 	if (status && status.size()) {
-		//sendLocationEvent(name: (isHubitat() ? 'hsmSetArm' : 'alarmSystemStatus'), value: status[0].id)
 		sendLocationEvent(name: 'hsmSetArm', value: status[0].id)
 	} else {
 		error "Error setting SmartThings Home Monitor status. Status '$statusIdOrName' does not exist.", rtData
@@ -4187,7 +4186,7 @@ private getRoutineById(routineId) {
 }
 
 private void updateDeviceList(rtData, deviceIdList) {
-	if(isHubitat() && deviceIdList && !settings.dev) debug "Unable to update setting 'dev' from child app. Open child app '$app.label' on the Hubitat apps page and click 'Done' for faster operation", rtData
+	//if(isHubitat() && deviceIdList && !settings.dev) debug "Unable to update setting 'dev' from child app. Open child app '$app.label' on the Hubitat apps page and click 'Done' for faster operation", rtData
 	app.updateSetting('dev', [type: isHubitat() ? 'capability' : 'capability.device', value: deviceIdList.unique()])
 }
 
@@ -4280,7 +4279,7 @@ private void subscribeAll(rtData) {
 			switch (operand.v) {
 			case 'alarmSystemStatus':
 				subscriptionId = "$deviceId${operand.v}"
-				attribute = isHubitat() ? "hsmStatus" : operand.v
+				attribute = "hsmStatus"
 				break;
 			case 'alarmSystemAlert':
 				subscriptionId = "$deviceId${operand.v}"
@@ -4304,7 +4303,6 @@ private void subscribeAll(rtData) {
 				break
 			case 'email':
 				subscriptionId = "$deviceId${operand.v}${hashId(app.id)}"
-				//attribute = "email${isHubitat() ? "" : ("." + hashId(app.id))}"
 				attribute = "email.${hashId(app.id)}" // receive email does not work in webcore
 				break
 			case 'ifttt':
@@ -4639,7 +4637,6 @@ private Map getDeviceAttribute(rtData, deviceId, attributeName, subDeviceIndex =
 			def mode = location.getCurrentMode();
 			return [t: 'string', v: hashId(mode.getId()), n: mode.getName()]
 		case 'alarmSystemStatus':
-			//def v = isHubitat() ? (rtData.hsmStatus) : location.currentState("alarmSystemStatus")?.value
 			def v = location.hsmStatus
 			def n = rtData.virtualDevices['alarmSystemStatus']?.o[v]
 			//def n = VirtualDevices['alarmSystemStatus']?.o[v]
@@ -5715,8 +5712,8 @@ private func_celsius(rtData, params) {
 
 
 /******************************************************************************/
-/*** fahrenheit converts temperature from Celsius to Fahrenheit				***/
-/*** Usage: fahrenheit(temperature)											***/
+/*** fahrenheit converts temperature from Celsius to Fahrenheit			***/
+/*** Usage: fahrenheit(temperature)						***/
 /******************************************************************************/
 private func_fahrenheit(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5729,8 +5726,8 @@ private func_fahrenheit(rtData, params) {
 
 /******************************************************************************/
 /*** fahrenheit converts temperature between Celsius and Fahrenheit if the  ***/
-/*** units differ from location.temperatureScale                            ***/
-/*** Usage: convertTemperatureIfNeeded(celsiusTemperature, 'C')             ***/
+/*** units differ from location.temperatureScale			    ***/
+/*** Usage: convertTemperatureIfNeeded(celsiusTemperature, 'C')		    ***/
 /******************************************************************************/
 private func_converttemperatureifneeded(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -5747,8 +5744,8 @@ private func_converttemperatureifneeded(rtData, params) {
 }
 
 /******************************************************************************/
-/*** integer converts a decimal value to it's integer value					***/
-/*** Usage: integer(decimal or string)										***/
+/*** integer converts a decimal value to it's integer value			***/
+/*** Usage: integer(decimal or string)						***/
 /******************************************************************************/
 private func_integer(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5759,8 +5756,8 @@ private func_integer(rtData, params) {
 private func_int(rtData, params) { return func_integer(rtData, params) }
 
 /******************************************************************************/
-/*** decimal/float converts an integer value to it's decimal value			***/
-/*** Usage: decimal(integer or string)										***/
+/*** decimal/float converts an integer value to it's decimal value		***/
+/*** Usage: decimal(integer or string)						***/
 /******************************************************************************/
 private func_decimal(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5801,8 +5798,8 @@ private func_boolean(rtData, params) {
 private func_bool(rtData, params) { return func_boolean(rtData, params) }
 
 /******************************************************************************/
-/*** sqr converts a decimal value to it's square decimal value				***/
-/*** Usage: sqr(integer or decimal or string)								***/
+/*** sqr converts a decimal value to it's square decimal value			***/
+/*** Usage: sqr(integer or decimal or string)					***/
 /******************************************************************************/
 private func_sqr(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5813,7 +5810,7 @@ private func_sqr(rtData, params) {
 
 /******************************************************************************/
 /*** sqrt converts a decimal value to it's square root decimal value		***/
-/*** Usage: sqrt(integer or decimal or string)								***/
+/*** Usage: sqrt(integer or decimal or string)					***/
 /******************************************************************************/
 private func_sqrt(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5823,8 +5820,8 @@ private func_sqrt(rtData, params) {
 }
 
 /******************************************************************************/
-/*** power converts a decimal value to it's power decimal value				***/
-/*** Usage: power(integer or decimal or string, power)						***/
+/*** power converts a decimal value to it's power decimal value			***/
+/*** Usage: power(integer or decimal or string, power)				***/
 /******************************************************************************/
 private func_power(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -5834,8 +5831,8 @@ private func_power(rtData, params) {
 }
 
 /******************************************************************************/
-/*** round converts a decimal value to it's rounded value					***/
-/*** Usage: round(decimal or string[, precision])							***/
+/*** round converts a decimal value to it's rounded value			***/
+/*** Usage: round(decimal or string[, precision])				***/
 /******************************************************************************/
 private func_round(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5847,7 +5844,7 @@ private func_round(rtData, params) {
 
 /******************************************************************************/
 /*** floor converts a decimal value to it's closest lower integer value		***/
-/*** Usage: floor(decimal or string)										***/
+/*** Usage: floor(decimal or string)						***/
 /******************************************************************************/
 private func_floor(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5858,7 +5855,7 @@ private func_floor(rtData, params) {
 
 /******************************************************************************/
 /*** ceiling converts a decimal value to it's closest higher integer value	***/
-/*** Usage: ceiling(decimal or string)										***/
+/*** Usage: ceiling(decimal or string)						***/
 /******************************************************************************/
 private func_ceiling(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 1)) {
@@ -5989,8 +5986,8 @@ private func_trimright(rtData, params) {
 private func_rtrim(rtData, params) { return func_trimright(rtData, params) }
 
 /******************************************************************************/
-/*** substring returns a substring of a value								***/
-/*** Usage: substring(string, start, count)									***/
+/*** substring returns a substring of a value					***/
+/*** Usage: substring(string, start, count)					***/
 /******************************************************************************/
 private func_substring(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2)) {
@@ -6025,7 +6022,7 @@ private func_substr(rtData, params) { return func_substring(rtData, params) }
 private func_mid(rtData, params) { return func_substring(rtData, params) }
 
 /******************************************************************************/
-/*** replace replaces a search text inside of a value						***/
+/*** replace replaces a search text inside of a value				***/
 /*** Usage: replace(string, search, replace[, [..], search, replace])		***/
 /******************************************************************************/
 private func_replace(rtData, params) {
@@ -6048,7 +6045,7 @@ private func_replace(rtData, params) {
 }
 
 /******************************************************************************/
-/*** rangeValue returns the matching value in a range						***/
+/*** rangeValue returns the matching value in a range				***/
 /*** Usage: rangeValue(input, defaultValue, point1, value1[, [..], pointN, valueN])***/
 /******************************************************************************/
 private func_rangevalue(rtData, params) {
@@ -6066,7 +6063,7 @@ private func_rangevalue(rtData, params) {
 }
 
 /******************************************************************************/
-/*** rainbowValue returns the matching value in a range						***/
+/*** rainbowValue returns the matching value in a range				***/
 /*** Usage: rainbowValue(input, minInput, minColor, maxInput, maxColor)		***/
 /******************************************************************************/
 private func_rainbowvalue(rtData, params) {
@@ -6080,11 +6077,11 @@ private func_rainbowvalue(rtData, params) {
 	def maxColor = getColor(rtData, evaluateExpression(rtData, params[4], 'string').v)
 	if (minInput > maxInput) {
 		def x = minInput
-	minInput = maxInput
-	maxInput = x
-	x = minColor
-	minColor = maxColor
-	maxColor = x
+		minInput = maxInput
+		maxInput = x
+		x = minColor
+		minColor = maxColor
+		maxColor = x
 	}
 	input = (input < minInput ? minInput : (input > maxInput ? maxInput : input))
 	if ((input == minInput) || (minInput == maxInput)) return [t: "string", v: minColor.hex]
@@ -6095,13 +6092,21 @@ private func_rainbowvalue(rtData, params) {
 	def h = Math.round(start[0] - ((input - minInput) * (start[0] - end[0]) / (maxInput - minInput)))
 	h = h < 0 ? h % 360 + 360 : h % 360
 	int s = Math.round(start[1] + (end[1] - start[1]) * alpha)
+	s = s < 0 ? s % 100 + 100 : s % 100
 	int l = Math.round(start[2] + (end[2] - start[2]) * alpha)
-	return [t: "string", v: hslToHex(h, s, 2 * l)]
+	l = l < 0 ? l % 100 + 100 : l % 100
+/*
+	float l = level / 200.0
+	if (l < 0) l = 0
+	if (l > 0.5) l = 0.5
+*/
+
+	return [t: "string", v: hslToHex(h, s, /*2 * */ l)]
 }
 
 /******************************************************************************/
-/*** indexOf finds the first occurrence of a substring in a string			***/
-/*** Usage: indexOf(stringOrDeviceOrList, substringOrItem)							***/
+/*** indexOf finds the first occurrence of a substring in a string		***/
+/*** Usage: indexOf(stringOrDeviceOrList, substringOrItem)			***/
 /******************************************************************************/
 private func_indexof(rtData, params) {
 	if (!params || !(params instanceof List) || (params.size() < 2) || ((params[0].t != 'device') && (params.size() != 2))) {
@@ -7508,71 +7513,48 @@ private Map hexToColor(hex){
 	hex = hex ? "$hex".toString() : '000000'
 	if (hex.startsWith('#')) hex = hex.substring(1)
 	if (hex.size() != 6) hex = '000000'
-	double r = Integer.parseInt(hex.substring(0, 2), 16) / 255
-	double g = Integer.parseInt(hex.substring(2, 4), 16) / 255
-	double b = Integer.parseInt(hex.substring(4, 6), 16) / 255
-	double min = Math.min(Math.min(r, g), b);
-	double max = Math.max(Math.max(r, g), b)
-	double h = (max + min) / 2.0;
-	double s = h
-	double l = s
-	if(max == min){
-		h = s = 0; // achromatic
-	}else{
-		double d = max - min;
-		s = (l > 0.5) ? d / (2 - max - min) : d / (max + min);
-		switch(max){
-			case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-			case g: h = (b - r) / d + 2; break;
-			case b: h = (r - g) / d + 4; break;
-		}
-		h = h / 6;
-	}
+	def myHsl = hexToHsl(hex)
 	return [
-		hue: (int) Math.round(100 * h),
-		saturation: (int) Math.round(100 * s),
-		level: (int) Math.round(100 * l),
+		hue: Math.round(myHsl[0]),
+		saturation: myHsl[1],
+		level: myHsl[2],
 		hex: '#' + hex
 	];
 }
 
 private float _hue2rgb(p, q, t){
-	if(t < 0) t += 1
-	if(t > 1) t -= 1
-	if(t < 1/6) return p + (q - p) * 6 * t
-	if(t < 1/2) return q
-	if(t < 2/3) return p + (q - p) * (2/3 - t) * 6
+	if(t < 0) t += 6
+	if(t >= 6) t -= 6
+	if(t < 1) return p + (q - p) * t
+	if(t < 3) return q
+	if(t < 4) return p + (q - p) * (4 - t)
 	return p
 }
 
 private String hslToHex(hue, saturation, level) {
-	float h = hue / 360.0
+	float h = hue / 60.0
 	float s = saturation / 100.0
-	float l = level / 200.0
-	if (h < 0) h = 0
-	if (h > 1) h = 1
-	if (s < 0) s = 0
-	if (s > 1) s = 1
-	if (l < 0) l = 0
-	if (l > 0.5) l = 0.5
+	float l = level / 100.0
 	float r, g, b
 	if(s == 0){
 		r = g = b = l; // achromatic
 	} else {
-		float q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+		float q = l <= 0.5 ? l * (1 + s) : l + s - (l * s);
 		float p = 2 * l - q;
-		r = _hue2rgb(p, q, h + 1/3);
+		r = _hue2rgb(p, q, h + 2);
 		g = _hue2rgb(p, q, h);
-		b = _hue2rgb(p, q, h - 1/3);
+		b = _hue2rgb(p, q, h - 2);
 	}
 	return sprintf('#%02X%02X%02X', Math.round(r * 255), Math.round(g * 255), Math.round(b * 255));
 }
 
 private List hexToHsl(hex){
-	def rgb = hexToRgbArray(hex)
-	float r = rgb[0] / 255
-	float g = rgb[1] / 255
-	float b = rgb[2] / 255
+	hex = hex ? "$hex".toString() : '000000'
+	if (hex.startsWith('#')) hex = hex.substring(1)
+	if (hex.size() != 6) hex = '000000'
+	float r = Integer.parseInt(hex.substring(0, 2), 16) / 255
+	float g = Integer.parseInt(hex.substring(2, 4), 16) / 255
+	float b = Integer.parseInt(hex.substring(4, 6), 16) / 255
 	float max = Math.max(Math.max(r, g), b)
 	float min = Math.min(Math.min(r, g), b)
 	float h, s, l = (max + min) / 2
@@ -7581,7 +7563,7 @@ private List hexToHsl(hex){
 		h = s = 0 // achromatic
 	} else {
 		float d = max - min
-		s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+		s = l >= 0.5 ? d / (2 - max - min) : d / (max + min)
 		switch(max){
 			case r: h = (g - b) / d + (g < b ? 6 : 0); break;
 			case g: h = (b - r) / d + 2; break;
@@ -7590,20 +7572,6 @@ private List hexToHsl(hex){
 		h /= 6
 	}
 	return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)]
-}
-
-private List hexToRgbArray(hex) {
-	hex = hex?.replace('#', '');
-	if (hex && (hex.size() == 6)) {
-		try {
-			List data = [0, 0, 0];
-			for(int i=0;i<3;i++) {
-				data[i] = Integer.decode('0x' + hex.substring(i*2, i*2 + 2));
-			}
-			return data;
-		} catch (e) {}
-	}
-	return [0, 0, 0];
 }
 
 //hubitat device ids can be the same as the location id
@@ -7915,7 +7883,6 @@ private Map getSystemVariables() {
 		"\$iftttStatusOk": [t: "boolean", v: null],
 		"\$locationMode": [t: "string", d: true],
 		"\$temperatureScale": [t: "string", d: true],
-		//(isHubitat() ? "\$hsmStatus" : "\$shmStatus"): [t: "string", d: true],
 		"\$hsmStatus": [t: "string", d: true],
 		"\$version": [t: "string", d: true]
 	].sort{it.key}
@@ -7970,11 +7937,7 @@ private getSystemVariableValue(rtData, name) {
 	case "\$randomHue": def result = getRandomValue("\$randomHue") ?: (int)Math.round(360 * Math.random()); setRandomValue("\$randomHue", result); return result
   	case "\$locationMode": return location.getMode()
 	case "\$temperatureScale": return location.getTemperatureScale()
-	//case  (isHubitat() ? "\$hsmStatus" : "\$shmStatus"):
-	case  "\$hsmStatus":
-	//if(isHubitat()) { return rtData.hsmStatus }
-		return location.hsmStatus
-	//else switch (location.currentState("alarmSystemStatus")?.value) { case 'off': return 'Disarmed'; case 'stay': return 'Armed/Stay'; case 'away': return 'Armed/Away'; }; return null;
+	case  "\$hsmStatus": return location.hsmStatus
 	}
 }
 
@@ -8011,8 +7974,6 @@ private Map getColorByName(rtData, name){
 private Map getRandomColor(rtData){
 	if(rtData.colors == null) { rtData.colors = parent.getColors() }
 	def colors = rtData.colors
-	//def random = (int)(Math.random() * Colors.size())
-	//return Colors[random]
 	def random = (int)(Math.random() * colors.size())
 	return colors[random]
 }
