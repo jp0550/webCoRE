@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated April 06, 2019 for Hubitat
+ * Last Updated April 14, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190406" }
+public String HEversion() { return "v0.3.10a.20190414" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -282,7 +282,7 @@ private pageSelectDevices() {
 
 		section (sectionTitleStr('Select devices by type')) {
 			paragraph "Most devices should fall into one of these categories"
-			if(isHubitat()) input "dev:all", "capability.*", multiple: true, title: "Devices", required: false
+			input "dev:all", "capability.*", multiple: true, title: "Devices", required: false
 			input "dev:actuator", "capability.actuator", multiple: true, title: "Actuators", required: false
 			input "dev:sensor", "capability.sensor", multiple: true, title: "Sensors", required: false
 		}
@@ -334,7 +334,7 @@ def pageSettings() {
 		//}
 
 		section(sectionTitleStr("Fuel Streams")){
-			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFuelStreams != null) ? settings.localFuelStreams : isHubitat() ? true : false, submitOnChange: true
+			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFuelStreams != null) ? settings.localFuelStreams : true , submitOnChange: true
 			if(settings.localFuelStreams){
 				href "pageFuelStreams", title: "Fuel Streams", description: "Tap here to manage fuel streams"		
 			}	 	
@@ -352,11 +352,11 @@ def pageSettings() {
 			paragraph "Custom Endpoints allows use of a local hub address and optionally a local WebCoRE server"
 			input "customEndpoints", "bool", submitOnChange: true, title: "Use custom endpoints?", default: false, required: true
 			if(customEndpoints){
-				if(isHubitat()) input "customHubUrl", "string", title: "Custom hub (local) url different from https://cloud.hubitat.com", submitOnChange: true,default: null, required: false
+				input "customHubUrl", "string", title: "Custom hub (local) url different from https://cloud.hubitat.com", submitOnChange: true,default: null, required: false
 				def req = false
 				if(customEndPoints && customHubUrl) req = true
 				input "customWebcoreInstanceUrl", "string", title: "Custom webcore server instance url different from dashboard.webcore.co", default: null, required: req
-				if(customHubUrl && isHubitat()) paragraph "If you enter a custom hub url you MUST use a custom webcore server instance as dashboard.webcore.co site is restricted to hubitat and smartthing's cloud access only" 
+				if(customHubUrl) paragraph "If you enter a custom hub url you MUST use a custom webcore server instance as dashboard.webcore.co site is restricted to hubitat and smartthing's cloud access only" 
 			}
 		}
 
@@ -371,10 +371,9 @@ def pageSettings() {
 
 		section(title: "Maintenance") {
 			paragraph "Memory usage is at ${mem()}", required: false
-			if(!isHubitat()) input "redirectContactBook", "bool", title: "Redirect all Contact Book requests as PUSH notifications", description: "SmartThings has removed the Contact Book feature and as a result, all uses of Contact Book are by default ignored. By enabling this option, you will get all the existing Contact Book uses fall back onto the PUSH notification system, possibly allowing other people to receive these notifications.", defaultValue: false, required: true
 			input "disabled", "bool", title: "Disable all pistons", description: "Disable all pistons belonging to this instance", defaultValue: false, required: false
-			input "logPistonExecutions", "bool", title: "Log piston executions?", description: "Tap here to change logging pistons as hub location events", defaultValue: isHubitat() ? false : true, required: false
-			if(isHubitat()) input "enableDashNotifications", "bool", title: "Enable Dashboard Notifications for device state changes?", description: "Tap here to change enable dashboard notifications of device state changes (more overhead)", defaultValue: false, required: false
+			input "logPistonExecutions", "bool", title: "Log piston executions?", description: "Tap here to change logging pistons as hub location events", defaultValue: false, required: false
+			input "enableDashNotifications", "bool", title: "Enable Dashboard Notifications for device state changes?", description: "Tap here to change enable dashboard notifications of device state changes (more overhead)", defaultValue: false, required: false
 			href "pageRebuildCache", title: "Clean up and rebuild data cache", description: "Tap here to change your clean up and rebuild your data cache"
 		}
 
@@ -645,7 +644,7 @@ private updateEndpoint(accessToken){
 		state.endpoint = customServerUrl("?access_token=${accessToken}")
 	}
 	else {
-		state.endpoint = isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}") : apiServerUrl("/api/token/${accessToken}/smartapps/installations/${app.id}/")
+		state.endpoint = apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}")
 	}
 }
 
@@ -697,7 +696,7 @@ private subscribeAll() {
 //below unused
 //	subscribe(location, "HubUpdated", hubUpdatedHandler, [filterEvents: false])
 //	subscribe(location, "summary", summaryHandler, [filterEvents: false])
-	if(isHubitat()) subscribe(location, "hsmStatus", hsmHandler, [filterEvents: false])
+	subscribe(location, "hsmStatus", hsmHandler, [filterEvents: false])
 	setPowerSource(getHub()?.isBatteryInUse() ? 'battery' : 'mains')
 }
 
@@ -800,7 +799,7 @@ private api_get_base_result(deviceVersion = 0, updateCache = false) {
 			id: hashId(location.id + (isHubitat() ? '-L' : ''), updateCache),
 			mode: hashId(location.getCurrentMode().id, updateCache),
 			modes: location.getModes().collect{ [id: hashId(it.id, updateCache), name: it.name ]},
-			shm: isHubitat() ? transformHsmStatus(location.hsmStatus) : location.currentState("alarmSystemStatus")?.value,
+			shm: transformHsmStatus(location.hsmStatus),
 			name: location.name,
 			temperatureScale: location.getTemperatureScale(),
 			timeZone: tz ? [
@@ -826,9 +825,7 @@ private getFuelStreamUrls(iid){
 		]
 	}	
 	
-	def baseUrl = isCustomEndpoint() ? customServerUrl("/") :
-						isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/")
-							: apiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}/")
+	def baseUrl = isCustomEndpoint() ? customServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/")
 	
 	def params = baseUrl.contains(state.accessToken) ? "" : "access_token=${state.accessToken}"
 	
@@ -839,7 +836,7 @@ private getFuelStreamUrls(iid){
 }
 
 private boolean useLocalFuelStreams(){
- 	return settings.localFuelStreams != null ? settings.localFuelStreams : (isHubitat() ? true : false)
+ 	return settings.localFuelStreams != null ? settings.localFuelStreams : true
 }
 
 private String transformHsmStatus(status){
@@ -941,8 +938,8 @@ private api_intf_dashboard_piston_create() {
 			//def msettings = atomicState.settings
 			//piston.settingsToState('settings', msettings)
 		}
-		if (isHubitat() && !piston.isInstalled()) piston.installed()
-			result = [status: "ST_SUCCESS", id: hashId(piston.id)]
+		if (!piston.isInstalled()) piston.installed()
+		result = [status: "ST_SUCCESS", id: hashId(piston.id)]
 	} else {
 		result = api_get_error_result("ERR_INVALID_TOKEN")
 	}
@@ -964,6 +961,7 @@ private api_intf_dashboard_piston_get() {
 				result.data = piston.get() ?: [:]
 			}
 			if (requireDb) {
+				debug "Dashboard: get piston ${params?.id} needs new db current: ${serverDbVersion} in server ${clientDbVersion}"
 				result.dbVersion = serverDbVersion
 				result.db = [
 					capabilities: capabilities().sort{ it.value.d },
@@ -989,7 +987,7 @@ private api_intf_dashboard_piston_get() {
 	result.now = now()
 	def jsonData = groovy.json.JsonOutput.toJson(result)
 	
-	if(isHubitat() && (!isCustomEndpoint() || customHubUrl.contains(hubUID))){
+	if (!isCustomEndpoint() || customHubUrl.contains(hubUID)){
 		//data saver for hubitat ~100K limit	
 		def responseLength = jsonData.getBytes("UTF-8").length
 		if(responseLength > 100 * 1024){ //these are loaded anyway right after loading the piston
@@ -1351,7 +1349,7 @@ private api_intf_dashboard_piston_delete() {
 	if (verifySecurityToken(params.token)) {
 		def piston = getChildApps().find{ hashId(it.id) == params.id };
 		if (piston) {
-			app.deleteChildApp(isHubitat() ? piston.id : piston)
+			app.deleteChildApp(piston.id)
 			result = [status: "ST_SUCCESS"]
 			state.remove(params.id)
 			state.remove('sph${params.id}')
@@ -1714,15 +1712,12 @@ private getStorageApp(install = false) {
 }
 
 private getDashboardApp(install = false) {
-	if(isHubitat()) {
-		if(!enableDashNotifications) return null
-	}
-	//if(isHubitat()) return null
+	if(!enableDashNotifications) return null
 	def name = handle() + ' Dashboard'
 	def label = app.label + ' (dashboard)'
 	def dashboardApp = getChildApps().find{ it.name == name }
 	if (dashboardApp) {
-		if(isHubitat() && !enableDashNotifications) {
+		if(!enableDashNotifications) {
 			app.deleteChildApp(dashboardApp.id)
 			return null
 		}
@@ -1769,10 +1764,6 @@ private String getDashboardInitUrl(register = false) {
 	}
 	//log.debug "Url: $t0"
 	return t0
-		//state.endpoint = isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}") : apiServerUrl("/api/token/${accessToken}/smartapps/installations/${app.id}/")
-//						isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/")
-//							: apiServerUrl("/api/token/${state.accessToken}/smartapps/installations/${app.id}/")
-//		state.endpoint = isHubitat() ? apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}") : apiServerUrl("/api/token/${accessToken}/smartapps/installations/${app.id}/")
 }
 
 private String getDashboardRegistrationUrl() {
@@ -2465,14 +2456,10 @@ private debug(message, shift = null, err = null, cmd = null) {
 	} else {
 		prefix = ""
 	}
-	if (isHubitat()) {
-		if(err){
-			log."$cmd" "$prefix$message $err"
-		} else {
-			log."$cmd" "$prefix$message"
-		}
+	if(err){
+		log."$cmd" "$prefix$message $err"
 	} else {
-		log."$cmd" "$prefix$message", err
+		log."$cmd" "$prefix$message"
 	}
 }
 
@@ -2678,10 +2665,10 @@ private static Map attributes() {
 
 /* Push command has multiple overloads in hubitat */
 public Map commandOverrides(){
-	return (isHubitat() ? [ //s: command signature
+	return ( [ //s: command signature
 	 	push	: [c: "push",	s: null , r: "pushMomentary"],
 		flash	: [c: "flash",	s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
-	] : [:])
+	] )
 }
 
 private static Map commands() {
