@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 14, 2019 for Hubitat
+ * Last update April 16, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190414" }
+public static String HEversion() { return "v0.3.10a.20190416" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -895,6 +895,9 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 				setSystemVariableValue(rtData, '$httpStatusCode', 408)
 				setSystemVariableValue(rtData, '$httpStatusOk', false)
 			}
+			if (event.schedule.d == 'sendEmail') {
+				error "Timeout Error sending email", rtData
+			}
 		}
 		//if we have any other pending -3 events (device schedules), we cancel them all
 		//if (event.schedule.i > 0) schedules.removeAll{ (it.s == event.schedule.s) && ( it.i == -3 ) }
@@ -976,10 +979,15 @@ private Boolean executeEvent(rtData, event) {
 			rtData.response = event.schedule.stack.response ?: [:]
 // more to restore here?
 		}
+		def theDevice =  srcEvent ? srcEvent.device : null
+		def theDevice1 = theDevice == null && event.device ? event.device.id : null
+		def theDevice2 = theDevice1 == null ? hashId(location.id + '-L') : null
+		def theFinalDevice = theDevice ?: (theDevice1 ? hashId(theDevice1 + (!isDeviceLocation(event.device) ? '' : '-L' )) : (theDevice2 ?: null))
 		rtData.currentEvent = [
 			date: event.date.getTime(),
 			delay: rtData.stats?.timing?.d ?: 0,
-			device: srcEvent ? srcEvent.device : hashId((event.device?:location).id + (!isDeviceLocation(device) ? '' : '-L' )),
+			//device: srcEvent ? srcEvent.device : hashId((event.device?:location).id + (!isDeviceLocation(device) ? '' : '-L' )),
+			device: theFinalDevice, 
 			name: srcEvent ? srcEvent.name : event.name,
 			value: srcEvent ? srcEvent.value : event.value,
 			descriptionText: srcEvent ? srcEvent.descriptionText : event.descriptionText,
@@ -2501,11 +2509,21 @@ private long vcmd_sendEmail(rtData, device, params) {
 	def requestParams = [
 		uri: "https://api.webcore.co/email/send/${rtData.locationId}",
 		query: null,
+		headers: (auth ? [Authorization: auth] : [:]),
 		requestContentType: "application/json",
 		body: data
 	]
 	def success = false
 	def msg = 'Unknown error'
+
+	try {
+		asynchttpPost('ahttpRequestHandler', requestParams, [command: 'sendEmail'])
+		return 24000
+	} catch (all) {
+		error "Error sending email to ${data.t}: $msg", rtData
+	}
+
+/*
 	httpPost(requestParams) { response ->
 		if (response.status == 200) {
 			def jsonData = response.data instanceof Map ? response.data : (LinkedHashMap) new groovy.json.JsonSlurper().parseText(response.data)
@@ -2521,6 +2539,7 @@ private long vcmd_sendEmail(rtData, device, params) {
 	if (!success) {
 		error "Error sending email to ${data.t}: $msg", rtData
 	}
+*/
 	return 0
 }
 
@@ -3128,7 +3147,7 @@ private long vcmd_httpRequest(rtData, device, params) {
 		}
 		if (rtData.logging > 2) debug "Sending ${func} web request to: $uri", rtData
 		if (func) {
-			"$func"('ahttpRequestHandler', requestParams, [cc:0])
+			"$func"('ahttpRequestHandler', requestParams, [command: 'httpRequest'])
 			return 24000
 		}
 	} catch (all) {
@@ -3137,7 +3156,7 @@ private long vcmd_httpRequest(rtData, device, params) {
 	return 0
 }
 
-public ahttpRequestHandler(resp, ddata) {
+public ahttpRequestHandler(resp, callbackData) {
 	//debug "called ahttp ${resp.status} ${resp.getHeaders()}"
 	def binary = false
 	def mediaType = resp.getHeaders()['Content-Type']?.toLowerCase()?.tokenize(';')[0]
@@ -3174,7 +3193,7 @@ public ahttpRequestHandler(resp, ddata) {
 //		rtData.mediaUrl = null;
 	}
  
-	handleEvents([date: new Date(), device: location, name: 'wc_async_reply', value: 'httpRequest', contentType: mediaType, responseData: data, jsonData: json, responseCode: resp.status, setRtData: setRtData])
+	handleEvents([date: new Date(), device: location, name: 'wc_async_reply', value: callbackData?.command, contentType: mediaType, responseData: data, jsonData: json, responseCode: resp.status, setRtData: setRtData])
 }
 
 private long vcmd_writeToFuelStream(rtData, device, params) {
@@ -5148,11 +5167,11 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 			def var = getVariable(rtData, expression.x)
 			if (var) {
 				if (var.t == 'device') {
-				deviceIds = var.v
-			} else {
-				def device = getDevice(rtData, var.v)
-				if (device) deviceIds = [hashId(device.id)]
-			}
+					deviceIds = var.v
+				} else {
+					def device = getDevice(rtData, var.v)
+					if (device) deviceIds = [hashId(device.id)]
+				}
 			}
 		}
 				result = [t: 'device', v: deviceIds, a: expression.a]
@@ -6452,21 +6471,21 @@ private func_previousage(rtData, params) {
 	def param = evaluateExpression(rtData, params[0], 'device')
 	if ((param.t == 'device') && (param.a) && param.v.size()) {
 		def device = getDevice(rtData, param.v[0])
-	if (device && !isDeviceLocation(device)) {
-		def states = device.statesSince(param.a, new Date(now() - 604500000), [max: 5])
-		if (states.size() > 1) {
-			def newValue = states[0].getValue()
-			//some events get duplicated, so we really want to look for the last "different valued" state
-			for(int i = 1; i < states.size(); i++) {
-				if (states[i].getValue() != newValue) {
-					def result = now() - states[i].getDate().getTime()
-					return [t: "long", v: result]
+		if (device && !isDeviceLocation(device)) {
+			def states = device.statesSince(param.a, new Date(now() - 604500000), [max: 5])
+			if (states.size() > 1) {
+				def newValue = states[0].getValue()
+				//some events get duplicated, so we really want to look for the last "different valued" state
+				for(int i = 1; i < states.size(); i++) {
+					if (states[i].getValue() != newValue) {
+						def result = now() - states[i].getDate().getTime()
+						return [t: "long", v: result]
+					}
 				}
 			}
+			//we're saying 7 days, though it may be wrong - but we have no data
+			return [t: "long", v: 604800000]
 		}
-		//we're saying 7 days, though it may be wrong - but we have no data
-		return [t: "long", v: 604800000]
-	}
 	}
 	return [t: "error", v: "Invalid device"]
 }
