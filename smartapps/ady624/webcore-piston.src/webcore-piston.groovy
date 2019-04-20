@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 16, 2019 for Hubitat
+ * Last update April 20, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190416" }
+public static String HEversion() { return "v0.3.10a.20190420" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -201,6 +201,7 @@ def initialize() {
 }
 
 def get(boolean minimal = false) {
+	def rtData = getRunTimeData()
 	return [
 		meta: [
 			id: hashId(app.id),
@@ -213,7 +214,7 @@ def get(boolean minimal = false) {
 			active: state.active,
 			category: state.category ?: 0
 		],
-		piston: recreatePiston()
+		piston: rtData.piston
 	] + (minimal ? [:] : [
 		systemVars: getSystemVariablesAndValues(),
 		subscriptions: state.subscriptions,
@@ -664,8 +665,7 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		logging = logging.isInteger() ? logging.toInteger() : 0
 		rtData.logging = (int) logging
 		rtData.category = state.category
-		piston = piston ?: recreatePiston() // state.piston
-		rtData.piston = piston
+
 		rtData.locationId = hashId(location.id + '-L')
 		rtData.pistonLimits = getPistonLimits()
 		if (!fetchWrappers) {
@@ -673,6 +673,15 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 			//rtData.contacts = (settings.contacts && (settings.contacts instanceof List) ? settings.contacts.collectEntries{[(hashId(it.id)): it]} : [:])
 		}
 		rtData.virtualDevices = VirtualDevices()
+
+		def doSubScribe = false
+		if(piston) {
+			rtData.piston = piston
+		} else {
+			rtData.piston = recreatePiston()
+			doSubScribe = true
+			piston = rtData.piston
+		}
 
 		rtData.timestamp = timestamp
 		rtData.logs = [[t: timestamp]]
@@ -704,6 +713,7 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		state.schedules = atomState.schedules
 		rtData.systemVars = getSystemVariables()
 		rtData.localVars = getLocalVariables(rtData, piston.v, atomState)
+		if(doSubScribe) subscribeAll(rtData, false)
 
 //	} catch(all) {
 //			error "Error while getting runtime data:", rtData, null, all
@@ -804,9 +814,11 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 	if(state.pep == null) {
 		piston = recreatePiston()
 		state.pep = piston.o?.pep ? true : false
+		piston = null
+	} else {
+		tempRtData.piston = piston
 	}
 
-	tempRtData.piston = piston
 	def appId = hashId(app.id)
 	def t0 = (true && !(state.pep)) ? appId : null
 	def retSt = [:]
@@ -3767,7 +3779,7 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 	rtData.conditionStateChanged = oldResult != result
 	if (rtData.conditionStateChanged) {
 		//condition change, perform TCP
-	cancelConditionSchedules(rtData, condition.$)
+		cancelConditionSchedules(rtData, condition.$)
 	}
 	rtData.cache["c:${condition.$}"] = result
 	//true/false actions
@@ -4215,7 +4227,7 @@ private void updateContactList(contactIdList) {
 }
 */
 
-private void subscribeAll(rtData) {
+private void subscribeAll(rtData, doit=true) {
 	try {
 	rtData = rtData ?: getRunTimeData()
 	def ss = [
@@ -4225,8 +4237,10 @@ private void subscribeAll(rtData) {
 	]
 	def statementData = [timer: false]
 	def msg = timer "Finished subscribing", null, -1
-	unsubscribe()
-	if (rtData.logging > 1) trace "Subscribing to devices...", rtData, 1
+	if(doit) {
+		unsubscribe()
+		if (rtData.logging > 1) trace "Subscribing to devices...", rtData, 1
+	}
 	Map devices = [:]
 	Map rawDevices = [:]
 	//Map rawContacts = [:]
@@ -4507,8 +4521,10 @@ private void subscribeAll(rtData) {
 				case 'datetime':
 					break;
 				default:
-					if (rtData.logging) info "Subscribing to $device.${a}...", rtData
-					subscribe(device, a, deviceHandler)
+					if(doit) {
+						if (rtData.logging) info "Subscribing to $device.${a}...", rtData
+						subscribe(device, a, deviceHandler)
+					}
 					ss.events = ss.events + 1
 					if (!dds[device.id]) {
 						ss.devices = ss.devices + 1
@@ -4528,7 +4544,7 @@ private void subscribeAll(rtData) {
 	//save devices
 	List deviceIdList = rawDevices.collect{ it && it.value ? it.value.id : null }
 	deviceIdList.removeAll{ it == null }
-	updateDeviceList(rtData, deviceIdList)
+	if(doit) updateDeviceList(rtData, deviceIdList)
 
 	//save contacts
 //	List contactIdList = rawContacts.collect{ it && it.value ? it.value.id : null }
@@ -4539,7 +4555,7 @@ private void subscribeAll(rtData) {
 	for (d in devices.findAll{ ((it.value.c <= 0) || (rtData.piston.o.des)) && (it.key != rtData.locationId) }) {
 		def device = d.key.startsWith(':') ? getDevice(rtData, d.key) : null
 		if (device && (device != location)) {
-			if (rtData.logging > 1) trace "Piston controls $device...", rtData
+			if (rtData.logging > 1 && doit) trace "Piston controls $device...", rtData
 			ss.controls = ss.controls + 1
 			if (!dds[device.id]) {
 				ss.devices = ss.devices + 1
@@ -4547,18 +4563,19 @@ private void subscribeAll(rtData) {
 			}
 		}
 	}
-	state.subscriptions = ss
-	if (rtData.logging > 1) trace msg, rtData
+	if(doit) {
+		state.subscriptions = ss
+		if (rtData.logging > 1) trace msg, rtData
 
-
-	def event = [date: new Date(), device: location, name: 'time', value: now(), schedule: [t: 0, s: 0, i: -9]]
-	//subscribe(app, appHandler)
-	subscribe(location, hashId(app.id), executeHandler)
-	executeEvent(rtData, event)
-	processSchedules rtData, true
+		def event = [date: new Date(), device: location, name: 'time', value: now(), schedule: [t: 0, s: 0, i: -9]]
+		//subscribe(app, appHandler)
+		subscribe(location, hashId(app.id), executeHandler)
+		executeEvent(rtData, event)
+		processSchedules rtData, true
 	//save cache collected through dummy run
-	for(item in rtData.newCache) rtData.cache[item.key] = item.value
-	atomicState.cache = rtData.cache
+		for(item in rtData.newCache) rtData.cache[item.key] = item.value
+		atomicState.cache = rtData.cache
+	}
 
 	} catch (all) {
 		error "An error has occurred while subscribing: ", rtData, null, all
