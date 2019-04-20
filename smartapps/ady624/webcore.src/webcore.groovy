@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated April 16, 2019 for Hubitat
+ * Last Updated April 20, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190416" }
+public String HEversion() { return "v0.3.10a.20190420" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -82,7 +82,7 @@ def pageMain() {
 			if (success) {
 				if (!state.oAuthRequired) {
 					section('Note') {
-						paragraph "If you have previously installed ${handle()} and are trying to open it, please go back to the Automations tab and access ${handle()} from the SmartApps section.\r\n\r\nIf you are trying to install another instance of ${handle()} then please continue with the steps.", required: true
+						paragraph "If you have previously installed ${handle()} and are trying to open it, please go back to Apps in the HE dashboard access ${handle()}.\r\n\r\nIf you are trying to install another instance of ${handle()} then please continue with the steps.", required: true
 					}
 				}
 			   	if (location.getTimeZone()) {
@@ -97,7 +97,7 @@ def pageMain() {
 				}
 			} else {
 				section() {
-					paragraph "We'll start by configuring the dashboard. You need to setup OAuth in the SmartThings IDE for the ${handle()} SmartApp."
+					paragraph "We'll start by configuring the dashboard. You need to setup OAuth in the HE dashboard for the ${handle()} App."
 				}
 				pageSectionInstructions()
 				section () {
@@ -153,17 +153,17 @@ private pageSectionDisclaimer() {
 	section('Disclaimer') {
 		paragraph "Please read the following information carefully", required: true
 		paragraph "webCoRE is a web-enabled product, which means data travels across the internet. webCoRE is using TLS for encryption of data and NEVER provides real object IDs to any system outside the WebCoRE server. The IDs are hashed into a string of letters and numbers that cannot be 'decoded' back to their original value. These hashed IDs are stored by your browser and can be cleaned up by using the Logout action under the dashboard."
-		paragraph "Access to a webCoRE App is done through the browser using a security password provided during the installation of webCoRE. The browser never stores this password and it is only used during the initial registration and authentication of your browser. A security token is generated for each browser and is used for any subsequent communication. This token expires at a preset life length, or when the password is changed, or when the tokens are manually revoked from the webCoRE SmartApp's Settings menu."
+		paragraph "Access to a webCoRE App is done through the browser using a security password provided during the installation of webCoRE. The browser never stores this password and it is only used during the initial registration and authentication of your browser. A security token is generated for each browser and is used for any subsequent communication. This token expires at a preset life length, or when the password is changed, or when the tokens are manually revoked from the webCoRE App's Settings menu."
 	}
 	section('Server-side features') {
 		paragraph "Some features require that a webcore.co server processes your data. Such features include emails (sending emails out, or triggering pistons with emails), inter-location communication for superglobal variables, fuel streams, backup bins."
-		paragraph "At no time does the server receive any real IDs of SmartThings objects, the instance security password, nor the instance security token that your browser uses to communicate with the SmartApp. The server is therefore unable to access any information that only an authenticated browser can."
+		paragraph "At no time does the server receive any real IDs of HE objects, the instance security password, nor the instance security token that your browser uses to communicate with the App. The server is therefore unable to access any information that only an authenticated browser can."
 	}
 	section('Information collected by the server') {
 		paragraph "The webcore.co server(s) collect ANONYMIZED hashes of 1) your unique account identifier, 2) your locations, and 3) installed webCoRE instances. It also collects an encrypted version of your app instances' endpoints that allow the server to trigger pistons on emails (if you use that feature), proxy IFTTT requests to your pistons, or provide inter-location communication between your webCoRE instances, as well as data points provided by you when using the Fuel Stream feature. It also allows for automatic browser registration when you use another browser, by providing that browser basic information about your existing instances. You will still need to enter the password to access each of those instances, the server does not have the password, nor the security tokens."
 	}
 	section('Information NOT collected by the server') {
-		paragraph "The webcore.co server(s) do NOT intentionally collect any real object IDs from SmartThings, any names, phone numbers, email addresses, physical location information, addresses, or any other personally identifiable information."
+		paragraph "The webcore.co server(s) do NOT intentionally collect any real object IDs from HE, any names, phone numbers, email addresses, physical location information, addresses, or any other personally identifiable information."
 	}
 	section('Fuel Streams') {
 		paragraph "The information you provide while using the Fuel Stream feature is not encrypted and is not filtered in any way. Please avoid providing personally identifiable information in either the canister name, the fuel stream name, or the data point."
@@ -187,11 +187,11 @@ private pageSectionInstructions() {
 	state.oAuthRequired = true
 	section () {
 		paragraph "Please follow these steps:", required: true
-		paragraph "1. Go to your SmartThings IDE and log in", required: true
-		paragraph "2. Click on 'My SmartApps' and locate the 'ady624 : ${handle()}' SmartApp in the list", required: true
-		paragraph "3. Click the 'Edit Properties' button to the left of the SmartApp name (a notepad and pencil icon)", required: true
+		paragraph "1. Go to your HE dashboard and log in", required: true
+		paragraph "2. Click on 'Apps Code' and locate the '${handle()}' App in the list", required: true
+		paragraph "3. Click the App name", required: true
 		paragraph "4. Click on 'OAuth'", required: true
-		paragraph "5. Click the 'Enable OAuth in Smart App' button", required: true
+		paragraph "5. Click the 'Enable OAuth in App' button", required: true
 		paragraph "6. Click the 'Update' button", required: true
 	}
 }
@@ -199,11 +199,11 @@ private pageSectionInstructions() {
 private pageSectionTimeZoneInstructions() {
 	section () {
 		paragraph "Please follow these steps to setup your location timezone:", required: true
-		paragraph "1. Using your SmartThings mobile app, abort this installation and go to More section of the app (three horizontal bars)", required: true
-		paragraph "2. Click on the gear icon on the top right", required: true
-		paragraph "3. Click on the map to edit your location", required: true
+		paragraph "1. Using the HE dashboard, abort this installation and go to 'Settings' section", required: true
+		paragraph "2. Click on 'Location and Modes'", required: true
+		paragraph "3. Edit your postal code, and time zone, then Click on the map to edit your location", required: true
 		paragraph "4. Find your location on the map and place the pin there, adjusting the desired radius", required: true
-		paragraph "5. Tap the Save button, then tap Done", required: true
+		paragraph "5. Tap the Update button", required: true
 		paragraph "6. Try installing ${handle()} again", required: true
 	}
 }
@@ -305,7 +305,7 @@ private pageFinishInstall() {
 			paragraph "Excellent! You are now ready to use ${handle()}"
 		}
 		section("Note") {
-			paragraph "After you tap Done, go to the Automation tab, select the SmartApps section, and open the '${app.label}' SmartApp to access the dashboard.", required: true
+			paragraph "After you tap Done, go to 'Apps',  and open the '${app.label}' App to access the dashboard.", required: true
 			paragraph "You can also access the dashboard on any another device by entering ${domain()} in the address bar of your browser.", required: true
 		}
 		section() {
@@ -889,7 +889,7 @@ private api_intf_dashboard_load() {
 }
 
 private api_intf_dashboard_refresh() {
-	//debug "Dashboard: Request received to refresh instance"
+	debug "Dashboard: Request received to refresh instance"
 	startDashboard()
 	def result
 	if (verifySecurityToken(params.token)) {
@@ -1841,8 +1841,9 @@ private void initTokens() {
 }
 
 private Boolean verifySecurityToken(tokenId) {
+	//trace "verifySecurityToken ${tokenId}"
 	def tokens = state.securityTokens
-	if (!tokens) return false
+	if (!tokens || !tokenId) return false
 	def threshold = now()
 	def modified = false
 	//remove all expired tokens
