@@ -759,6 +759,9 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 				case 'routine':
 					item.i = $scope.instance.virtualDevices['routine'].o;
 					break;
+				case 'rule':
+					item.i = $scope.instance.virtualDevices['rule'].o;
+					break;
 			}
 		}
 
@@ -2500,6 +2503,13 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 		return null;
 	}
 
+	$scope.getRuleById = function(ruleId) {
+		if ($scope.instance.virtualDevices.rule && $scope.instance.virtualDevices.rule.o) {
+			return $scope.instance.virtualDevices.rule.o[ruleId];
+		}
+		return null;
+	}
+
 	$scope.getLocationModeById = function(locationModeId) {
 		if ($scope.instance.virtualDevices.mode && $scope.instance.virtualDevices.mode.o) {
 			return $scope.instance.virtualDevices.mode.o[locationModeId];
@@ -3129,6 +3139,10 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 				operand.multiple = true;
 				dataType = 'routine';
 			}
+			if (dataType == 'rules') {
+				operand.multiple = true;
+				dataType = 'rule';
+			}
 			if (dataType == 'attributes') {
 				operand.multiple = true;
 				dataType = 'attribute';
@@ -3192,7 +3206,7 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 					break;
 			}
 
-			var disableExpressions = (!!operand.disableExpressions) || (dataType == 'piston') || (dataType == 'routine') || (dataType == 'askAlexaMacro') || (dataType == 'attribute')
+			var disableExpressions = (!!operand.disableExpressions) || (dataType == 'piston') || (dataType == 'routine') || (dataType == 'rule') || (dataType == 'askAlexaMacro') || (dataType == 'attribute')
 			operand.onlyAllowConstants = operand.onlyAllowConstants || disableExpressions
 
 			var strict = !!operand.strict;
@@ -3276,6 +3290,7 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 			case 'mode':
 			case 'powerSource':
 			case 'alarmSystemStatus':
+			case 'rule':
 			case 'routine':
 				operand.options = $scope.objectToArray($scope.instance.virtualDevices[dataType].o);
 				break;
@@ -4462,6 +4477,11 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 					var routine = $scope.getRoutineById(object);
 					if (routine) {
 						object = anonymizeValue(object, {t: 'routine'});
+							return object;
+					}
+					var rule = $scope.getRuleById(object);
+					if (rule) {
+						object = anonymizeValue(object, {t: 'rule'});
 							return object;
 					}
 					var contact = $scope.getContactById(object);
