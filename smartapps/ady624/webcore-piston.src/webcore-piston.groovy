@@ -7502,16 +7502,30 @@ private stringToTime(dateOrTimeOrString) { // this is convert something to time
 //debug "trying3"
 			//result = toDateTime(dateOrTimeOrString).getTime()
 			result = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").parse(dateOrTimeOrString).getTime()
-//debug "worked $result"
+//debug "3 worked $result"
 			return result
 		} catch(all1) {
 		}
 		try {
+//debug "trying4a"
+			result = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").parse(dateOrTimeOrString).getTime()
+//debug "4a worked $result"
+			return result
+		} catch(all21) {
+		}
+		try {
 //debug "trying4"
-			result = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX").parse(dateOrTimeOrString).getTime()
-//debug "worked $result"
+			result = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX").parse(dateOrTimeOrString).getTime()
+//debug "4 worked $result"
 			return result
 		} catch(all2) {
+		}
+		try {
+//debug "trying4b"
+			result = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX").parse(dateOrTimeOrString).getTime()
+//debug "4b worked $result"
+			return result
+		} catch(all22) {
 		}
 		try {
 //debug "trying5"
