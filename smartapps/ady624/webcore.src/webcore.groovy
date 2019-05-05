@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated April 20, 2019 for Hubitat
+ * Last Updated May 5, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190420" }
+public String HEversion() { return "v0.3.10a.20190505" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -135,7 +135,7 @@ def pageMain() {
 	}
 }
 
-def sectionTitleStr(title)      { return "<h3>$title</h3>" }
+def sectionTitleStr(title)	{ return "<h3>$title</h3>" }
 def inputTitleStr(title)	{ return "<u>$title</u>" }
 def pageTitleStr(title)		{ return "<h1>$title</h1>" }
 def paraTitleStr(title)		{ return "<b>$title</b>" }
@@ -366,7 +366,6 @@ def pageSettings() {
 
 		section(title:"Privacy") {
 			href "pageDisclaimer", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Data Collection")), required: false
-//			href "pageDisclaimer", title: "Data Collection", image: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/settings.png", required: false
 		}
 
 		section(title: "Maintenance") {
@@ -623,9 +622,7 @@ private initialize() {
 	state.vars = state.vars ?: [:]
 	state.version = version()
 	state.versionHE = HEversion()
-	if (state.installed && settings.agreement) {
-		registerInstance()
-	}
+	registerInstance()
 	def storageApp = getStorageApp(true)
 	def recoveryMethod = (settings.recovery ?: 'Every 30 minutes').replace('Every ', 'Every').replace(' minute', 'Minute').replace(' hour', 'Hour')
 	if (recoveryMethod != 'Never') {
@@ -639,12 +636,31 @@ private initialize() {
 	}
 }
 
+public getWCendpoints() {
+	def t0 = [:]
+	def ep
+	def epl
+	if(isCustomEndpoint()){
+		ep = customServerUrl()
+		epl = ep
+	} else {
+		ep = apiServerUrl("$hubUID/apps/${app.id}")
+		epl = localApiServerUrl("${app.id}")
+	}
+	t0.ep = ep
+	t0.epl = epl
+	t0.at = state.accessToken
+	return t0
+}
+
 private updateEndpoint(accessToken){
 	if(isCustomEndpoint()){
 		state.endpoint = customServerUrl("?access_token=${accessToken}")
+		state.endpointLocal = customServerUrl("?access_token=${accessToken}")
 	}
 	else {
 		state.endpoint = apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}")
+		state.endpointLocal = localApiServerUrl("${app.id}/?access_token=${accessToken}")
 	}
 }
 
@@ -692,7 +708,7 @@ private getHub() {
 private subscribeAll() {
 	subscribe(location, "${handle()}.poll", webCoREHandler)
 	subscribe(location, "${'@@' + handle()}", webCoREHandler)
-//	subscribe(location, "systemStart", startHandler)
+	subscribe(location, "systemStart", startHandler)
 //below unused
 //	subscribe(location, "HubUpdated", hubUpdatedHandler, [filterEvents: false])
 //	subscribe(location, "summary", summaryHandler, [filterEvents: false])
@@ -909,9 +925,9 @@ def Map getDashboardData() {
 	def item
 	def start = now()
 	return settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev ->
-	        [ (id): dev.getSupportedAttributes().collect{ it.name }.unique().collectEntries {
-	                try { value = dev.currentValue(it); } catch (all) { value = null};
-                        return [ (it) : value]
+		[ (id): dev.getSupportedAttributes().collect{ it.name }.unique().collectEntries {
+			try { value = dev.currentValue(it); } catch (all) { value = null};
+			return [ (it) : value]
 		}]
 	}
 }
@@ -990,7 +1006,7 @@ private api_intf_dashboard_piston_get() {
 	if (!isCustomEndpoint() || customHubUrl.contains(hubUID)){
 		//data saver for hubitat ~100K limit	
 		def responseLength = jsonData.getBytes("UTF-8").length
-		if(responseLength > 100 * 1024){ //these are loaded anyway right after loading the piston
+		if(responseLength > 110 * 1024){ //these are loaded anyway right after loading the piston
 			log.warn "Trimming ${ (int)(responseLength/1024) }KB response to smaller size"
 			result.instance = null
 			result.data?.logs = []
@@ -1021,7 +1037,7 @@ private api_intf_dashboard_piston_backup() {
 						result.pistons.push(pd)
 						def jsonData = groovy.json.JsonOutput.toJson(result)
 						def responseLength = jsonData.getBytes("UTF-8").length
-						if(responseLength > 100 * 1024) {
+						if(responseLength > 110 * 1024) {
 							log.warn "Backup too big ${ (int)(responseLength/1024) }KB response"
 						}
 					}
@@ -1332,7 +1348,7 @@ private api_intf_dashboard_piston_clear_logs() {
 	if (verifySecurityToken(params.token)) {
 		def piston = getChildApps().find{ hashId(it.id) == params.id };
 		if (piston) {
-		result = piston.clearLogs()
+			result = piston.clearLogs()
 			result.status = "ST_SUCCESS"
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
@@ -1611,6 +1627,8 @@ def recoveryHandler() {
 		atomicState.versionHE = HEversion()
 		updated()
 		state.lastRecovered = 0
+	} else {
+		registerInstance(false)
 	}
 	def t = now()
 	def lastRecovered = state.lastRecovered
@@ -1618,7 +1636,7 @@ def recoveryHandler() {
 	if (lastRecovered && (now() - lastRecovered < recTime)) return
 
 	atomicState.lastRecovered = now()
-	int delay = (int) Math.round(500 * Math.random()) // seconds
+	int delay = (int) Math.round(200 * Math.random()) // seconds
 	runIn(delay, finishRecovery)
 }
 
@@ -1866,17 +1884,17 @@ private String createSecurityToken() {
 	trace "Dashboard: Generating new security token after a successful PIN authentication"
 	def token = UUID.randomUUID().toString()
 	def tokens = state.securityTokens ?: [:]
-	long expiry = 0
+	long mexpiry = 0
 	def eo = "$settings.expiry".toLowerCase().replace("every ", "").replace("(recommended)", "").replace("(not recommended)", "").trim()
 	switch (eo) {
-		case "hour": expiry = 3600; break;
-		case "day": expiry = 86400; break;
-		case "week": expiry = 604800; break;
-		case "month": expiry = 2592000; break;
-		case "three months": expiry = 7776000; break;
-		case "never": expiry = 3110400000; break; //never means 100 years, okay?
+		case "hour": mexpiry = 3600; break;
+		case "day": mexpiry = 86400; break;
+		case "week": mexpiry = 604800; break;
+		case "month": mexpiry = 2592000; break;
+		case "three months": mexpiry = 7776000; break;
+		case "never": mexpiry = 3110400000; break; //never means 100 years, okay?
 	}
-	tokens[token] = now() + (expiry * 1000)
+	tokens[token] = now() + (mexpiry * 1000)
 	state.securityTokens = tokens
 	//state.securityTokens = tokens
 	return token
@@ -1977,56 +1995,51 @@ private testLifx() {
 }
 */
 
-private registerInstance() {
-	def accountId = hashId(hubUID ?: app.getAccountId())
-	def locationId = hashId(location.id + (isHubitat() ? '-L' : ''))
-	def instanceId = hashId(app.id)
-	def endpoint = state.endpoint
-	def region = endpoint.contains('graph-eu') ? 'eu' : 'us';
-	def name = handle() + ' Piston'
-	def pistons = getChildApps().findAll{ it.name == name }.collect{ def t0 = hashId(it.id, true); [ id: t0, a: state[t0]?.a ] }
+private registerInstance(force=true) {
+	if(state.installed && settings.agreement) {
+		def lastReg = state.lastReg ?: 0
+		if(!force && lastReg && (now() - lastReg < 129600000)) return // 36 hr in ms
+		def accountId = hashId(hubUID ?: app.getAccountId())
+		def locationId = hashId(location.id + (isHubitat() ? '-L' : ''))
+		def instanceId = hashId(app.id)
+		def endpoint = state.endpoint
+		def region = endpoint.contains('graph-eu') ? 'eu' : 'us';
+		def name = handle() + ' Piston'
+		def pistons = getChildApps().findAll{ it.name == name }.collect{ def t0 = hashId(it.id, true); [ id: t0, a: state[t0]?.a ] }
 //log.debug "pistons: ${pistons}"
-	List lpa = pistons.findAll{ it.a }.collect{ it.id }
-	def pa = lpa.size()
-	List lpd = pistons.findAll{ !it.a }.collect{ it.id }
-	def pd = pistons.size() - pa
+		List lpa = pistons.findAll{ it.a }.collect{ it.id }
+		def pa = lpa.size()
+		List lpd = pistons.findAll{ !it.a }.collect{ it.id }
+		def pd = pistons.size() - pa
 	
-	def params = [
-		uri: "https://api-${region}-${instanceId[32]}.webcore.co:9247",
-		path: '/instance/register',
-		headers: ['ST' : instanceId],
-		body: [
-			a: accountId,
-			l: locationId,
-			i: instanceId,
-			e: endpoint,
-			v: version(),
-			r: region,
-			pa: pa,
-			lpa: lpa.join(','),
-			pd: pd,
-			lpd: lpd.join(',')
+		def params = [
+			uri: "https://api-${region}-${instanceId[32]}.webcore.co:9247",
+			path: '/instance/register',
+			headers: ['ST' : instanceId],
+			body: [
+				a: accountId,
+				l: locationId,
+				i: instanceId,
+				e: endpoint,
+				v: version(),
+				r: region,
+				pa: pa,
+				lpa: lpa.join(','),
+				pd: pd,
+				lpd: lpd.join(',')
+			]
 		]
-	]
 //log.debug "params ${params}"
-/*
-	if (asynchttp_v1) {
-		asynchttp_v1.put(instanceRegistrationHandler, params)
-	}
-	else { */
 		params << [contentType: 'application/json', requestContentType: 'application/json']
 		asynchttpPut('myDone', params, [bbb:0])
-/*
-		try{
-			httpPut(params) { res -> }	
-		}
-		catch(e) {}
-*/
-	//}
+	}
 }
 
 def myDone(resp, data) {
 	log.debug "register resp: ${resp?.status}"
+	if (resp?.status == 200) {
+		state.lastReg = now()
+	}
 }
 
 private initSunriseAndSunset() {
@@ -2129,7 +2142,7 @@ public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
 		devices: (!!fetchWrappers ? (storageApp ? storageApp.listAvailableDevices(true) : listAvailableDevices(true)) : [:]),
 		virtualDevices: virtualDevices(),
 		globalVars: listAvailableVariables(),
-		globalStore: state.store ?: [:],
+		globalStore: getGStore(), //state.store ?: [:],
 		settings: state.settings ?: [:],
 		lifx: state.lifx ?: [:],
 		powerSource: state.powerSource ?: 'mains',
@@ -2193,7 +2206,8 @@ public void updateRunTimeData(data) {
 		z: data.piston.z, //description
 		s: st, //state
 	]
-	atomicState[id] = piston
+	//atomicState[id] = piston
+	state[id] = piston
 	//broadcast variable change events
 	for (variable in variableEvents) {
 		sendVariableEvent(variable)
@@ -2280,8 +2294,8 @@ def webCoREHandler(event) {
 		/*if (data && data.id && data.name && (data.id != hashId(app.id))) {
 			def pong = atomicState.pong ?: [:]
 			pong[data.id] = data.name
-		atomicState.pong = pong
-			}*/
+			atomicState.pong = pong
+		}*/
 	}
 }
 
@@ -2342,6 +2356,16 @@ def hsmHandler(evt){
 	state.hsmStatus = evt.value
 }
 
+def startHandler(evt){
+	state.lastRecovered = 0
+	state.lastReg = 0
+	runIn(70, startWork)
+}
+
+def startWork() {
+	recoveryHandler()
+}
+
 /*
 def lifxHandler(response, cbkData) {
 	if ((response.status == 200)) {
@@ -2371,7 +2395,7 @@ def lifxHandler(response, cbkData) {
 /***																		***/
 /******************************************************************************/
 def String md5(String md5) {
-    try {
+	try {
 	java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
 	byte[] array = md.digest(md5.getBytes())
 	def result = ""
@@ -2379,8 +2403,8 @@ def String md5(String md5) {
 		result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
    	}
 	return result
-    } catch (java.security.NoSuchAlgorithmException e) {
-    }
+	} catch (java.security.NoSuchAlgorithmException e) {
+	}
 	return null;
 }
 
@@ -2815,6 +2839,7 @@ private static Map virtualCommands() {
 		executePiston				: [ n: "Execute piston...",			a: true,	i: "clock", is: "r",				d: "Execute piston \"{0}\"{1}",											p: [[n:"Piston", t:"piston"], [n:"Arguments", t:"variables", d:" with arguments {v}"],[n:"Wait for execution",t:"boolean",d:" and wait for execution to finish",w:"webCoRE can only wait on piston executions of pistons within the same instance as the caller. Please note that global variables updated in the callee piston do NOT get reflected immediately in the caller piston, the new values will be available on the next run."]],	],
 		pausePiston				: [ n: "Pause piston...",			a: true,	i: "clock", is: "r",				d: "Pause piston \"{0}\"",												p: [[n:"Piston", t:"piston"]],	],
 		resumePiston				: [ n: "Resume piston...",			a: true,	i: "clock", is: "r",				d: "Resume piston \"{0}\"",												p: [[n:"Piston", t:"piston"]],	],
+		executeRule				: [ n: "Execute Rule...",			a: true,	i: "clock", is: "r",				d: "Execute Rule \"{0}\" with action {1}",											p: [[n:"Rule", t:"rule"], [n:"Argument", t:"enum", o:['Run','Stop','Pause','Resume','Evaluate','Set Boolean True','Set Boolean False']] ]	],
 		toggle					: [ n: "Toggle", r: ["on", "off"], 				i: "toggle-on"																				],
 		toggleRandom				: [ n: "Random toggle", r: ["on", "off"], 		i: "toggle-on",				d: "Random toggle{0}",													p: [[n:"Probability for on", t:"level", d:" with a {v}% probability for on"]],	],
 		setSwitch				: [ n: "Set switch...", r: ["on", "off"], 			i: "toggle-on",			d: "Set switch to {0}",													p: [[n:"Switch value", t:"switch"]],																],
@@ -3150,6 +3175,19 @@ private Map getEchoSistantOptions() {
 }
 */
 
+import hubitat.helper.RMUtils
+
+private Map getRuleOptions(updateCache) {
+	def result = [:]
+        def rules = RMUtils.getRuleList()
+        rules.each {rule->
+                rule.each{pair->
+                        result[hashId(pair.key, updateCache)] = pair.value
+                }       
+        }       
+	return result
+}
+
 private Map virtualDevices(updateCache = false) {
 	return [
 		date:			[ n: 'Date',			t: 'date',		],
@@ -3160,6 +3198,7 @@ private Map virtualDevices(updateCache = false) {
 		ifttt:			[ n: 'IFTTT',			t: 'string',						m: true	],
 		mode:			[ n: 'Location mode',		t: 'enum', 	o: getLocationModeOptions(updateCache),	x: true],
 		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
+		rule:			[ n: 'Rule',			t: 'enum',	o: getRuleOptions(updateCache),		m: true ],
 //ac - actions. hubitat doesn't reuse the status for actions
 		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),			x: true], 
 		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],

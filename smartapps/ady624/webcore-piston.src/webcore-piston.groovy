@@ -16,16 +16,17 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 20, 2019 for Hubitat
+ * Last update May 5, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190420" }
+public static String HEversion() { return "v0.3.10a.20190505" }
 
 /*** webCoRE DEFINITION					***/
 
 private static String handle() { return "webCoRE" }
 
 import groovy.json.*
+import hubitat.helper.RMUtils
 
 definition(
 	name: "${handle()} Piston",
@@ -90,7 +91,9 @@ def pageMain() {
 					paragraph "Automatic backup bin code: ${state.bin}"
 				}
 				paragraph "Version: ${version()}"
+				paragraph "VersionH: ${HEversion()}"
 				paragraph "Memory Usage: ${mem()}"
+				
 			}
 
 			section(sectionTitleStr("Recovery")) {
@@ -113,6 +116,10 @@ def pageRun() {
 	return dynamicPage(name: "pageRun", title: "", uninstall: false) {
 		section("Run") {
 			paragraph "OK - under construction"
+			def t0 = parent.getWCendpoints()
+			def t1 = "/execute/${hashId(app.id)}?access_token=${t0.at}"
+			paragraph "Execute endpoint (cloud) ${t0.ep}${t1}"
+			paragraph "Local Execute endpoint ${t0.epl}${t1}"
 		}
 	}
 }
@@ -452,15 +459,15 @@ Map resume(piston=null) {
 	atomicState.sph = 0
 	def tempRtData = getTemporaryRunTimeData()
 	def msg = timer "Piston successfully started", null, -1
-	if (tempRtData.logging) info "Starting piston... (${version()})", tempRtData, 0
+	if (tempRtData.logging) info "Starting piston... (${HEversion()})", tempRtData, 0
 	if(piston) tempRtData.piston = piston
-	def rtData = getRunTimeData(tempRtData, null, true)
-	checkVersion(rtData)
 	state.hash = null
 	state.subscriptions = [:]
 	atomicState.schedules = []
 	state.schedules = []
-	subscribeAll(rtData)
+	def rtData = getRunTimeData(tempRtData, null, true)
+	checkVersion(rtData)
+	//subscribeAll(rtData)
 	if (rtData.logging) info msg, rtData
 	updateLogs(rtData)
 	rtData.result = [active: true, subscriptions: state.subscriptions]
@@ -475,6 +482,7 @@ def setLoggingLevel(level) {
 	if (logging > 3) logging = 3
 	atomicState.logging = logging
 	state.logging = logging
+	if(logging == 0) state.logs = []
 	return [logging: logging]
 }
 
@@ -713,7 +721,7 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		state.schedules = atomState.schedules
 		rtData.systemVars = getSystemVariables()
 		rtData.localVars = getLocalVariables(rtData, piston.v, atomState)
-		if(doSubScribe) subscribeAll(rtData, false)
+		if(doSubScribe) subscribeAll(rtData, !!fetchWrappers) //false)  this is a resume piston from pause
 
 //	} catch(all) {
 //			error "Error while getting runtime data:", rtData, null, all
@@ -769,6 +777,7 @@ def lockRecoveryHandler(event) {
 
 def executeHandler(event) {
 	//log.debug "executeHandler called ${event.jsonData}"
+	pause(150)
 	handleEvents([date: event.date, device: location, name: 'execute', value: event.value, jsonData: event.jsonData])
 }
 
@@ -841,7 +850,7 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 	Map rtData = getRunTimeData(tempRtData, retSt )
 	piston = piston ?: rtData.piston // state.piston
 	checkVersion(rtData)
-	def ver = version()
+	def ver = HEversion()
 
 	t0 = rtData.generatedIn + now() - rtData.ended
 	if(rtData.logging > 2) debug "RunTime LockT > ${rtData.started - startTime}ms > rtDataT > ${rtData.generatedIn}ms > pistonT > ${now() - rtData.ended}ms > CE", rtData
@@ -1922,12 +1931,13 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 		//resulting time is in UTC
 		if (!lastRun) {
 			//first run, just adjust the time so we're in the future
-			while (time <= now()) {
+			time = pushTimeAhead(time, now())
+			/*while (time <= now()) {
 				//add days to bring it to next occurrence and support DST changes (ie if you want to run at 3:00 AM, ensure it is 3:00 AM
 				def t0 = time
 				def t1 = time + 86400000
 				time = t1 + (location.timeZone.getOffset(t0) - location.timeZone.getOffset(t1))
-			}
+			}*/
 		}
 	}
 	delta = delta * interval
@@ -1961,7 +1971,8 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 		} else {
 
 			//advance one day if we're in the past
-			while (time < rightNow) time += 86400000
+			time = pushTimeAhead(time, rightNow)
+			// while (time < rightNow) time = time + 86400000 
 			long lastDay = Math.floor(nextSchedule / 86400000)
 			long thisDay = Math.floor(time / 86400000)
 
@@ -2054,6 +2065,15 @@ private scheduleTimer(rtData, timer, long lastRun = 0) {
 	}
 }
 
+private pushTimeAhead(pastTime, curTime) {
+	def retTime = pastTime
+	while (retTime < curTime) {
+		def t0 = retTime + 86400000
+		def t1 = t0 + location.timeZone.getOffset(retTime) - location.timeZone.getOffset(t0)
+		retTime = t1
+	}
+	return retTime
+}
 
 private scheduleTimeCondition(rtData, condition) {
 	//if already scheduled once during this run, don't do it again
@@ -2077,8 +2097,10 @@ private scheduleTimeCondition(rtData, condition) {
 	if (condition.lo.v == 'time') {
 		//v1 = (v1 % 86400000) + getMidnightTime()
 		//v2 = (v2 % 86400000) + getMidnightTime()
-		while (v1 < n) v1 += 86400000
-		while (v2 < n) v2 += 86400000
+		v1 = pushTimeAhead(v1, n)
+		// while (v1 < n) v1 += 86400000
+		v2 = pushTimeAhead(v2, n)
+		// while (v2 < n) v2 += 86400000
 /*	int cnt = 100
 	error "checking restrictions for $condition.lo", rtData
 	while (cnt) {
@@ -2496,7 +2518,6 @@ private long vcmd_setLocationMode(rtData, device, params) {
 private long vcmd_setAlarmSystemStatus(rtData, device, params) {
 	def statusIdOrName = params[0]
 	def dev = rtData.virtualDevices['alarmSystemStatus']
-	//def dev = VirtualDevices['alarmSystemStatus']
 	//def options = isHubitat() ? dev?.ac : dev?.o
 	def options = dev?.ac
 	def status = options?.find{ (it.key == statusIdOrName) || (it.value == statusIdOrName)}.collect{ [id: it.key, name: it.value] }
@@ -2578,7 +2599,8 @@ private long vcmd_waitForTime(rtData, device, params) {
 	long time = now()
 	time = cast(rtData, cast(rtData, params[0], 'time'), 'datetime', 'time')
 	long rightNow = now()
-	while (time < rightNow) time += 86400000
+	time = pushTimeAhead(time, rightNow)
+	//while (time < rightNow) time += 86400000
 	return time - rightNow
 }
 
@@ -3010,14 +3032,27 @@ private long vcmd_resumePiston(rtData, device, params) {
 	return 0
 }
 
-private long vcmd_executeRoutine(rtData, device, params) {
-	def routineId = params[0]
-	def routines = location.helloHome?.getPhrases()
-	if (routines) {
-		def routine = routines.find{ hashId(it.id) == routineId }
-		if (routine) {
-			location.helloHome?.execute(routine.label)
-		}
+private long vcmd_executeRule(rtData, device, params) {
+	def ruleId = params[0]
+	def action = params[1]
+	def wait = (params.size() > 2) ? cast(rtData, params[2], 'boolean') : false
+	def rules = RMUtils.getRuleList()
+	def myRule = []
+	rules.each {rule->
+		def t0 = rule.find{ hashId(it.key) == ruleId }.collect {it.key}
+		myRule += t0
+	}
+
+	if(myRule) {
+		def ruleAction
+		if(action == "Run") ruleAction =  "runRuleAct"
+		if(action == "Stop") ruleAction =  "stopRuleAct"
+		if(action == "Pause") ruleAction =  "pauseRule"
+		if(action == "Resume") ruleAction =  "resumeRule"
+		if(action == "Evaluate") ruleAction =  "runRule"
+		if(action == "Set Boolean True") ruleAction =  "setRuleBooleanTrue"
+		if(action == "Set Boolean False") ruleAction =  "setRuleBooleanFalse"
+		RMUtils.sendAction(myRule, ruleAction, app.label)
 	}
 	return 0
 }
@@ -3171,7 +3206,9 @@ private long vcmd_httpRequest(rtData, device, params) {
 public ahttpRequestHandler(resp, callbackData) {
 	//debug "called ahttp ${resp.status} ${resp.getHeaders()}"
 	def binary = false
-	def mediaType = resp.getHeaders()['Content-Type']?.toLowerCase()?.tokenize(';')[0]
+	def t0 = resp.getHeaders()
+	def t1 = t0 && t0."Content-Type" ? t0."Content-Type" : null
+	def mediaType = t1 ? t1.toLowerCase()?.tokenize(';')[0] : null
 	switch (mediaType) {
 		case 'image/jpeg':
 		case 'image/png':
@@ -3384,9 +3421,9 @@ private long vcmd_parseJson(rtData, device, params) {
 			rtData.json = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(data)
 		} else if (data.startsWith('[') && data.endsWith(']')) {
 			rtData.json = (List) new groovy.json.JsonSlurper().parseText(data)
-	} else {
-		rtData.json = [:]
-	}
+		} else {
+			rtData.json = [:]
+		}
 	} catch (all) {
 		error "Error parsing JSON data $data", rtData
 	}
@@ -3528,7 +3565,7 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 		def attribute = Attributes[operand.a]
 		for(deviceId in expandDeviceList(rtData, operand.d)) {
 			def value = [i: "${deviceId}:${operand.a}", v:getDeviceAttribute(rtData, deviceId, operand.a, operand.i, trigger) + (operand.vt ? [vt: operand.vt] : [:]) + (attribute && attribute.p ? [p: operand.p] : [:])]
-		updateCache(rtData, value)
+			updateCache(rtData, value)
 			values.push(value)
 			j++
 		}
@@ -3544,24 +3581,24 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 	case 'd': //devices
 		def deviceIds = []
 		for (d in expandDeviceList(rtData, operand.d)) {
-				if (getDevice(rtData, d)) deviceIds.push(d)
+			if (getDevice(rtData, d)) deviceIds.push(d)
 		}
 		/*
 		for (d in rtData, operand.d) {
-		if (d.startsWith(':')) {
-			if (getDevice(rtData, d)) deviceIds.push(d)
-		} else {
-			//we're dealing with a variable, let's get the list of devices from it
-			def var = getVariable(rtData, d)
-			if (var.t == 'device') {
-			for (vd in var.v) {
-							if (getDevice(rtData, vd)) deviceIds.push(vd)
+			if (d.startsWith(':')) {
+				if (getDevice(rtData, d)) deviceIds.push(d)
+			} else {
+				//we're dealing with a variable, let's get the list of devices from it
+				def var = getVariable(rtData, d)
+				if (var.t == 'device') {
+					for (vd in var.v) {
+						if (getDevice(rtData, vd)) deviceIds.push(vd)
+					}
 				}
-			}
 			}
 		}
 		*/
-			values = [[i: "${node?.$}:d", v:[t: 'device', v: deviceIds.unique()]]]
+		values = [[i: "${node?.$}:d", v:[t: 'device', v: deviceIds.unique()]]]
 		break
 	case 'v': //virtual devices
 		switch (operand.v) {
@@ -3606,9 +3643,9 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 			def v = 0;
 			switch (operand.s) {
 			case 'midnight': v = nextMidnight ? getNextMidnightTime() : getMidnightTime(); break;
-			case 'sunrise': v = getSunriseTime(rtData); break;
-			case 'noon': v = getNoonTime(); break;
-			case 'sunset': v = getSunsetTime(rtData); break;
+			case 'sunrise': v =  adjustPreset(rtData, "Sunrise", nextMidnight); break
+			case 'noon': v = adjustPreset(rtData, "Noon", nextMidnight); break
+			case 'sunset': v = adjustPreset(rtData, "Sunset", nextMidnight); break;
 			}
 			values = [[i: "${node?.$}:$index:0", v:[t:operand.vt, v:v]]]
 			break
@@ -3660,6 +3697,18 @@ private evaluateOperand(rtData, node, operand, index = null, trigger = false, ne
 	return values
 }
 
+private adjustPreset(rtData, ttyp, nextMidnight) {
+	def t0 = "getNext${ttyp}Time"(rtData)
+	def t1 = t0 - 86400000
+	def delta = location.timeZone.getOffset(t1) - location.timeZone.getOffset(t0)
+	def t4 = delta ? t1 + delta : t1 
+
+	def t2 = "get${ttyp}Time"(rtData)
+	tnow = now()
+	if(tnow > t2 && tnow > t4) return t4
+	return t2
+}
+
 private evaluateScalarOperand(rtData, node, operand, index = null, dataType = 'string') {
 	def value = evaluateOperand(rtData, null, operand, index)
 	return [t: dataType, v: cast(rtData, (value ? value.v: ''), dataType)]
@@ -3686,94 +3735,94 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 	rtData.wakingUp = (rtData.event.name == 'time') && (!!rtData.event.schedule) && (rtData.event.schedule.s == condition.$)
 	if (rtData.fastForwardTo || comparison) {
 		if (!rtData.fastForwardTo || (rtData.fastForwardTo == -9 /*initial run*/)) {
-		def paramCount = comparison.p ?: 0
-		def lo = null
-		def ro = null
-		def ro2 = null
-		for(int i = 0; i <= paramCount; i++) {
-			def operand = (i == 0 ? condition.lo : (i == 1 ? condition.ro : condition.ro2))
-			//parse the operand
-			def values = evaluateOperand(rtData, condition, operand, i, trigger)
-			switch (i) {
-			case 0:
-				lo = [operand: operand, values: values]
-				break
-			case 1:
-				ro = [operand: operand, values: values]
-				break
-			case 2:
-				ro2 = [operand: operand, values: values]
-				break
+			def paramCount = comparison.p ?: 0
+			def lo = null
+			def ro = null
+			def ro2 = null
+			for(int i = 0; i <= paramCount; i++) {
+				def operand = (i == 0 ? condition.lo : (i == 1 ? condition.ro : condition.ro2))
+				//parse the operand
+				def values = evaluateOperand(rtData, condition, operand, i, trigger)
+				switch (i) {
+				case 0:
+					lo = [operand: operand, values: values]
+					break
+				case 1:
+					ro = [operand: operand, values: values]
+					break
+				case 2:
+					ro2 = [operand: operand, values: values]
+					break
+				}
 			}
-		}
 
-		//we now have all the operands, their values, and the comparison, let's get to work
-		Map options = [
-			//we ask for matching/non-matching devices if the user requested it or if the trigger is timed
-			//setting matches to true will force the condition group to evaluate all members (disables evaluation optimizations)
-			matches: lo.operand.dm || lo.operand.dn || (trigger && comparison.t),
-			forceAll: (trigger && comparison.t)
-		]
-		def to = (comparison.t || (ro && (lo.operand.t == 'v') && (lo.operand.v == 'time') && (ro.operand.t != 'c'))) && condition.to ? [operand: condition.to, values: evaluateOperand(rtData, null, condition.to)] : null
-		def to2 = ro2 && (lo.operand.t == 'v') && (lo.operand.v == 'time') && (ro2.operand.t != 'c') && condition.to2 ? [operand: condition.to2, values: evaluateOperand(rtData, null, condition.to2)] : null
-		result = evaluateComparison(rtData, condition.co, lo, ro, ro2, to, to2, options)
-		//save new values to cache
-		if (lo) for (value in lo.values) updateCache(rtData, value)
-		if (ro) for (value in ro.values) updateCache(rtData, value)
-		if (ro2) for (value in ro2.values) updateCache(rtData, value)
-		if (rtData.fastForwardTo == null) tracePoint(rtData, "c:${condition.$}", now() - t, result)
-		if (lo.operand.dm && options.devices) setVariable(rtData, lo.operand.dm, options.devices?.matched ?: [])
-		if (lo.operand.dn && options.devices) setVariable(rtData, lo.operand.dn, options.devices?.unmatched ?: [])
-		//do the stay logic here
-		if (trigger && comparison.t && (rtData.fastForwardTo == null)) {
-			//timed trigger
-			if (to) {
-			def tvalue = to && to.operand && to.values ? to.values + [f: to.operand.f] : null
-			if (tvalue) {
-				long delay = evaluateExpression(rtData, [t: 'duration', v: tvalue.v, vt: tvalue.vt], 'long').v
-				if ((lo.operand.t == 'p') && (lo.operand.g == 'any') && lo.values.size() > 1) {
-					def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
-					for (value in lo.values) {
-					def dev = value.v?.d
-					if (dev in options.devices.matched) {
-						//schedule one device schedule
-					if (!schedules.find{ (it.s == condition.$) && (it.d == dev) }) {
-						//schedule a wake up if there's none, otherwise just move on
-						if (rtData.logging > 2) debug "Adding a timed trigger schedule for device $dev for condition ${condition.$}", rtData
-						requestWakeUp(rtData, condition, condition, delay, dev)
-					}
-					} else {
-						//cancel that one device schedule
-					if (rtData.logging > 2) debug "Cancelling any timed trigger schedules for device $dev for condition ${condition.$}", rtData
-						cancelStatementSchedules(rtData, condition.$, dev)
+			//we now have all the operands, their values, and the comparison, let's get to work
+			Map options = [
+				//we ask for matching/non-matching devices if the user requested it or if the trigger is timed
+				//setting matches to true will force the condition group to evaluate all members (disables evaluation optimizations)
+				matches: lo.operand.dm || lo.operand.dn || (trigger && comparison.t),
+				forceAll: (trigger && comparison.t)
+			]
+			def to = (comparison.t || (ro && (lo.operand.t == 'v') && (lo.operand.v == 'time') && (ro.operand.t != 'c'))) && condition.to ? [operand: condition.to, values: evaluateOperand(rtData, null, condition.to)] : null
+			def to2 = ro2 && (lo.operand.t == 'v') && (lo.operand.v == 'time') && (ro2.operand.t != 'c') && condition.to2 ? [operand: condition.to2, values: evaluateOperand(rtData, null, condition.to2)] : null
+			result = evaluateComparison(rtData, condition.co, lo, ro, ro2, to, to2, options)
+			//save new values to cache
+			if (lo) for (value in lo.values) updateCache(rtData, value)
+			if (ro) for (value in ro.values) updateCache(rtData, value)
+			if (ro2) for (value in ro2.values) updateCache(rtData, value)
+			if (rtData.fastForwardTo == null) tracePoint(rtData, "c:${condition.$}", now() - t, result)
+			if (lo.operand.dm && options.devices) setVariable(rtData, lo.operand.dm, options.devices?.matched ?: [])
+			if (lo.operand.dn && options.devices) setVariable(rtData, lo.operand.dn, options.devices?.unmatched ?: [])
+			//do the stay logic here
+			if (trigger && comparison.t && (rtData.fastForwardTo == null)) {
+				//timed trigger
+				if (to) {
+					def tvalue = to && to.operand && to.values ? to.values + [f: to.operand.f] : null
+					if (tvalue) {
+						long delay = evaluateExpression(rtData, [t: 'duration', v: tvalue.v, vt: tvalue.vt], 'long').v
+						if ((lo.operand.t == 'p') && (lo.operand.g == 'any') && lo.values.size() > 1) {
+							def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
+							for (value in lo.values) {
+								def dev = value.v?.d
+								if (dev in options.devices.matched) {
+									//schedule one device schedule
+									if (!schedules.find{ (it.s == condition.$) && (it.d == dev) }) {
+										//schedule a wake up if there's none, otherwise just move on
+										if (rtData.logging > 2) debug "Adding a timed trigger schedule for device $dev for condition ${condition.$}", rtData
+										requestWakeUp(rtData, condition, condition, delay, dev)
+									}
+								} else {
+									//cancel that one device schedule
+									if (rtData.logging > 2) debug "Cancelling any timed trigger schedules for device $dev for condition ${condition.$}", rtData
+									cancelStatementSchedules(rtData, condition.$, dev)
+								}
+							}
+						} else {
+							if (result) {
+							//if we find the comparison true, set a timer if we haven't already
+								def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
+								if (!schedules.find{ (it.s == condition.$) }) {
+									if (rtData.logging > 2) debug "Adding a timed trigger schedule for condition ${condition.$}", rtData
+									requestWakeUp(rtData, condition, condition, delay)
+								}
+							} else {
+								if (rtData.logging > 2) debug "Cancelling any timed trigger schedules for condition ${condition.$}", rtData
+								cancelStatementSchedules(rtData, condition.$)
+							}
+						}
 					}
 				}
-				} else {
-					if (result) {
-					//if we find the comparison true, set a timer if we haven't already
-						def schedules = rtData.piston.o?.pep ? atomicState.schedules : state.schedules
-									if (!schedules.find{ (it.s == condition.$) }) {
-						if (rtData.logging > 2) debug "Adding a timed trigger schedule for condition ${condition.$}", rtData
-							requestWakeUp(rtData, condition, condition, delay)
-					}
-				} else {
-					if (rtData.logging > 2) debug "Cancelling any timed trigger schedules for condition ${condition.$}", rtData
-					cancelStatementSchedules(rtData, condition.$)
-				}
-				}
+				result = false
 			}
-			}
-			result = false
-		}
-		result = not ? !result : !!result
-		} else if ((rtData.event.name == 'time') && (rtData.fastForwardTo == condition.$)) {
-			rtData.fastForwardTo = null
-		rtData.resumed = true
+			result = not ? !result : !!result
+			} else if ((rtData.event.name == 'time') && (rtData.fastForwardTo == condition.$)) {
+				rtData.fastForwardTo = null
+				rtData.resumed = true
 				result = not ? false : true
-		} else {
-		result = oldResult
+			} else {
+				result = oldResult
+			}
 		}
-	}
 	}
 	rtData.wakingUp = false
 	rtData.conditionStateChanged = oldResult != result
@@ -3798,7 +3847,7 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 		case 'datetime':
 			scheduleTimeCondition(rtData, condition);
 			break;
-	}
+		}
 	}
 	return result
 }
@@ -3806,10 +3855,10 @@ private Boolean evaluateCondition(rtData, condition, collection, async) {
 private updateCache(rtData, value) {
 	def oldValue = rtData.cache[value.i]
 	if (!oldValue || (oldValue.t != value.v.t) || (oldValue.v != value.v.v)) {
-	//if (rtData.logging > 2) debug "Updating value", rtData
-	rtData.newCache[value.i] = value.v + [s: now()]
+		//if (rtData.logging > 2) debug "Updating value", rtData
+		rtData.newCache[value.i] = value.v + [s: now()]
 	} else {
-	//if (rtData.logging > 2) debug "Not updating value", rtData
+		//if (rtData.logging > 2) debug "Not updating value", rtData
 	}
 }
 
@@ -3825,7 +3874,7 @@ private Boolean evaluateComparison(rtData, comparison, lo, ro = null, ro2 = null
 	for(value in lo.values) {
 		def res = false
 		if (value && value.v && (!value.v.x || options.forceAll)) {
-		try {
+			try {
 			//physical support
 			//value.p = lo.operand.p
 			if (value && (value.v.t == 'device')) value.v = evaluateExpression(rtData, value.v, 'dynamic')
@@ -3862,21 +3911,21 @@ private Boolean evaluateComparison(rtData, comparison, lo, ro = null, ro2 = null
 					if (((ro.operand.g == 'any') && res) || ((ro.operand.g != 'any') && !res)) break
 				}
 			}
-		} catch(all) {
-			error "Error calling comparison $fn:", rtData, null, all
-			res = false
-		}
-		if (res && (lo.operand.t == 'v')) {
-			switch (lo.operand.v) {
-				case 'time':
-			case 'date':
-			case 'datetime':
-				//boolean pass = checkTimeRestrictions(rtData, lo.operand, isHubitat() ? now() : utcToLocalTime(), 5, 1) == 0
-				boolean pass = checkTimeRestrictions(rtData, lo.operand, now(), 5, 1) == 0
-				if (rtData.logging > 2) debug "Time restriction check ${pass ? 'passed' : 'failed'}", rtData
-				if (!pass) res = false;
+			} catch(all) {
+				error "Error calling comparison $fn:", rtData, null, all
+				res = false
 			}
-		}
+
+			if (res && (lo.operand.t == 'v')) {
+				switch (lo.operand.v) {
+					case 'time':
+				case 'date':
+				case 'datetime':
+					boolean pass = checkTimeRestrictions(rtData, lo.operand, now(), 5, 1) == 0
+					if (rtData.logging > 2) debug "Time restriction check ${pass ? 'passed' : 'failed'}", rtData
+					if (!pass) res = false;
+				}
+			}
 		}
 		result = (lo.operand.g == 'any' ? result || res : result && res)
 		if (options?.matches && value.v.d) {
@@ -4303,7 +4352,7 @@ private void subscribeAll(rtData, doit=true) {
 				}
 			}
 			break;
-		case "v": //physical device
+		case "v": //virtual device
 			def deviceId = rtData.locationId
 			//if we have any trigger, it takes precedence over anything else
 			devices[deviceId] = [c: (comparisonType ? 1 : 0) + (devices[deviceId]?.c ?: 0)]
@@ -4341,7 +4390,6 @@ private void subscribeAll(rtData, doit=true) {
 			case 'ifttt':
 				if (value && (value.t == 'c') && (value.c)) {
 					def options = rtData.virtualDevices[operand.v]?.o
-					//def options = VirtualDevices[operand.v]?.o
 					def item = options ? options[value.c] : value.c
 					if (item) {
 						subscriptionId = "$deviceId${operand.v}${item}"
@@ -4675,7 +4723,6 @@ private Map getDeviceAttribute(rtData, deviceId, attributeName, subDeviceIndex =
 		case 'alarmSystemStatus':
 			def v = location.hsmStatus
 			def n = rtData.virtualDevices['alarmSystemStatus']?.o[v]
-			//def n = VirtualDevices['alarmSystemStatus']?.o[v]
 			return [t: 'string', v: v, n: n]
 		}
 		return [t: 'string', v: location.getName().toString()]
@@ -4894,12 +4941,14 @@ private Map getResponse(rtData, name) {
 	return getJsonData(rtData, rtData.response, name)
 }
 
+/*
 private Map getWeather(rtData, name) {
 	warn 'Hubitat does not support $weather', rtData
 	List parts = name.tokenize('.');
 	rtData.weather = rtData.weather ?: [:]
 	return getJsonData(rtData, rtData.weather, name)
 }
+*/
 
 private Map getNFLDataFeature(dataFeature) {
 	def requestParams = [
@@ -7768,31 +7817,42 @@ private getSunsetTime(rtData) {
 }
 
 private getNextSunriseTime(rtData) {
-	def t0 = getSunriseTime(rtData)
-
-//convert time to hh:mm string
-	def t1 = new Date(t0)
-	def str1 = "${t1.hours}"
-	def str2 = "${t1.minutes}"
-	if(t1.hours < 10) str1 = String.format('%02d', t1.hours)
-	if(t1.minutes < 10) str2 = String.format('%02d', t1.minutes)
-	def str = str1 + ':' + str2
-
-	return new Date(timeTodayAfter("23:59", str, location.timeZone).getTime())
+	if(!rtData.nextsunrise) rtData.nextsunrise = getNextOccurance(rtData, "Sunrise")
+	return rtData.nextsunrise
 }
 
 private getNextSunsetTime(rtData) {
-	def t0 = getSunsetTime(rtData)
+	if (!rtData.nextsunset) rtData.nextsunset = getNextOccurance(rtData, "Sunset")
+	return rtData.nextsunset
+}
 
-//convert time to hh:mm string
-	def t1 = new Date(t0)
-	def str1 = "${t1.hours}"
-	def str2 = "${t1.minutes}"
-	if(t1.hours < 10) str1 = String.format('%02d', t1.hours)
-	if(t1.minutes < 10) str2 = String.format('%02d', t1.minutes)
-	def str = str1 + ':' + str2
+// This is trying to ensure we don't fire sunsets or sunrises twice in same day by ensuring we fire a bit later than actual sunrise or sunset
+private getNextOccurance(rtData, ttyp) {
+	def t0 = getLocationEventsSince("${ttyp.toLowerCase()}Time", new Date() -1)
+	def t1
+	if(t0.size()) {
+		t1 = t0[t0.size()-1]
+	}
+	if(t1 && t1.value) { return stringToTime(t1.value) + 1000 }
+	else {
+		t0 = "get${ttyp}Time"(rtData)
+		def t4 = t0 + 86400000
+		t4 = t4 + (location.timeZone.getOffset(t0) - location.timeZone.getOffset(t4))
 
-	return new Date(timeTodayAfter("23:59", str, location.timeZone).getTime())
+		t1 = new Date(t4)
+		def curMon = t1.month
+		curMon = location.latitude > 0 ? curMon : ((curMon+6) % 12)   // normalize for southern hemisphere
+
+		int addr = 0
+		if( (curMon > 5 && ttyp == "Sunset") || (curMon <= 5 && ttyp == "Sunrise")) addr = 1000 // minimize skew when sunrise or sunset moving earlier in day
+		else {
+			def t2 = Math.abs(location.latitude)
+			def t3 = curMon % 6
+			int t5 = (int)Math.round(t3 * 365/12 + t1.date) // days into period
+			addr = (t5 > 37 && t5 < (182-37) ? (int)Math.round(t2 * 2.8) : (int)Math.round(t2 * 1.9)) * 1000
+		}
+		return t4+addr
+	}
 }
 
 private getMidnightTime() {
@@ -7803,11 +7863,11 @@ private getNextMidnightTime() {
 	return timeTodayAfter("23:59", "00:00", location.timeZone).getTime()
 }
 
-private getNoonTime() {
+private getNoonTime(rtData=null) {
 	return timeToday("12:00", location.timeZone).getTime()
 }
 
-private getNextNoonTime() {
+private getNextNoonTime(rtData=null) {
 	return timeTodayAfter("23:59", "12:00", location.timeZone).getTime()
 }
 
@@ -7839,10 +7899,8 @@ private Map getSystemVariables() {
 		'$json': [t: "dynamic", d: true],
 		'$places': [t: "dynamic", d: true],
 		'$response': [t: "dynamic", d: true],
-//		'$weather': [t: "dynamic", d: true],
 		'$nfl': [t: "dynamic", d: true],
 		'$incidents': [t: "dynamic", d: true],
-		//'$shmTripped': [t: "boolean", d: true],
 		"\$currentEventAttribute": [t: "string", v: null],
 		"\$currentEventDescription": [t: "string", v: null],
 		"\$currentEventDate": [t: "datetime", v: null],
@@ -7920,7 +7978,8 @@ private Map getSystemVariables() {
 		"\$locationMode": [t: "string", d: true],
 		"\$temperatureScale": [t: "string", d: true],
 		"\$hsmStatus": [t: "string", d: true],
-		"\$version": [t: "string", d: true]
+		"\$version": [t: "string", d: true],
+		"\$versionH": [t: "string", d: true]
 	].sort{it.key}
 }
 
@@ -7930,16 +7989,15 @@ private getSystemVariableValue(rtData, name) {
 	case '$json': return "${rtData.json}".toString()
 	case '$places': return "${rtData.settings?.places}".toString()
 	case '$response': return "${rtData.response}".toString()
-//	case '$weather': return "${rtData.weather}".toString()
 	case '$nfl': return "${rtData.nfl}".toString()
 	case '$incidents': return "${rtData.incidents}".toString()
-	//case '$shmTripped': initIncidents(rtData); return !!((rtData.incidents instanceof List) && (rtData.incidents.size()))
 	case '$mediaId': return rtData.mediaId
 	case '$mediaUrl': return rtData.mediaUrl
 	case '$mediaType': return rtData.mediaType
 	case '$mediaSize': return (rtData.mediaData ? rtData.mediaData.size() : 0)
 	case "\$name": return app.label
 	case "\$version": return version()
+	case "\$versionH": return HEversion()
 	case "\$now": return (long) now()
 	case "\$utc": return (long) now()
 	case "\$localNow": return (long) localTime()
@@ -7973,7 +8031,7 @@ private getSystemVariableValue(rtData, name) {
 	case "\$randomHue": def result = getRandomValue("\$randomHue") ?: (int)Math.round(360 * Math.random()); setRandomValue("\$randomHue", result); return result
   	case "\$locationMode": return location.getMode()
 	case "\$temperatureScale": return location.getTemperatureScale()
-	case  "\$hsmStatus": return location.hsmStatus
+	case "\$hsmStatus": return location.hsmStatus
 	}
 }
 
@@ -8226,64 +8284,65 @@ private isHubitat(){
 	//t = type
 	//i = icon
 	//p = parameters
-	noop:		 [ 		a: true,						],
-	wait:		 [ 		a: true,				p: [[n:"Duration", t:"duration"]],		],
-	waitRandom:	 [ 		a: true,				p: [[n:"At least", t:"duration"],[n:"At most", t:"duration"]],	],
-	waitForTime:	 [ 		a: true,				p: [[n:"Time", t:"time"]],	],
-	waitForDateTime: [ 		a: true,				p: [[n:"Date & Time", t:"datetime"]],	],
-	executePiston:	 [ 		a: true,				p: [[n:"Piston", t:"piston"], [n:"Arguments", t:"variables", d:" with arguments {v}"],[n:"Wait for execution",t:"boolean",d:" and wait for execution to finish",w:"webCoRE can only wait on piston executions of pistons within the same instance as the caller. Please note that global variables updated in the callee piston do NOT get reflected immediately in the caller piston, the new values will be available on the next run."]],	],
-	pausePiston:	 [ n: "Pause piston...",	a: true,	i: "clock", is: "r",		d: "Pause piston \"{0}\"",				p: [[n:"Piston", t:"piston"]],	],
-	resumePiston:	 [ n: "Resume piston...",	a: true,	i: "clock", is: "r",		d: "Resume piston \"{0}\"",				p: [[n:"Piston", t:"piston"]],	],
+	noop:		 [ 		a: true,					],
+	wait:		 [ 		a: true,					],
+	waitRandom:	 [ 		a: true,					],
+	waitForTime:	 [ 		a: true,					],
+	waitForDateTime: [ 		a: true,					],
+	executePiston:	 [ 		a: true,					],
+	pausePiston:	 [ 		a: true,					],
+	resumePiston:	 [ 		a: true,					],
+	executeRule:	 [ 		a: true,					],
 	toggle:		 [ 		r: ["on", "off"], 				],
-	toggleRandom:	 [ 		r: ["on", "off"], 							p: [[n:"Probability for on", t:"level", d:" with a {v}% probability for on"]],	],
-	setSwitch:	 [ 		r: ["on", "off"], 							p: [[n:"Switch value", t:"switch"]],			],
-	setHSLColor:	 [  		r: ["setColor"],			p: [[n:"Hue",t:"hue"], [n:"Saturation",t:"saturation"], [n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],  	],
-	toggleLevel:	 [ 	r: ["on", "off", "setLevel"],	p: [[n:"Level", t:"level"]],		],
-	sendNotification: [ 		a: true,					p: [[n:"Message", t:"string"]],	],
-	sendPushNotification:		 [ 	a: true,				p: [[n:"Message", t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
-	sendSMSNotification:		 [ 	a: true,				p: [[n:"Message", t:"string"],[n:"Phone number",t:"phone"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
-	log:		 [ 	a: true,					p: [[n:"Log type", t:"enum", o:["info","trace","debug","warn","error"]],[n:"Message",t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
-	httpRequest:	 [ 	a: true, 					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
-	setVariable:	 [ 	a: true,					p: [[n:"Variable",t:"variable"],[n:"Value", t:"dynamic"]],	],
-	setState:	 [ n: "Set piston state...",		a: true,	i: "align-left", is:"l",	d: "Set piston state to \"{0}\"",				p: [[n:"State",t:"string"]],	],
-	setTileColor:	 [ n: "Set piston tile colors...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} colors to {1} over {2}{3}",			p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
-	setTileTitle:	 [ n: "Set piston tile title...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} title to \"{1}\"",				p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"]],	],
-	setTileText:	 [ n: "Set piston tile text...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} text to \"{1}\"",				p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text",t:"string"]],	],
-	setTileFooter:	 [ n: "Set piston tile footer...",	a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} footer to \"{1}\"",			p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Footer",t:"string"]],	],
-	setTile:		 [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",	d: "Set piston tile #{0} title  to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
-	clearTile:	 [ n: "Clear piston tile...",		a: true,	i: "info-square", is:"l",	d: "Clear piston tile #{0}",					p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
-	setLocationMode:	 [ n: "Set location mode...",		a: true,	i: "", 		d: "Set location mode to {0}", 					p: [[n:"Mode",t:"mode"]],	],
-	sendEmail:	 [ n: "Send email...",		a: true,	i: "envelope", 		d: "Send email with subject \"{1}\" to {0}", 			p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],			],
-	wolRequest:		 [ n: "Wake a LAN device", 		a: true,	i: "", 		d: "Wake LAN device at address {0}{1}",			p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
-	adjustLevel:	 [ n: "Adjust level...",	r: ["setLevel"], 	i: "toggle-on",		d: "Adjust level by {0}%{1}",					p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	adjustInfraredLevel:		 [ n: "Adjust infrared level...",	r: ["setInfraredLevel"], 	i: "toggle-on",	d: "Adjust infrared level by {0}%{1}",				p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	adjustSaturation:		 [ n: "Adjust saturation...",	r: ["setSaturation"], 	i: "toggle-on",		d: "Adjust saturation by {0}%{1}",				p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	adjustHue:	 [ n: "Adjust hue...",	r: ["setHue"], 	i: "toggle-on",			d: "Adjust hue by {0}°{1}",				p: [[n:"Adjustment",t:"integer",r:[-360,360]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	adjustColorTemperature:		 [ n: "Adjust color temperature...",	r: ["setColorTemperature"], 	i: "toggle-on",		d: "Adjust color temperature by {0}°K%{1}",		p: [[n:"Adjustment",t:"integer",r:[-29000,29000]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	fadeLevel:	 [ n: "Fade level...",	r: ["setLevel"], 		i: "toggle-on",		d: "Fade level{0} to {1}% in {2}{3}",			p: [[n:"Starting level",t:"level",d:" from {v}%"],[n:"Final level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	fadeInfraredLevel:		 [ n: "Fade infrared level...",	r: ["setInfraredLevel"], 		i: "toggle-on",		d: "Fade infrared level{0} to {1}% in {2}{3}",		p: [[n:"Starting infrared level",t:"level",d:" from {v}%"],[n:"Final infrared level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	fadeSaturation:	 [ n: "Fade saturation...",	r: ["setSaturation"], 		i: "toggle-on",		d: "Fade saturation{0} to {1}% in {2}{3}",			p: [[n:"Starting saturation",t:"level",d:" from {v}%"],[n:"Final saturation",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	fadeHue:		 [ n: "Fade hue...",	r: ["setHue"], 		i: "toggle-on",		d: "Fade hue{0} to {1}° in {2}{3}",				p: [[n:"Starting hue",t:"hue",d:" from {v}°"],[n:"Final hue",t:"hue"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	fadeColorTemperature:		 [ n: "Fade color temperature...",		r: ["setColorTemperature"], 		i: "toggle-on",		d: "Fade color temperature{0} to {1}°K in {2}{3}",			p: [[n:"Starting color temperature",t:"colorTemperature",d:" from {v}°K"],[n:"Final color temperature",t:"colorTemperature"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	flashLevel:	 [ n: "Flash (level)...",	r: ["setLevel"], 	i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",		p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
-	flashColor:	 [ n: "Flash (color)...",	r: ["setColor"], 	i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",			p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	toggleRandom:	 [ 		r: ["on", "off"], 				],
+	setSwitch:	 [ 		r: ["on", "off"], 				],
+	setHSLColor:	 [  		r: ["setColor"],				],
+	toggleLevel:	 [ 	r: ["on", "off", "setLevel"],				],
+	sendNotification: [ 		a: true,					],
+	sendPushNotification:		 [ 	a: true,				],
+	sendSMSNotification:		 [ 	a: true,				],
+	log:		 [ 		a: true,					],
+	httpRequest:	 [ 		a: true, 					],
+	setVariable:	 [ 		a: true,					],
+	setState:	 [ n: "Set piston state...",		a: true,		],
+	setTileColor:	 [ n: "Set piston tile colors...",	a: true,		],
+	setTileTitle:	 [ n: "Set piston tile title...",	a: true,		],
+	setTileText:	 [ n: "Set piston tile text...",	a: true,		],
+	setTileFooter:	 [ n: "Set piston tile footer...",	a: true,		],
+	setTile:	 [ n: "Set piston tile...",		a: true,		],
+	clearTile:	 [ n: "Clear piston tile...",		a: true,		],
+	setLocationMode: [ 		a: true,	 				],
+	sendEmail:	 [ 		a: true,	 				],
+	wolRequest:	 [ n: "Wake a LAN device", 		a: true,		],
+	adjustLevel:	 [ n: "Adjust level...",					],
+	adjustInfraredLevel:	 [ n: "Adjust infrared level...",			],
+	adjustSaturation:	 [ n: "Adjust saturation...",				],
+	adjustHue:	 [ n: "Adjust hue...",						],
+	adjustColorTemperature:	 [ n: "Adjust color temperature...",			],
+	fadeLevel:	 [ n: "Fade level...",						],
+	fadeInfraredLevel:	 [ n: "Fade infrared level...",				],
+	fadeSaturation:	 [ n: "Fade saturation...",					],
+	fadeHue:	 [ n: "Fade hue...",						],
+	fadeColorTemperature:	 [ n: "Fade color temperature...",			],
+	flash:		 [ n: "Flash...",	 					],
+	flashLevel:	 [ n: "Flash (level)...",	 				],
+	flashColor:	 [ n: "Flash (color)...",	 				],
 
-	iftttMaker:	 [ n: "Send an IFTTT Maker event...",	a: true,			d: "Send the {0} IFTTT Maker event{1}{2}{3}",				p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
-	writeToFuelStream:		 [ n: "Write to fuel stream...",  		a: true, 			d: "Write data point '{2}' to fuel stream {0}{1}{3}", 			p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],	],
-	storeMedia:	 [ n: "Store media...",				a: true, 			d: "Store media", 						p: [],	],
-	saveStateLocally:		 [ n: "Capture attributes to local store...", 				d: "Capture attributes {0} to local state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'], d:' only if store is empty']], ],
-	//saveStateGlobally:		 [ n: "Capture attributes to global store...", 			d: "Capture attributes {0} to global state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'],, d:' only if store is empty']], ],
-	loadStateLocally:		 [ n: "Restore attributes from local store...", 			d: "Restore attributes {0} from local state{1}{2}",		p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
-	//loadStateGlobally:		 [ n: "Restore attributes from global store...", 			d: "Restore attributes {0} from global state{1}{2}",			p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
-	parseJson:	 [ n: "Parse JSON data...",	a: true,			d: "Parse JSON data {0}",				p: [[n: "JSON string", t:"string"]],			],
-	cancelTasks:		 [ n: "Cancel all pending tasks",		a: true,			d: "Cancel all pending tasks",					p: [],			],
+	iftttMaker:	 [ n: "Send an IFTTT Maker event...",	a: true,		],
+	writeToFuelStream:	 [ n: "Write to fuel stream...",  	a: true, 	],
+	storeMedia:	 [ n: "Store media...",				a: true, 	],
+	saveStateLocally:	 [ n: "Capture attributes to local store...", 		],
+	//saveStateGlobally:	 [ n: "Capture attributes to global store...", 			],
+	loadStateLocally:	 [ n: "Restore attributes from local store...", 		],
+	//loadStateGlobally:		 [ n: "Restore attributes from global store...", 	],
+	parseJson:	 [ n: "Parse JSON data...",	a: true,				],
+	cancelTasks:	 [ n: "Cancel all pending tasks",		a: true,		],
 
-	setAlarmSystemStatus:		 [ n: "Set Hubitat Safety Monitor status...",	a: true, /* i: "",		d: "Set Hubitat Safety Monitor status to {0}",			p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions.collect {[n: it.value, v: it.key]}]],*/				],
+	setAlarmSystemStatus:		 [ n: "Set Hubitat Safety Monitor status...",	a: true, 	],
 		//keep emulated flash to not break old pistons
-	emulatedFlash:	 [ n: "(Old do not use) Emulated Flash",	r: ["on", "off"], 	i: "toggle-on",		d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],			],
+	emulatedFlash:	 [ n: "(Old do not use) Emulated Flash",			],
 		//add back emulated flash with "o" option so that it overrides the native flash command
-	flash:		 [ n: "Flash...",	r: ["on", "off"], 	i: "toggle-on",		d: "Flash on {0} / off {1} for {2} times{3}",			p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		o: true /*override physical command*/					]
+	flash:		 [ n: "Flash...",				o: true /*override physical command*/					]
 ]
 
 // ERS c and r are used
@@ -8301,6 +8360,17 @@ private Map getLocationModeOptions(updateCache = false) {
 	return result
 }
 
+private Map getRuleOptions(updateCache = false) {
+	def result = [:]
+	def rules = RMUtils.getRuleList()
+	rules.each {rule->
+		rule.each{pair->
+			result[hashId(pair.key, updateCache)] = pair.value
+		}
+	}
+	return result
+}
+
 //ERS ac, o
 private Map VirtualDevices() {
 	return [
@@ -8313,6 +8383,7 @@ private Map VirtualDevices() {
 		mode:			[ n: 'Location mode',		t: 'enum', 	o: getLocationModeOptions(),	x: true],
 		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
 //		routine:		[ n: 'Routine',	t: 'enum',	o: getRoutineOptions,	m: true],
+		rule:			[ n: 'Rule',			t: 'enum',	o: getRuleOptions(),	m: true ],
 		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',	t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),	x: true], //ac - actions. hubitat doesn't reuse the status for actions
 		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',	t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],
 		alarmSystemAlert: 	[ n: 'Hubitat Safety Monitor alert',	t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true],
@@ -8387,7 +8458,7 @@ return [
 	close:			 [ 		a: "door",			v: "close",		],
 	configure:		 [ i: 'cog',				],
 	cool:			 [ 		a: "thermostatMode",		v: "cool",		],
-	deviceNotification:	 [ 								p: [[n:"Message",t:"string"]],	],
+	deviceNotification:	 [ i: 'b',	],
 	eco:			 [  		a: "thermostatMode",		v: "eco",		],
 	emergencyHeat:		 [ 		a: "thermostatMode",		v: "emergency heat",	],
 	fanAuto:		 [ 		a: "thermostatFanMode",		v: "auto",		],
@@ -8407,32 +8478,32 @@ return [
 	open:			 [ 		a: "door",			v: "open",				],
 	pause:			 [ n: "Pause",							],
 	play:			 [ n: "Play",							],
-	playText:		 [ 				p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],		],
-	playTextAndRestore:	 [ 				p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],		],
-	playTextAndResume:	 [ 				p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],		],
-	playTrack:		 [ 				p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
-	playTrackAndRestore:	 [ 				p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
-	playTrackAndResume:	 [ 				p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
+	playText:		 [ n: "pt",		],
+	playTextAndRestore:	 [ n: 'pt1',						],
+	playTextAndResume:	 [ n: 'pt2',		],
+	playTrack:		 [ n: 'pt3',					],
+	playTrackAndRestore:	 [ n: 'pt4',					],
+	playTrackAndResume:	 [ n: 'pt5',					],
 	poll:			 [ 		i: 'question',				],
 	presetPosition:		 [ 		a: "windowShade",			v: "partially open",			],
 	previousTrack:		 [ n: "Ps t",								],
 	push:			 [ n: "Push",									],
 	refresh:		 [ n: "Refresh",			i: 'sync',							],
-	restoreTrack:		 [ 				p: [[n:"Track URL",t:"url"]],		],
-	resumeTrack:		 [ 				p: [[n:"Track URL",t:"url"]],		],
-	setColor:		 [ 		a: "color",				p: [[n:"Color",t:"color"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
-	setColorTemperature:	 [ 		a: "colorTemperature",			p: [[n:"Color Temperature", t:"colorTemperature"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
-	setConsumableStatus:	 [ 				p: [[n:"Status", t:"consumable"]],			],
-	setCoolingSetpoint:	 [ 		a: "thermostatCoolingSetpoint",				p: [[n:"Desired temperature", t:"thermostatSetpoint"]], 		],
-	setHeatingSetpoint:	 [ 		a: "thermostatHeatingSetpoint",				p: [[n:"Desired temperature", t:"thermostatSetpoint"]], 		],
-	setHue:			 [ 		a: "hue",				p: [[n:"Hue", t:"hue"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 		],
-	setInfraredLevel:	 [ 		a: "infraredLevel",			p: [[n:"Level",t:"infraredLevel"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 	],
-	setLevel:		 [ 		a: "level",				p: [[n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 	],
-	setSaturation:		 [ 		a: "saturation",			p: [[n:"Saturation", t:"saturation"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
-	setSchedule:		 [ 		a: "schedule",				p: [[n:"Schedule", t:"object"]],			],
-	setThermostatFanMode:	 [ 		a: "thermostatFanMode",				p: [[n:"Fan mode", t:"thermostatFanMode"]],	],
-	setThermostatMode:	 [ 		a: "thermostatMode",				p: [[n:"Thermostat mode",t:"thermostatMode"]],		],
-	setTimeRemaining:	 [ 		a: "timeRemaining",					p: [[n:"Remaining time [seconds]", t:"number"]],		],
+	restoreTrack:		 [ n: 'rs1',						],
+	resumeTrack:		 [ n: 'rs2',						],
+	setColor:		 [ 		a: "color",					],
+	setColorTemperature:	 [ 		a: "colorTemperature",				],
+	setConsumableStatus:	 [ n: 'cs1',							],
+	setCoolingSetpoint:	 [ 		a: "thermostatCoolingSetpoint",				 		],
+	setHeatingSetpoint:	 [ 		a: "thermostatHeatingSetpoint",				 		],
+	setHue:			 [ 		a: "hue",				 		],
+	setInfraredLevel:	 [ 		a: "infraredLevel",			 	],
+	setLevel:		 [ 		a: "level",				 	],
+	setSaturation:		 [ 		a: "saturation",				],
+	setSchedule:		 [ 		a: "schedule",							],
+	setThermostatFanMode:	 [ 		a: "thermostatFanMode",						],
+	setThermostatMode:	 [ 		a: "thermostatMode",						],
+	setTimeRemaining:	 [ 		a: "timeRemaining",							],
 	setTrack:		 [ 					p: [[n:"Track URL",t:"url"]], 		],
 	siren:			 [ 		a: "alarm",			v: "siren",				],
 	speak:			 [ 				p: [[n:"Message", t:"string"]],		],
@@ -8445,18 +8516,18 @@ return [
 	unmute:			 [ 				a: "mute",			v: "unmuted",			],
 	/* predfined commands below */
 	//general
-	quickSetCool:		 [ 			p: [[n:"Desired temperature",t:"thermostatSetpoint"]],			],
-	quickSetHeat:		 [ 			p: [[n:"Desired temperature",t:"thermostatSetpoint"]],			],
-	toggle:			 [ n: "Toggle",				],
+	quickSetCool:		 [ n: 'qsc',					],
+	quickSetHeat:		 [ n: 'qsh',					],
+	toggle:			 [ n: "Toggle",					],
 	reset:			 [ n: "Reset",					],
 	//hue
-	startLoop:		 [ n: "Start color loop",					],
-	stopLoop:		 [ n: "Stop color loop",					],
-	setLoopTime:		 [ n: "Set loop duration...",	d: "Set loop duration to {0}",			p: [[n:"Duration", t:"duration"]]			],
-	setDirection:		 [ n: "Switch loop direction",					],
-	alert:			 [ n: "Alert with lights...",			p: [[n:"Alert type", t:"enum", o:["Blink","Breathe","Okay","Stop"]]], 	],
-	setAdjustedColor:	 [ 			p: [[n:"Color", t:"color"], [n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		],
-	setAdjustedHSLColor:	 [ 			p: [[n:"Hue", t:"hue"],[n:"Saturation", t:"saturation"],[n:"Level", t:"level"],[n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		],
+	startLoop:		 [ n: "S color l",				],
+	stopLoop:		 [ n: "Stp color l",				],
+	setLoopTime:		 [ n: "Set loop duration...",			],
+	setDirection:		 [ n: "Switch loop direction",			],
+	alert:			 [ n: "Alert with lights...",		 	],
+	setAdjustedColor:	 [ n: 'sac',					],
+	setAdjustedHSLColor:	 [ n: 'sahsl',					],
 	//harmony
 	allOn:			 [ n: "Turn all on",				],
 	allOff:			 [ n: "Turn all off",				],
@@ -8464,13 +8535,13 @@ return [
 	hubOff:			 [ n: "Turn hub off",				],
 	//blink camera
 	enableCamera:		 [ n: "Enable camera",				],
-	disableCamera:		 [ n: "Disable camera",					],
-	monitorOn:		 [ n: "Turn monitor on",					],
-	monitorOff:		 [ n: "Turn monitor off",					],
+	disableCamera:		 [ n: "Disable camera",				],
+	monitorOn:		 [ n: "Turn monitor on",			],
+	monitorOff:		 [ n: "Turn monitor off",			],
 	ledOn:			 [ n: "Turn LED on",				],
 	ledOff:			 [ n: "Turn LED off",				],
-	ledAuto:		 [ n: "Set LED to Auto",					],
-	setVideoLength:		 [ 			p: [[n:"Duration", t:"duration"]], 			],
+	ledAuto:		 [ n: "Set LED to Auto",			],
+	setVideoLength:		 [ 		p: [[n:"Duration", t:"duration"]], 			],
 	//dlink camera
 	pirOn:			 [ n: "Enable PIR",				],
 	pirOff:			 [ n: "Disable PIR",				],
@@ -8479,10 +8550,10 @@ return [
 	nvAuto:			 [ n: "Night Auto",				],
 	vrOn:			 [ n: "Enable lvideo",				],
 	vrOff:			 [ n: "Disable lvideo",				],
-	left:			 [ n: "Pan left",					],
-	right:			 [ n: "Pan right",					],
-	up:			 [ n: "Pan up",				],
-	down:			 [ n: "Pan down",					],
+	left:			 [ n: "Pan left",				],
+	right:			 [ n: "Pan right",				],
+	up:			 [ n: "Pan up",					],
+	down:			 [ n: "Pan down",				],
 	home:			 [ n: "Pan Home",				],
 	presetOne:		 [ n: "Pan  #1",				],
 	presetTwo:		 [ n: "Pan  #2",				],
