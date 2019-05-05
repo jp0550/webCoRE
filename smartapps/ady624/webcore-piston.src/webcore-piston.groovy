@@ -7842,31 +7842,31 @@ private getNextSunsetTime(rtData) {
 
 // This is trying to ensure we don't fire sunsets or sunrises twice in same day by ensuring we fire a bit later than actual sunrise or sunset
 private getNextOccurance(rtData, ttyp) {
-	def t0 = getLocationEventsSince("${ttyp.toLowerCase()}Time", new Date() -1)
-	def t1
-	if(t0.size()) {
-		t1 = t0[t0.size()-1]
-	}
-	if(t1 && t1.value) { return stringToTime(t1.value) + 1000 }
-	else {
-		t0 = "get${ttyp}Time"(rtData)
-		def t4 = t0 + 86400000
-		t4 = t4 + (location.timeZone.getOffset(t0) - location.timeZone.getOffset(t4))
-
-		t1 = new Date(t4)
-		def curMon = t1.month
-		curMon = location.latitude > 0 ? curMon : ((curMon+6) % 12)   // normalize for southern hemisphere
-
-		int addr = 0
-		if( (curMon > 5 && ttyp == "Sunset") || (curMon <= 5 && ttyp == "Sunrise")) addr = 1000 // minimize skew when sunrise or sunset moving earlier in day
-		else {
-			def t2 = Math.abs(location.latitude)
-			def t3 = curMon % 6
-			int t5 = (int)Math.round(t3 * 365/12 + t1.date) // days into period
-			addr = (t5 > 37 && t5 < (182-37) ? (int)Math.round(t2 * 2.8) : (int)Math.round(t2 * 1.9)) * 1000
+	def t0 = "get${ttyp}Time"(rtData)
+	if(now() > t0) {
+		def t1 = getLocationEventsSince("${ttyp.toLowerCase()}Time", new Date() -1)
+		def t2
+		if(t1.size()) {
+			t2 = t1[t1.size()-1]
 		}
-		return t4+addr
+		if(t2 && t2.value) { return stringToTime(t2.value) + 1000 }
 	}
+	def t4 = t0 + 86400000
+	t4 = t4 + (location.timeZone.getOffset(t0) - location.timeZone.getOffset(t4))
+
+	def t1 = new Date(t4)
+	def curMon = t1.month
+	curMon = location.latitude > 0 ? curMon : ((curMon+6) % 12)   // normalize for southern hemisphere
+
+	int addr = 0
+	if( (curMon > 5 && ttyp == "Sunset") || (curMon <= 5 && ttyp == "Sunrise")) addr = 1000 // minimize skew when sunrise or sunset moving earlier in day
+	else {
+		def t2 = Math.abs(location.latitude)
+		def t3 = curMon % 6
+		int t5 = (int)Math.round(t3 * 365/12 + t1.date) // days into period
+		addr = (t5 > 37 && t5 < (182-37) ? (int)Math.round(t2 * 2.8) : (int)Math.round(t2 * 1.9)) * 1000
+	}
+	return t4+addr
 }
 
 private getMidnightTime() {
