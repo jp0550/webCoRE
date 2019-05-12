@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update May 5, 2019 for Hubitat
+ * Last update May 12, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190505" }
+public static String HEversion() { return "v0.3.10a.20190512" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -655,6 +655,7 @@ private relSem(rtData) {
 }
 
 private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
+//debug "getRunTimeData ${retSt}  ${fetchWrappers}", rtData
 	//def n = now()
 //	try {
  		def timestamp = rtData?.timestamp ?: now()
@@ -721,7 +722,7 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		state.schedules = atomState.schedules
 		rtData.systemVars = getSystemVariables()
 		rtData.localVars = getLocalVariables(rtData, piston.v, atomState)
-		if(doSubScribe) subscribeAll(rtData, !!fetchWrappers) //false)  this is a resume piston from pause
+		if(doSubScribe || !!fetchWrappers) subscribeAll(rtData, !!fetchWrappers) //false)  this is a resume piston from pause
 
 //	} catch(all) {
 //			error "Error while getting runtime data:", rtData, null, all
@@ -4277,6 +4278,7 @@ private void updateContactList(contactIdList) {
 */
 
 private void subscribeAll(rtData, doit=true) {
+//debug "subscribeAll doit: ${doit}", rtData
 	try {
 	rtData = rtData ?: getRunTimeData()
 	def ss = [

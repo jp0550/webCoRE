@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated May 5, 2019 for Hubitat
+ * Last Updated May 12, 2019 for Hubitat
 */
 public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190505" }
+public String HEversion() { return "v0.3.10a.20190512" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -810,7 +810,7 @@ private api_get_base_result(deviceVersion = 0, updateCache = false) {
 		] + (sendDevices ? [contacts: [:], devices: listAvailableDevices(false, updateCache)] : [:]),
 		location: [
 			contactBookEnabled: location.getContactBookEnabled(),
-			hubs: location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
+			hubs: location.getHubs().findAll{ !it.name.contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
 			incidents: isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold },
 			id: hashId(location.id + (isHubitat() ? '-L' : ''), updateCache),
 			mode: hashId(location.getCurrentMode().id, updateCache),
@@ -1565,6 +1565,7 @@ def api_ifttt() {
 	debug "Request received ifttt call"
 	def data = [:]
 	def remoteAddr = isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
+//log.debug "params ${params}"
 	if (params) {
 		data.params = [:]
 		for(param in params) {
@@ -1597,14 +1598,15 @@ private api_execute() {
 	def result = [:]
 	def data = [:]
 	def remoteAddr = isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
-	debug "Dashboard: Request received to execute a piston from IP $remoteAddr"
+	debug "Dashboard or web request received to execute a piston from IP $remoteAddr"
+//log.debug "params ${params}"
 	if (params) {
 		data = [:]
-	for(param in params) {
-		if (!(param.key in ['theAccessToken', 'appId', 'action', 'controller', 'pistonIdOrName'])) {
-			data[param.key] = param.value
+		for(param in params) {
+			if (!(param.key in ['theAccessToken', 'appId', 'action', 'controller', 'pistonIdOrName'])) {
+				data[param.key] = param.value
+			}
 		}
-	}
 	}
 	data = data + (request?.JSON ?: [:])
 	data.remoteAddr = remoteAddr
@@ -1612,9 +1614,10 @@ private api_execute() {
 	def piston = getChildApps().find{ (it.label == pistonIdOrName) || (hashId(it.id) == pistonIdOrName) };
 	if (piston) {
 		sendLocationEvent(name: hashId(piston.id), value: remoteAddr, isStateChange: true, displayed: false, linkText: "Execute event", descriptionText: "External piston execute request from IP $remoteAddr", data: data)
-	result.result = 'OK'
+		result.result = 'OK'
 	} else {
 		result.result = 'ERROR'
+		error "Piston not found for dashboard or web Request to execute a piston from IP $remoteAddr $pistonIdOrName"
 	}
 	result.timestamp = (new Date()).time
 	render contentType: "application/json", data: "${groovy.json.JsonOutput.toJson(result)}"
@@ -2036,7 +2039,7 @@ private registerInstance(force=true) {
 }
 
 def myDone(resp, data) {
-	log.debug "register resp: ${resp?.status}"
+	debug "register resp: ${resp?.status}"
 	if (resp?.status == 200) {
 		state.lastReg = now()
 	}
@@ -2260,13 +2263,14 @@ private sendVariableEvent(variable) {
 }
 
 private broadcastPistonList() {
-	//sendLocationEvent([name: handle(), value: 'pistonList', isStateChange: true, displayed: false, data: [id: hashId(app.id), name: app.label, pistons: getChildApps().findAll{ it.name == "${handle()} Piston" }.collect{[id: hashId(it.id), name: it.label]}]])
+//public getWCendpoints()  need to share endpoints if someone is going to execute (or do they only send event to piston??)  arguments?
+	sendLocationEvent([name: handle(), value: 'pistonList', isStateChange: true, displayed: false, data: [id: hashId(app.id), name: app.label, pistons: getChildApps().findAll{ it.name == "${handle()} Piston" }.collect{[id: hashId(it.id), name: it.label]}]])
 }
 
 def webCoREHandler(event) {
 	if (!event || (!event.name.endsWith(handle()))) return;
 	def data = event.jsonData ?: null
-	log.error "GOT EVENT WITH DATA $data"
+//log.error "GOT EVENT WITH DATA $data"
 	if (data && data.variable && (data.event == 'variable') && event.value && event.value.startsWith('@')) {
 		Map vars = atomicState.vars ?: [:]
 		Map variable = data.variable
