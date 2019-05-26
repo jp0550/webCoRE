@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated May 12, 2019 for Hubitat
+ * Last Updated May 25, 2019 for Hubitat
 */
-public String version() { return "v0.3.10a.20190223" }
-public String HEversion() { return "v0.3.10a.20190512" }
+public String version() { return "v0.3.10c.20190522" }
+public String HEversion() { return "v0.3.10c.20190525" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -333,6 +333,10 @@ def pageSettings() {
 			}
 		//}
 
+		section(sectionTitleStr("pushMessage Device")){
+			input "pushDevice", "capability.notification", title: "Notification device for pushMessage (HE PhoneApp or pushOver)", multiple: true, required: false, submitOnChange: true
+		}
+	
 		section(sectionTitleStr("Fuel Streams")){
 			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFuelStreams != null) ? settings.localFuelStreams : true , submitOnChange: true
 			if(settings.localFuelStreams){
@@ -1856,6 +1860,10 @@ public Map getGStore() {
 	return (state.store ?: [:]).sort{it.key }
 }
 
+public getPushDev() {
+	return (settings.pushDevice ?: [])
+}
+
 private void initTokens() {
 	debug "Dashboard: Initializing security tokens"
 	state.securityTokens = [:]
@@ -2851,7 +2859,7 @@ private static Map virtualCommands() {
 		toggleLevel				: [ n: "Toggle level...", 						i: "toggle-off",			d: "Toggle level between 0% and {0}%",	r: ["on", "off", "setLevel"],	p: [[n:"Level", t:"level"]],																																	],
 		sendNotification			: [ n: "Send notification...",		a: true,	i: "comment-alt", is: "r",			d: "Send notification \"{0}\"",											p: [[n:"Message", t:"string"]],												],
 		sendPushNotification		: [ n: "Send PUSH notification...",	a: true,	i: "comment-alt", is: "r",			d: "Send PUSH notification \"{0}\"{1}",									p: [[n:"Message", t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
-		sendSMSNotification			: [ n: "Send SMS notification...",	a: true,	i: "comment-alt", is: "r",			d: "Send SMS notification \"{0}\" to {1}{2}",							p: [[n:"Message", t:"string"],[n:"Phone number",t:"phone"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
+		sendSMSNotification			: [ n: "Send SMS notification...",	a: true,	i: "comment-alt", is: "r",			d: "Send SMS notification \"{0}\" to {1}{2}",							p: [[n:"Message", t:"string"],[n:"Phone number",t:"phone",w:"HE requires +countrycode in phone number."],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 		log					: [ n: "Log to console...",			a: true,	i: "bug",					d: "Log {0} \"{1}\"{2}",												p: [[n:"Log type", t:"enum", o:["info","trace","debug","warn","error"]],[n:"Message",t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 		httpRequest				: [ n: "Make a web request",		a: true, 	i: "anchor", is: "r",				d: "Make a {1} request to {0}",					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
 		setVariable				: [ n: "Set variable...",			a: true,	i: "superscript", is:"r",			d: "Set variable {0} = {1}",											p: [[n:"Variable",t:"variable"],[n:"Value", t:"dynamic"]],	],

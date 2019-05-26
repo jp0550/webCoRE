@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update May 12, 2019 for Hubitat
+ * Last update May 25, 2019 for Hubitat
 */
-public static String version() { return "v0.3.10a.20190223" }
-public static String HEversion() { return "v0.3.10a.20190512" }
+public static String version() { return "v0.3.10c.20190522" }
+public static String HEversion() { return "v0.3.10c.20190525" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -182,7 +182,7 @@ def installed() {
 	state.modified = now()
 	state.build = 0
 	state.piston = [:]
-	state.vars = state.vars?: [:]
+	state.vars = state.vars ?: [:]
 	state.subscriptions = state.subscriptions ?: [:]
 	state.logging = 0
 	initialize()
@@ -322,6 +322,7 @@ def setup(data, chunks) {
 	app.updateSetting('bin', [type: 'text', value: state.bin ?: ''])
 	app.updateSetting('author', [type: 'text', value: state.author ?: ''])
 	state.piston = null
+//ERS to fix
 	//state.piston = piston
 	state.pep = null
 	// pep is parallel execution - this serializes execution of events
@@ -425,7 +426,7 @@ def setBin(bin) {
 	if (!bin || !!state.bin) {
 		return false;
 	}
-	atomicState.bin = bin;
+	state.bin = bin;
 	app.updateSetting('bin', [type: 'text', value: bin ?: ''])
 	return [:]
 }
@@ -449,21 +450,20 @@ Map pausePiston() {
 	state.subscriptions = [:]
 	if (rtData.logging) info msg, rtData
 	updateLogs(rtData)
-	atomicState.sph = 0
-	atomicState.active = false
+	state.sph = 0
+	state.active = false
 	return rtData
 }
 
 Map resume(piston=null) {
 	state.active = true;
-	atomicState.sph = 0
+	state.sph = 0
 	def tempRtData = getTemporaryRunTimeData()
 	def msg = timer "Piston successfully started", null, -1
 	if (tempRtData.logging) info "Starting piston... (${HEversion()})", tempRtData, 0
 	if(piston) tempRtData.piston = piston
 	state.hash = null
 	state.subscriptions = [:]
-	atomicState.schedules = []
 	state.schedules = []
 	def rtData = getRunTimeData(tempRtData, null, true)
 	checkVersion(rtData)
@@ -471,7 +471,7 @@ Map resume(piston=null) {
 	if (rtData.logging) info msg, rtData
 	updateLogs(rtData)
 	rtData.result = [active: true, subscriptions: state.subscriptions]
-	atomicState.active = true
+	state.active = true
 	return rtData
 }
 
@@ -480,14 +480,14 @@ def setLoggingLevel(level) {
 	logging = logging.isInteger() ? logging.toInteger() : 0
 	if (logging < 0) logging = 0
 	if (logging > 3) logging = 3
-	atomicState.logging = logging
+	//atomicState.logging = logging
 	state.logging = logging
 	if(logging == 0) state.logs = []
 	return [logging: logging]
 }
 
 def setCategory(category) {
-	atomicState.category = category
+	state.category = category
 	return [category: category]
 }
 
@@ -543,13 +543,12 @@ private getLocalRunTimeData(timestamp, retSt) {
 		state.settings = atomicState.settings
 	}
 
-	def t0 = now()
 	def t1 = [:]
 	t1 = [
 		initGlobal: false,
 		initGStore: false,
+		initPush: false,
 
-		//enabled: !state.disabled,
 		semaphore: retSt?.semaphore,
 		semaphoreName: retSt?.semaphoreName,
 		semaphoreDelay: retSt?.semaphoreDelay,
@@ -560,11 +559,8 @@ private getLocalRunTimeData(timestamp, retSt) {
 		region: 'us',
 		powerSource: 'mains',
 		started: startTime,
-		ended: t0,
 		instanceId: hashId(parent.id),
 		logPistonExecutions: state.logPistonExecutions,
-		generatedIn: now() - startTime
-		//globalStore: state.store ?: [:]
 	]
 	return t1
 }
@@ -647,13 +643,6 @@ private Map lockOrQueueSemaphore(semaphore, event, queue, rtData) {
 	return t0
 }
 
-private relSem(rtData) {
-	if (rtData.semaphoreName && (atomicState.sph <= rtData.semaphore)) {
-		atomicState.sph = 0
-		if (rtData.logging > 2) debug "Released Lock", rtData
-	}
-}
-
 private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 //debug "getRunTimeData ${retSt}  ${fetchWrappers}", rtData
 	//def n = now()
@@ -683,6 +672,7 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		}
 		rtData.virtualDevices = VirtualDevices()
 
+		rtData.pStart = now()
 		def doSubScribe = false
 		if(piston) {
 			rtData.piston = piston
@@ -723,7 +713,12 @@ private getRunTimeData(rtData = null, retSt = null, fetchWrappers = false) {
 		rtData.systemVars = getSystemVariables()
 		rtData.localVars = getLocalVariables(rtData, piston.v, atomState)
 		if(doSubScribe || !!fetchWrappers) subscribeAll(rtData, !!fetchWrappers) //false)  this is a resume piston from pause
-
+		rtData.pEnd = now()
+		if(!rtData.ended) {
+			t0 = now()
+			rtData.ended = t0
+			rtData.generatedIn = t0 - rtData.started
+		}
 //	} catch(all) {
 //			error "Error while getting runtime data:", rtData, null, all
 //	}
@@ -772,7 +767,7 @@ def timeRecoveryHandler(event) {
 }
 
 def lockRecoveryHandler(event) {
-	//log.debug "lockRecoveryHandler called"
+	if(state.logging > 2) log.debug "LockRecovery called"
 	timeHandler([t:now()], true)
 }
 
@@ -830,31 +825,31 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 	}
 
 	def appId = hashId(app.id)
-	def t0 = (true && !(state.pep)) ? appId : null
+	def t0 = !state.pep ? appId : null
 	def retSt = [:]
 	if(t0 && !callMySelf) {
 		retSt = lockOrQueueSemaphore(t0, event, queue, tempRtData)
 		if(retSt.exitOut) {  // we queued the event - release thread; will run event later
 			msg.m = "Event queued"
 			if(tempRtData.logging) info msg, tempRtData
+			updateLogs(tempRtData)
 			return retSt
 		}
 	}
 	if (retSt.semaphoreDelay) {
-		warn "Piston waited at a semaphore for ${retSt.semaphoreDelay}ms", rtData
+		warn "Piston waited at a semaphore for ${retSt.semaphoreDelay}ms", temprtData
 	}
 
 	//start execution - we have the lock or not serialized
 	//cancel all pending jobs, we'll handle them later
-	unschedule(timeHandler)
-	unschedule(timeRecoveryHandler)
+	if(event.name != 'time') unschedule(timeHandler)
 	Map rtData = getRunTimeData(tempRtData, retSt )
 	piston = piston ?: rtData.piston // state.piston
 	checkVersion(rtData)
 	def ver = HEversion()
 
 	t0 = rtData.generatedIn + now() - rtData.ended
-	if(rtData.logging > 2) debug "RunTime LockT > ${rtData.started - startTime}ms > rtDataT > ${rtData.generatedIn}ms > pistonT > ${now() - rtData.ended}ms > CE", rtData
+	if(rtData.logging > 2) debug "RunTime LockT > ${rtData.started - startTime}ms > rtDataT > ${rtData.generatedIn}ms > pistonT > ${rtData.pEnd - rtData.pStart}ms ${rtData.ended - rtData.pEnd} > CE", rtData
 	if(rtData.logging > 1) trace "Runtime (${"$rtData".size()} bytes) successfully initialized in ${t0}ms ($ver)", rtData
 
 // start of per event processing
@@ -866,14 +861,16 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 		d: eventDelay > 0 ? eventDelay : 0,
 		l: now() - startTime
 	]
-	startTime = now()
+
 	def msg2 = timer "Execution stage complete.", null, -1
 	if (rtData.logging > 1) trace "Execution stage started", rtData, 1
 	def success = true
 	def syncTime = false
+	def firstTime = true
 	if ((event.name != 'time') && (event.name != 'wc_async_reply')) {
 		success = executeEvent(rtData, event)
 		syncTime = true
+		firstTime = false
 	}
 
 	//process all time schedules in order
@@ -888,6 +885,7 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 			//anything less than 2 seconds in the future is considered due, we'll do some pause to sync with it
 			//we're doing this because many times, the scheduler will run a job early, usually 0-1.5 seconds early...
 			event = [date: event.date, device: location, name: 'time', value: now(), schedule: schedules.sort{ it.t }.find{ it.t < now() + rtData.pistonLimits.scheduleVariance }]
+			syncTime = true
 		}
 		if (!event.schedule) break
 
@@ -925,19 +923,21 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 		//if (event.schedule.i > 0) schedules.removeAll{ (it.s == event.schedule.s) && ( it.i == -3 ) }
 		if (rtData.piston.o?.pep) {
 			atomicState.schedules = schedules
-		} else {
-			state.schedules = schedules
 		}
+		state.schedules = schedules
 		def delay = event.schedule.t - now()
 		if (syncTime && (delay > 0)) {
-			if (rtData.logging > 2) debug "Fast executing schedules, waiting for ${delay}ms to sync up", rtData
-			pause delay
+			if(delay < rtData.pistonLimits.scheduleVariance) {
+				if (rtData.logging > 1) trace "Synchronizing scheduled event, waiting for ${delay}ms", rtData
+				pause delay
+				if(firstTime) {
+					msg2 = timer "Execution stage complete.", null, -1
+				}
+			}
 		}
 		success = executeEvent(rtData, event)
 		syncTime = true
-
-		//if (rtData.semaphoreDelay) break //if we waited at a semaphore, we don't want to process too many events  // ACTUALLY WE DO WANT TO CATCH UP
-		//pause(30)
+		firstTime = false
 	}
 
 	rtData.stats.timing.e = now() - startTime
@@ -960,22 +960,27 @@ def handleEvents(event, queue=true, callMySelf=false, pist=null) {
 
 // process queued events in time order
 	while(!callMySelf) {
-		unschedule(lockRecoveryHandler)
 		def evtQ = atomicState.aevQ
 		if (evtQ == null || evtQ == [] || evtQ.size() == 0) break
 		def evtList = evtQ.sort { it.t }
 		def theEvent = evtList.remove(0)
 		atomicState.aevQ = evtList
+
+		unschedule(lockRecoveryHandler)
 		def qsize = evtQ.size()
 		if(qsize > 8) { error "large queue size ${qsize}" }
 		theEvent.date = new Date(theEvent.t)
 		handleEvents(theEvent, false, true, rtData.piston)
 	}
-	relSem(rtData)
-	if(rtData.logging > 2) debug "Exiting", rtData
+
+	if (rtData.semaphoreName && (atomicState.sph <= rtData.semaphore)) {
+		if (rtData.logging > 2) { debug "Released Lock and exiting", rtData }
+		atomicState.sph = 0
+	} else if (rtData.logging > 2) { debug "Exiting", rtData }
 }
 
 private Boolean executeEvent(rtData, event) {
+	//def t0 = now()
 	try {
 		rtData = rtData ?: getRunTimeData()
 		//event processing
@@ -1051,6 +1056,7 @@ private Boolean executeEvent(rtData, event) {
 		rtData.stack = [c: 0, s: 0, cs:[], ss:[]]
 		def ended = false
 		try {
+	//if(rtData.logging > 2) debug "executeEvent initialized in ${now() - t0}ms", rtData
 			def allowed = !rtData.piston.r || !(rtData.piston.r.length) || evaluateConditions(rtData, rtData.piston, 'r', true)
 			rtData.restricted = !rtData.piston.o?.aps && !allowed
 			if (allowed || !!rtData.fastForwardTo) {
@@ -1121,8 +1127,9 @@ private finalizeEvent(rtData, initialMsg, success = true) {
 	if (stats.timing.size() > rtData.pistonLimits.maxStats) stats.timing = stats.timing[stats.timing.size() - rtData.pistonLimits.maxStats..stats.timing.size() - 1]
 	rtData.trace.d = now() - rtData.trace.t
 
-	state.state = rtData.state
+	if(rtData.piston.o?.pep) atomicState.stats = stats
 	state.stats = stats
+	state.state = rtData.state
 	state.trace = rtData.trace
 	//flush the new cache value
 	for(item in rtData.newCache) rtData.cache[item.key] = item.value
@@ -1204,7 +1211,7 @@ private processSchedules(rtData, scheduleJob = false) {
 			t = (t < 1 ? 1 : t)
 			rtData.stats.nextSchedule = next.t
 			if (rtData.logging) info "Setting up scheduled job for ${formatLocalTime(next.t)} (in ${t}s)" + (schedules.size() > 1 ? ', with ' + (schedules.size() - 1).toString() + ' more job' + (schedules.size() > 2 ? 's' : '') + ' pending' : ''), rtData
-			int t1 = Math.round((t+0.34))
+			int t1 = Math.round(t)
 			runIn(t1, timeHandler, [data: next])
 			runIn((t1 + rtData.pistonLimits.recovery), timeRecoveryHandler, [data: next])
 		} else {
@@ -1222,9 +1229,9 @@ private processSchedules(rtData, scheduleJob = false) {
 private updateLogs(rtData) {
 	//we only save the logs if we got some
 	if (!rtData || !rtData.logs || (rtData.logs.size() < 2)) return
-	def logs = (rtData.logs?:[]) + (atomicState.logs?:[])
-	def maxLogSize = rtData.pistonLimits.maxLogs
-	//we attempt to store 500 logs, but if that's too much, we go down in 50 increments
+	def t0 = atomicState.logs
+	def logs = (rtData.logs?:[]) + (t0?:[])
+	def maxLogSize = getPistonLimits().maxLogs
 	while (maxLogSize >= 0) {
 		if (logs.size() > maxLogSize) {
 			def maxSz = maxLogSize < logs.size() ? maxLogSize : logs.size()
@@ -1236,14 +1243,13 @@ private updateLogs(rtData) {
 		}
 		state.logs = logs
 		if ("$state".size() > 75000) {
-			maxLogSize -= 50
+			maxLogSize -= Math.min(50, (maxLogSize <= 50 ? 10 : maxLogSize) )
 		} else {
 			break
 		}
 	}
 	atomicState.logs = logs
 	state.logs = logs
-	//rtData.remove('logs')
 }
 
 private Boolean executeStatements(rtData, statements, async = false) {
@@ -1423,12 +1429,14 @@ private Boolean executeStatement(rtData, statement, async = false) {
 				double endValue = 0
 				double stepValue = 1
 				if (statement.t == 'each') {
-					devices = evaluateOperand(rtData, null, statement.lo).v ?: []
+					def t0 = evaluateOperand(rtData, null, statement.lo).v
+					devices = t0 ?: []
 					endValue = devices.size() - 1
 				} else {
 					startValue = evaluateScalarOperand(rtData, statement, statement.lo, null, 'decimal').v
 					endValue = evaluateScalarOperand(rtData, statement, statement.lo2, null, 'decimal').v
-					stepValue = evaluateScalarOperand(rtData, statement, statement.lo3, null, 'decimal').v ?: 1.0
+					def t0 = evaluateScalarOperand(rtData, statement, statement.lo3, null, 'decimal').v
+					stepValue = t0 ?: 1.0
 				}
 				String counterVariable = getVariable(rtData, statement.x).t != 'error' ? statement.x : null
 				if (((startValue <= endValue) && (stepValue > 0)) || ((startValue >= endValue) && (stepValue < 0)) || !!rtData.fastForwardTo) {
@@ -1558,10 +1566,10 @@ private Boolean executeStatement(rtData, statement, async = false) {
 			def overBy = checkForSlowdown(rtData)
 			if(overBy > 0) {
 				def delay = rtData.pistonLimits.taskShortDelay
-				if(overBy > 30000) {
+				if(overBy > 10000) {
 					delay = rtData.pistonLimits.taskLongDelay
 				}
-				def mstr = "ExecuteStatement: Execution time exceeded ${overBy}ms, "
+				def mstr = "executeStatement: Execution time exceeded by ${overBy}ms, "
 				if(repeat && overBy > 240000) {
 					error "${mstr}Terminating", rtData
 					rtData.terminated = true
@@ -1573,7 +1581,8 @@ private Boolean executeStatement(rtData, statement, async = false) {
 		}
 	}
 	if (!rtData.fastForwardTo) {
-		def schedule = (statement.t == 'every') ? (rtData.schedules.find{ it.s == statement.$} ?: state.schedules.find{ it.s == statement.$ }) : null
+		def t0 = (statement.t == 'every') ? rtData.schedules.find{ it.s == statement.$} : null
+		def schedule = (statement.t == 'every') ? (t0 ?: state.schedules.find{ it.s == statement.$ }) : null
 		if (schedule) {
 			//timers need to show the remaining time
 			tracePoint(rtData, "s:${statement.$}", now() - t, now() - schedule.t)
@@ -1620,7 +1629,7 @@ private doPause(mstr, delay, rtData) {
 	def actDelay
 	def t0 = now()
 	if(!rtData.lastPause || ( (t0 - rtData.lastPause) > 1000)) {
-		if(rtData.logging > 2) debug "${mstr}; lastPause: ${rtData.lastPause}", rtData
+		if(rtData.logging > 1) trace "${mstr}; lastPause: ${rtData.lastPause}", rtData
 		rtData.lastPause = t0
 		//if (delay > rtData.pistonLimits.taskMaxDelay) delay = rtData.pistonLimits.taskMaxDelay
 		pause(delay)
@@ -1774,7 +1783,7 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 			requestWakeUp(rtData, statement, task, delay, task.c)
 			return false
 		} else {
-			if (rtData.logging > 1) trace "ExecuteTask: Waiting for ${delay}ms", rtData
+			if (rtData.logging > 1) trace "executeTask: Waiting for ${delay}ms", rtData
 			pause(delay)
 		}
 	}
@@ -1784,10 +1793,10 @@ private Boolean executeTask(rtData, devices, statement, task, async) {
 	def overBy = checkForSlowdown(rtData)
 	if(overBy > 0) {
 		def mdelay = rtData.pistonLimits.taskShortDelay
-		if(overBy > 30000) {
+		if(overBy > 10000) {
 			mdelay = rtData.pistonLimits.taskLongDelay
 		}
-		def actDelay = doPause("ExecuteTask: Execution time exceeded ${overBy}ms, Waiting for ${mdelay}ms", mdelay, rtData)
+		def actDelay = doPause("executeTask: Execution time exceeded by ${overBy}ms, Waiting for ${mdelay}ms", mdelay, rtData)
 	}
 
 	return true
@@ -1879,13 +1888,13 @@ private executePhysicalCommand(rtData, device, command, params = [], delay = nul
 				device."$command"()
 			}
 		}
-		if (rtData.logging > 2) debug msg, rtData
+		if(rtData.logging > 1) trace msg, rtData
 	} catch(all) {
 		error "Error while executing physical command $device.$command($params):", rtData, null, all
 	}
 	if (rtData.piston.o?.ced) {
 		pause(rtData.piston.o.ced)
-		if (rtData.logging > 2) debug "Injected a ${rtData.piston.o.ced}ms delay after [$device].$command(${params ? "$params" : ''})", rtData
+		if(rtData.logging > 1) trace "Injected a ${rtData.piston.o.ced}ms delay after [$device].$command(${params ? "$params" : ''})", rtData
 	}
 	}
 }
@@ -2145,9 +2154,9 @@ private Long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 	//month restrictions
 	if (omy && (omy.indexOf(date.month + 1) < 0)) {
 		int month = (omy.sort{ it }.find{ it > date.month + 1 } ?: 12 + omy.sort{ it }[0]) - 1
-	int year = date.year + (month >= 12 ? 1 : 0)
-	month = (month >= 12 ? month - 12 : month)
-	def ms = (new Date(year, month, 1)).time - time
+		int year = date.year + (month >= 12 ? 1 : 0)
+		month = (month >= 12 ? month - 12 : month)
+		def ms = (new Date(year, month, 1)).time - time
 		switch (level) {
 		case 2: //by second
 			result = interval * (Math.floor(ms / 1000 / interval) - 2) * 1000
@@ -2342,7 +2351,7 @@ private long cmd_setColorTemperature(rtData, device, params) {
 }
 
 private getColor(rtData, colorValue) {
-	def color = (colorValue == 'Random') ? (colorUtil?.RANDOM ?: getRandomColor(rtData)) : (colorUtil?.findByName(colorValue) ?: getColorByName(rtData, colorValue))
+	def color = (colorValue == 'Random') ? getRandomColor(rtData) : getColorByName(rtData, colorValue)
 	if (color) {
 		color = [
 			hex: color.rgb,
@@ -2935,16 +2944,18 @@ private long vcmd_sendNotification(rtData, device, params) {
 }
 
 private long vcmd_sendPushNotification(rtData, device, params) {
-	def message = "Hubitat does not support sendPushNotification" + params[0]
-	log message, rtData
-	def save = !!params[1]
-/*
-	if (save) {
-		sendPush(message)
-	} else {
-		sendPushMessage(message)
+	def message = params[0]
+	if(!rtData.initPush) {
+		rtData.pushDev = parent.getPushDev()
+		rtData.initPush = true
 	}
-*/
+	def t0 = rtData.pushDev
+	try {
+		t0*.deviceNotification(message)
+	} catch (all) {
+		message = "Default push device not set properly in webCoRE" + params[0]
+		error message, rtData
+	}
 	return 0
 }
 
@@ -2953,21 +2964,13 @@ private long vcmd_sendSMSNotification(rtData, device, params) {
 	def phones = "${params[1]}".replace(" ", "").replace("-", "").replace("(", "").replace(")", "").tokenize(",;*|").unique()
 	def save = !!params[2]
 	for(def phone in phones) {
-//		if (save) {
-			sendSms(phone, message)  // Hubitat only allows 10 per day
-/*
-		} else {
-			sendSmsMessage(phone, message)
-		}
-*/
-		//we only need one notification
-		save = false
+		sendSms(phone, message)  // Hubitat only allows 10 per day
 	}
 	return 0
 }
 
 private long vcmd_sendNotificationToContacts(rtData, device, params) {
-	// Contact Book has been disabled and we're falling back onto PUSH notifications, if the option is enabled in the SmartApp's settings
+	// Contact Book has been disabled and we're falling back onto PUSH notifications, if the option is on
 	if (!rtData.redirectContactBook) return 0
 	def message = params[0]
 	def save = !!params[2]
@@ -4552,6 +4555,7 @@ private void subscribeAll(rtData, doit=true) {
 		}
 	}
 	def dds = [:]
+//log.debug "subscribeAll subscriptions ${subscriptions}"
 	for (subscription in subscriptions) {
 		def altSub = 'never';
 		for (condition in subscription.value.c) if (condition) {
@@ -5286,420 +5290,420 @@ private Map evaluateExpression(rtData, expression, dataType = null) {
 		def lastOperand = -1
 		for(item in expression.i) {
 			if (item.t == "operator") {
-			if (operand < 0) {
-				switch (item.o) {
-				case '+':
-				case '-':
-				case '**':
-				case '&':
-				case '|':
-				case '^':
-				case '~':
-				case '~&':
-				case '~|':
-				case '~^':
-				case '<':
-				case '>':
-				case '<=':
-				case '>=':
-				case '==':
-				case '!=':
-				case '<>':
-				case '<<':
-				case '>>':
-				case '!':
-				case '!!':
-				case '?':
-					items.push([t: integer, v: 0, o: item.o])
-					break;
-				case ':':
-					if (lastOperand >= 0) {
-						//groovy-style support for (object ?: value)
-						items.push(items[lastOperand] + [o: item.o])
-					} else {
+				if (operand < 0) {
+					switch (item.o) {
+					case '+':
+					case '-':
+					case '**':
+					case '&':
+					case '|':
+					case '^':
+					case '~':
+					case '~&':
+					case '~|':
+					case '~^':
+					case '<':
+					case '>':
+					case '<=':
+					case '>=':
+					case '==':
+					case '!=':
+					case '<>':
+					case '<<':
+					case '>>':
+					case '!':
+					case '!!':
+					case '?':
 						items.push([t: integer, v: 0, o: item.o])
+						break;
+					case ':':
+						if (lastOperand >= 0) {
+							//groovy-style support for (object ?: value)
+							items.push(items[lastOperand] + [o: item.o])
+						} else {
+							items.push([t: integer, v: 0, o: item.o])
+						}
+						break;
+					case '*':
+					case '/':
+						items.push([t: integer, v: 1, o: item.o])
+						break;
+					case '&&':
+					case '!&':
+						items.push([t: boolean, v: true, o: item.o])
+						break;
+					case '||':
+					case '!|':
+					case '^^':
+					case '!^':
+						items.push([t: boolean, v: false, o: item.o])
+						break;
 					}
-					break;
-				case '*':
-				case '/':
-					items.push([t: integer, v: 1, o: item.o])
-					break;
-				case '&&':
-				case '!&':
-					items.push([t: boolean, v: true, o: item.o])
-					break;
-				case '||':
-				case '!|':
-				case '^^':
-				case '!^':
-					items.push([t: boolean, v: false, o: item.o])
-					break;
-			}
+				} else {
+					items[operand].o = item.o;
+					operand = -1;
+				}
 			} else {
-				items[operand].o = item.o;
-			operand = -1;
-			}
-			} else {
-			items.push(evaluateExpression(rtData, item) + [:])
-			operand = items.size() - 1
-			lastOperand = operand
+				items.push(evaluateExpression(rtData, item) + [:])
+				operand = items.size() - 1
+				lastOperand = operand
 			}
 		}
 		//clean up operators, ensure there's one for each
 		def idx = 0
 		for(item in items) {
 			if (!item.o) {
-			switch (item.t) {
-				case "integer":
-				case "float":
-				case "double":
-				case "decimal":
-				case "number":
-				def nextType = 'string'
-				if (idx < items.size() - 1) nextType = items[idx+1].t
-				item.o = (nextType == 'string' || nextType == 'text') ? '+' : '*';
-				break;
-			default:
-				item.o = '+';
-				break;
+				switch (item.t) {
+					case "integer":
+					case "float":
+					case "double":
+					case "decimal":
+					case "number":
+						def nextType = 'string'
+						if (idx < items.size() - 1) nextType = items[idx+1].t
+						item.o = (nextType == 'string' || nextType == 'text') ? '+' : '*';
+						break;
+					default:
+						item.o = '+';
+						break;
+				}
 			}
-		}
-		idx++
+			idx++
 		}
 		//do the job
 		idx = 0
 		def secondary = false
 		while (items.size() > 1) {
 			//ternary
-		if ((items.size() == 3) && (items[0].o == '?') && (items[1].o == ':')) {
-			//we have a ternary operator
-			if (evaluateExpression(rtData, items[0], 'boolean').v) {
-				items = [items[1]]
-			} else {
-				items = [items[2]]
-			}
-			items[0].o = null;
-			break
-		}
-			//order of operations :D
-		idx = 0
-		//#2 	!   !!   ~   - 	Logical negation, logical double-negation, bitwise NOT, and numeric negation unary operators
-		for (item in items) {
-			if (((item.o) == '!') || ((item.o) == '!!') || ((item.o) == '~') || (item.t == null && item.o == '-')) break;
-			secondary = true
-			idx++
-		}
-		//#3 	** 	Exponent operator
-		if (idx >= items.size()) {
-			//we then look for power **
-			idx = 0
-			for (item in items) {
-					if ((item.o) == '**') break;
-				idx++
+			if ((items.size() == 3) && (items[0].o == '?') && (items[1].o == ':')) {
+				//we have a ternary operator
+				if (evaluateExpression(rtData, items[0], 'boolean').v) {
+					items = [items[1]]
+				} else {
+					items = [items[2]]
 				}
-		}
-		//#4 	*   /   \   % MOD 	Multiplication, division, modulo
-		if (idx >= items.size()) {
-			//we then look for * or /
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '*') || ((item.o) == '/') || ((item.o) == '\\') || ((item.o) == '%')) break;
-			idx++
+				items[0].o = null;
+				break
 			}
-		}
-		//#5 	+   - 	Addition and subtraction
-		if (idx >= items.size()) {
+			//order of operations :D
 			idx = 0
+			//#2 	!   !!   ~   - 	Logical negation, logical double-negation, bitwise NOT, and numeric negation unary operators
 			for (item in items) {
-			if (((item.o) == '+') || ((item.o) == '-')) break;
-			idx++
+				if (((item.o) == '!') || ((item.o) == '!!') || ((item.o) == '~') || (item.t == null && item.o == '-')) break;
+				secondary = true
+				idx++
 			}
-		}
-		//#6 	<<   >> 	Shift left and shift right operators
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '<<') || ((item.o) == '>>')) break;
-			idx++
+			//#3 	** 	Exponent operator
+			if (idx >= items.size()) {
+				//we then look for power **
+				idx = 0
+				for (item in items) {
+					if ((item.o) == '**') break;
+					idx++
+				}
 			}
-		}
-		//#7 	<   <=   >   >= 	Comparisons: less than, less than or equal to, greater than, greater than or equal to
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '>') || ((item.o) == '<') || ((item.o) == '>=') || ((item.o) == '<=')) break;
-			idx++
+			//#4 	*   /   \   % MOD 	Multiplication, division, modulo
+			if (idx >= items.size()) {
+				//we then look for * or /
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '*') || ((item.o) == '/') || ((item.o) == '\\') || ((item.o) == '%')) break;
+					idx++
+				}
 			}
-		}
-		//#8 	==   != 	Comparisons: equal and not equal
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '==') || ((item.o) == '!=') || ((item.o) == '<>')) break;
-			idx++
+			//#5 	+   - 	Addition and subtraction
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '+') || ((item.o) == '-')) break;
+					idx++
+				}
 			}
-		}
-		//#9 	& 	Bitwise AND
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '&') || ((item.o) == '~&')) break;
-			idx++
+			//#6 	<<   >> 	Shift left and shift right operators
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '<<') || ((item.o) == '>>')) break;
+					idx++
+				}
 			}
-		}
-		//#10 	^ 	Bitwise exclusive OR (XOR)
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '^') || ((item.o) == '~^')) break;
-			idx++
+			//#7 	<   <=   >   >= 	Comparisons: less than, less than or equal to, greater than, greater than or equal to
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '>') || ((item.o) == '<') || ((item.o) == '>=') || ((item.o) == '<=')) break;
+					idx++
+				}
 			}
-		}
-		//#11 	| 	Bitwise inclusive (normal) OR
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '|') || ((item.o) == '~|')) break;
-			idx++
+			//#8 	==   != 	Comparisons: equal and not equal
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '==') || ((item.o) == '!=') || ((item.o) == '<>')) break;
+					idx++
+				}
 			}
-		}
-		//#12 	&& 	Logical AND
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '&&') || ((item.o) == '!&')) break;
-			idx++
+			//#9 	& 	Bitwise AND
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '&') || ((item.o) == '~&')) break;
+					idx++
+				}
 			}
-		}
-		//#13 	^^ 	Logical XOR
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '^^') || ((item.o) == '~^')) break;
-			idx++
+			//#10 	^ 	Bitwise exclusive OR (XOR)
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '^') || ((item.o) == '~^')) break;
+					idx++
+				}
 			}
-		}
-		//#14 	|| 	Logical OR
-		if (idx >= items.size()) {
-			idx = 0
-			for (item in items) {
-			if (((item.o) == '||') || ((item.o) == '!|')) break;
-			idx++
+			//#11 	| 	Bitwise inclusive (normal) OR
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '|') || ((item.o) == '~|')) break;
+					idx++
+				}
 			}
-		}
-		if (idx >= items.size()) {
-			//just get the first one
-			idx = 0;
-		}
-		if (idx >= items.size() - 1) idx = 0
-		//we're onto something
-		def v = null
-		def o = items[idx].o
-		def a1 = items[idx].a
-		def t1 = items[idx].t
-		def v1 = items[idx].v
-		def a2 = items[idx + 1].a
-		def t2 = items[idx + 1].t
-		def v2 = items[idx + 1].v
-		def t = t1
-		//fix-ups
-		//integer with decimal gives decimal, also *, / require decimals
-		if ((t1 == 'device') && a1) {
-			//def attr = rtData.attributes[a1]
-			def attr = Attributes[a1]
-			t1 = attr ? attr.t : 'string'
-		}
-		if ((t2 == 'device') && a2) {
-			def attr = Attributes[a2]
-			t2 = attr ? attr.t : 'string'
-		}
-		if ((t1 == 'device') && (t2 == 'device') && ((o == '+') || (o == '-'))) {
-					v1 = (v1 instanceof List) ? v1 : [v1]
-					v2 = (v2 instanceof List) ? v2 : [v2]
-			v = (o == '+') ? v1 + v2 : v1 - v2
-			//set the results
+			//#12 	&& 	Logical AND
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '&&') || ((item.o) == '!&')) break;
+					idx++
+				}
+			}
+			//#13 	^^ 	Logical XOR
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '^^') || ((item.o) == '~^')) break;
+					idx++
+				}
+			}
+			//#14 	|| 	Logical OR
+			if (idx >= items.size()) {
+				idx = 0
+				for (item in items) {
+					if (((item.o) == '||') || ((item.o) == '!|')) break;
+					idx++
+				}
+			}
+			if (idx >= items.size()) {
+				//just get the first one
+				idx = 0;
+			}
+			if (idx >= items.size() - 1) idx = 0
+			//we're onto something
+			def v = null
+			def o = items[idx].o
+			def a1 = items[idx].a
+			def t1 = items[idx].t
+			def v1 = items[idx].v
+			def a2 = items[idx + 1].a
+			def t2 = items[idx + 1].t
+			def v2 = items[idx + 1].v
+			def t = t1
+			//fix-ups
+			//integer with decimal gives decimal, also *, / require decimals
+			if ((t1 == 'device') && a1) {
+				//def attr = rtData.attributes[a1]
+				def attr = Attributes[a1]
+				t1 = attr ? attr.t : 'string'
+			}
+			if ((t2 == 'device') && a2) {
+				def attr = Attributes[a2]
+				t2 = attr ? attr.t : 'string'
+			}
+			if ((t1 == 'device') && (t2 == 'device') && ((o == '+') || (o == '-'))) {
+				v1 = (v1 instanceof List) ? v1 : [v1]
+				v2 = (v2 instanceof List) ? v2 : [v2]
+				v = (o == '+') ? v1 + v2 : v1 - v2
+				//set the results
 				items[idx + 1].t = 'device'
-			items[idx + 1].v = v
-		} else {
-			def t1d = (t1 == 'datetime') || (t1 == 'date') || (t1 == 'time')
-			def t2d = (t2 == 'datetime') || (t2 == 'date') || (t2 == 'time')
-			def t1i = (t1 == 'number') || (t1 == 'integer') || (t1 == 'long')
-			def t2i = (t2 == 'number') || (t2 == 'integer') || (t2 == 'long')
-			def t1f = (t1 == 'decimal') || (t1 == 'float')
-			def t2f = (t2 == 'decimal') || (t2 == 'float')
-			def t1n = t1i || t1f
-			def t2n = t2i || t2f
-			//warn "Precalc ($t1) $v1 $o ($t2) $v2 >>> t1d = $t1d, t2d = $t2d, t1n = $t1n, t2n = $t2n", rtData
-			if (((o == '+') || (o == '-')) && (t1d || t2d) && (t1d || t1n) && (t2n || t2d)) {
-				//if dealing with date +/- date/numeric then
-			if (t1n) {
-				t = t2
-			} else if (t2n) {
-				t = t1
+				items[idx + 1].v = v
 			} else {
-				t = (t1 == 'date') && (t2 == 'date') ? 'date' : ((t1 == 'time') && (t2 == 'time') ? 'time' : 'datetime')
-			}
-			} else {
-				if ((o == '+') || (o == '-')) {
-				//devices and others play nice
-				if (t1 == 'device') {
-					t = t2
-				t1 = t2
-				} else if (t2 == 'device') {
-					t = t1
-				t2 = t1
-							}
-			}
-			if ((o == '*') || (o == '/') || (o == '-') || (o == '**')) {
-				t = (t1i && t2i) ? ((t1 == 'long') || (t2 == 'long') ? 'long' : 'integer') : 'decimal'
-				t1 = t
-				t2 = t
-				//if ((t1 != 'number') && (t1 != 'integer') && (t1 != 'decimal') && (t1 != 'float') && (t1 != 'datetime') && (t1 != 'date') && (t1 != 'time')) t1 = 'decimal'
-				//if ((t2 != 'number') && (t2 != 'integer') && (t2 != 'decimal') && (t2 != 'float') && (t2 != 'datetime') && (t2 != 'date') && (t2 != 'time')) t2 = 'decimal'
-				//t = (t1 == 'datetime') || (t2 == 'datetime') ? 'datetime' : ((t1 == 'date') && (t2 == 'date') ? 'date' : ((t1 == 'time') && (t2 == 'time') ? 'time' : (((t1 == 'date') && (t2 == 'time')) || ((t1 == 'time') && (t2 == 'date')) ? 'datetime' : 'decimal')))
-			}
-			if ((o == '\\') || (o == '%') || (o == '&') || (o == '|') || (o == '^') || (o == '~&') || (o == '~|') || (o == '~^') || (o == '<<') || (o == '>>')) {
-				t = (t1 == 'long') || (t2 == 'long') ? 'long' : 'integer'
-				t1 = t
-				t2 = t
-			}
-			if ((o == '&&') || (o == '||') || (o == '^^') || (o == '!&') || (o == '!|') || (o == '!^') || (o == '!') || (o == '!!')) {
-				t1 = 'boolean'
-				t2 = 'boolean'
-				t = 'boolean'
-			}
-			if ((o == '+') && ((t1 == 'string') || (t1 == 'text') || (t2 == 'string') || (t2 == 'text'))) {
-				t1 = 'string';
-				t2 = 'string';
-				t = 'string'
-			}
-			if (t1n && t2n) {
-				t = (t1i && t2i) ? ((t1 == 'long') || (t2 == 'long') ? 'long' : 'integer') : 'decimal'
-				t1 = t
-				t2 = t
-			}
-			if ((o == '==') || (o == '!=') || (o == '<') || (o == '>') || (o == '<=') || (o == '>=') || (o == '<>')) {
-				if (t1 == 'device') t1 = 'string'
-				if (t2 == 'device') t2 = 'string'
-				t1 = t1 == 'string' ? t2 : t1
-				t2 = t2 == 'string' ? t1 : t2
-				t = 'boolean'
-			}
-			}
-			v1 = evaluateExpression(rtData, items[idx], t1).v
-			v2 = evaluateExpression(rtData, items[idx + 1], t2).v
-			v1 = v1 == "null" ? null : v1
-			v2 = v2 == "null" ? null : v2
-			switch (o) {
-				case '?':
-				case ':':
-					error "Invalid ternary operator. Ternary operator's syntax is ( condition ? trueValue : falseValue ). Please check your syntax and try again.", rtData
-					v = '';
-					break
-				case '-':
-					v = v1 - v2
-					break
-				case '*':
-					v = v1 * v2
-					break
-				case '/':
-					v = (v2 != 0 ? v1 / v2 : 0)
-					break
-				case '\\':
-					v = (int) Math.floor(v2 != 0 ? v1 / v2 : 0)
-					break
-				case '%':
-					v = (int) (v2 != 0 ? v1 % v2 : 0)
-					break
-				case '**':
-					v = v1 ** v2
-					break
-				case '&':
-					v = v1 & v2
-					break
-				case '|':
-					v = v1 | v2
-					break
-				case '^':
-					v = v1 ^ v2
-					break
-				case '~&':
-					v = ~(v1 & v2)
-					break
-				case '~|':
-					v = ~(v1 | v2)
-					break
-				case '~^':
-					v = ~(v1 ^ v2)
-					break
-				case '~':
-					v = ~v2
-					break
-				case '<<':
-					v = v1 << v2
-					break
-				case '>>':
-					v = v1 >> v2
-					break
-				case '&&':
-					v = !!v1 && !!v2
-					break
-				case '||':
-					v = !!v1 || !!v2
-					break
-				case '^^':
-					v = !v1 != !v2
-					break
-				case '!&':
-					v = !(!!v1 && !!v2)
-					break
-				case '!|':
-					v = !(!!v1 || !!v2)
-					break
-				case '!^':
-					v = !(!v1 != !v2)
-					break
-				case '==':
-					v = v1 == v2
-					break
-				case '!=':
-				case '<>':
-					v = v1 != v2
-					break
-				case '<':
-					v = v1 < v2
-					break
-				case '>':
-					v = v1 > v2
-					break
-				case '<=':
-					v = v1 <= v2
-					break
-				case '>=':
-					v = v1 >= v2
-					break
-				case '!':
-					v = !v2
-					break
-				case '!!':
-					v = !!v2
-					break
-				case '+':
-				default:
-				v = t == 'string' ? "$v1$v2" : v1 + v2
-					break
-			}
+				def t1d = (t1 == 'datetime') || (t1 == 'date') || (t1 == 'time')
+				def t2d = (t2 == 'datetime') || (t2 == 'date') || (t2 == 'time')
+				def t1i = (t1 == 'number') || (t1 == 'integer') || (t1 == 'long')
+				def t2i = (t2 == 'number') || (t2 == 'integer') || (t2 == 'long')
+				def t1f = (t1 == 'decimal') || (t1 == 'float')
+				def t2f = (t2 == 'decimal') || (t2 == 'float')
+				def t1n = t1i || t1f
+				def t2n = t2i || t2f
+				//warn "Precalc ($t1) $v1 $o ($t2) $v2 >>> t1d = $t1d, t2d = $t2d, t1n = $t1n, t2n = $t2n", rtData
+				if (((o == '+') || (o == '-')) && (t1d || t2d) && (t1d || t1n) && (t2n || t2d)) {
+					//if dealing with date +/- date/numeric then
+					if (t1n) {
+						t = t2
+					} else if (t2n) {
+						t = t1
+					} else {
+						t = (t1 == 'date') && (t2 == 'date') ? 'date' : ((t1 == 'time') && (t2 == 'time') ? 'time' : 'datetime')
+					}
+				} else {
+					if ((o == '+') || (o == '-')) {
+						//devices and others play nice
+						if (t1 == 'device') {
+							t = t2
+							t1 = t2
+						} else if (t2 == 'device') {
+							t = t1
+							t2 = t1
+						}
+					}
+					if ((o == '*') || (o == '/') || (o == '-') || (o == '**')) {
+						t = (t1i && t2i) ? ((t1 == 'long') || (t2 == 'long') ? 'long' : 'integer') : 'decimal'
+						t1 = t
+						t2 = t
+						//if ((t1 != 'number') && (t1 != 'integer') && (t1 != 'decimal') && (t1 != 'float') && (t1 != 'datetime') && (t1 != 'date') && (t1 != 'time')) t1 = 'decimal'
+						//if ((t2 != 'number') && (t2 != 'integer') && (t2 != 'decimal') && (t2 != 'float') && (t2 != 'datetime') && (t2 != 'date') && (t2 != 'time')) t2 = 'decimal'
+						//t = (t1 == 'datetime') || (t2 == 'datetime') ? 'datetime' : ((t1 == 'date') && (t2 == 'date') ? 'date' : ((t1 == 'time') && (t2 == 'time') ? 'time' : (((t1 == 'date') && (t2 == 'time')) || ((t1 == 'time') && (t2 == 'date')) ? 'datetime' : 'decimal')))
+					}
+					if ((o == '\\') || (o == '%') || (o == '&') || (o == '|') || (o == '^') || (o == '~&') || (o == '~|') || (o == '~^') || (o == '<<') || (o == '>>')) {
+						t = (t1 == 'long') || (t2 == 'long') ? 'long' : 'integer'
+						t1 = t
+						t2 = t
+					}
+					if ((o == '&&') || (o == '||') || (o == '^^') || (o == '!&') || (o == '!|') || (o == '!^') || (o == '!') || (o == '!!')) {
+						t1 = 'boolean'
+						t2 = 'boolean'
+						t = 'boolean'
+					}
+					if ((o == '+') && ((t1 == 'string') || (t1 == 'text') || (t2 == 'string') || (t2 == 'text'))) {
+						t1 = 'string';
+						t2 = 'string';
+						t = 'string'
+					}
+					if (t1n && t2n) {
+						t = (t1i && t2i) ? ((t1 == 'long') || (t2 == 'long') ? 'long' : 'integer') : 'decimal'
+						t1 = t
+						t2 = t
+					}
+					if ((o == '==') || (o == '!=') || (o == '<') || (o == '>') || (o == '<=') || (o == '>=') || (o == '<>')) {
+						if (t1 == 'device') t1 = 'string'
+						if (t2 == 'device') t2 = 'string'
+						t1 = t1 == 'string' ? t2 : t1
+						t2 = t2 == 'string' ? t1 : t2
+						t = 'boolean'
+					}
+				}
+				v1 = evaluateExpression(rtData, items[idx], t1).v
+				v2 = evaluateExpression(rtData, items[idx + 1], t2).v
+				v1 = v1 == "null" ? null : v1
+				v2 = v2 == "null" ? null : v2
+				switch (o) {
+					case '?':
+					case ':':
+						error "Invalid ternary operator. Ternary operator's syntax is ( condition ? trueValue : falseValue ). Please check your syntax and try again.", rtData
+						v = '';
+						break
+					case '-':
+						v = v1 - v2
+						break
+					case '*':
+						v = v1 * v2
+						break
+					case '/':
+						v = (v2 != 0 ? v1 / v2 : 0)
+						break
+					case '\\':
+						v = (int) Math.floor(v2 != 0 ? v1 / v2 : 0)
+						break
+					case '%':
+						v = (int) (v2 != 0 ? v1 % v2 : 0)
+						break
+					case '**':
+						v = v1 ** v2
+						break
+					case '&':
+						v = v1 & v2
+						break
+					case '|':
+						v = v1 | v2
+						break
+					case '^':
+						v = v1 ^ v2
+						break
+					case '~&':
+						v = ~(v1 & v2)
+						break
+					case '~|':
+						v = ~(v1 | v2)
+						break
+					case '~^':
+						v = ~(v1 ^ v2)
+						break
+					case '~':
+						v = ~v2
+						break
+					case '<<':
+						v = v1 << v2
+						break
+					case '>>':
+						v = v1 >> v2
+						break
+					case '&&':
+						v = !!v1 && !!v2
+						break
+					case '||':
+						v = !!v1 || !!v2
+						break
+					case '^^':
+						v = !v1 != !v2
+						break
+					case '!&':
+						v = !(!!v1 && !!v2)
+						break
+					case '!|':
+						v = !(!!v1 || !!v2)
+						break
+					case '!^':
+						v = !(!v1 != !v2)
+						break
+					case '==':
+						v = v1 == v2
+						break
+					case '!=':
+					case '<>':
+						v = v1 != v2
+						break
+					case '<':
+						v = v1 < v2
+						break
+					case '>':
+						v = v1 > v2
+						break
+					case '<=':
+						v = v1 <= v2
+						break
+					case '>=':
+						v = v1 >= v2
+						break
+					case '!':
+						v = !v2
+						break
+					case '!!':
+						v = !!v2
+						break
+					case '+':
+					default:
+						v = t == 'string' ? "$v1$v2" : v1 + v2
+						break
+				}
 
-					if (rtData.logging > 2) debug "Calculating ($t1) $v1 $o ($t2) $v2 >> ($t) $v", rtData
+				if (rtData.logging > 2) debug "Calculating ($t1) $v1 $o ($t2) $v2 >> ($t) $v", rtData
 
-			//set the results
-			items[idx + 1].t = t
-			items[idx + 1].v = cast(rtData, v, t)
+				//set the results
+				items[idx + 1].t = t
+				items[idx + 1].v = cast(rtData, v, t)
+			}
+			def sz = items.size()
+			items.remove(idx)
 		}
-		def sz = items.size()
-		items.remove(idx)
-		}
-			result = items[0] ? ((items[0].t == 'device') ? items[0] : evaluateExpression(rtData, items[0])) : [t: 'dynamic', v: null]
+		result = items[0] ? ((items[0].t == 'device') ? items[0] : evaluateExpression(rtData, items[0])) : [t: 'dynamic', v: null]
 		break
 	}
 	//return the value, either directly or via cast, if certain data type is requested
@@ -5738,7 +5742,7 @@ private buildDeviceList(rtData, devices, suffix = 'and') {
 	def list = []
 	for (device in devices) {
 		def dev = getDevice(rtData, device)
-	if (dev) list.push(dev)
+		if (dev) list.push(dev)
 	}
 	return buildList(list, suffix);
 }
@@ -5749,7 +5753,7 @@ private buildDeviceAttributeList(rtData, devices, attribute, suffix = 'and') {
 	def list = []
 	for (device in devices) {
 		def value = getDeviceAttribute(rtData, device, attribute).v
-	list.push(value)
+		list.push(value)
 	}
 	return buildList(list, suffix);
 }
@@ -5769,7 +5773,7 @@ private func_dewpoint(rtData, params) {
 	boolean fahrenheit = cast(rtData, params.size() > 2 ? evaluateExpression(rtData, params[2]).v : location.temperatureScale, "string").toUpperCase() == "F"
 	if (fahrenheit) {
 		//convert temperature to Celsius
-	t = (t - 32.0) * 5.0 / 9.0
+		t = (t - 32.0) * 5.0 / 9.0
 	}
 	//convert rh to percentage
 	if ((rh > 0) && (rh < 1)) {
@@ -5779,7 +5783,7 @@ private func_dewpoint(rtData, params) {
 	double result = (237.3 * b) / (1 - b)
 	if (fahrenheit) {
 		//convert temperature back to Fahrenheit
-	result = result * 9.0 / 5.0 + 32.0
+		result = result * 9.0 / 5.0 + 32.0
 	}
 	return [t: "decimal", v: result]
 }
@@ -5967,7 +5971,7 @@ private func_sprintf(rtData, params) {
 		args.push(evaluateExpression(rtData, params[x]).v)
 	}
 	try {
-	return [t: "string", v: sprintf(format, args)]
+		return [t: "string", v: sprintf(format, args)]
 	} catch(all) {
 		return [t: "error", v: "$all"]
 	}
@@ -6026,9 +6030,9 @@ private func_coalesce(rtData, params) {
 	}
 	for (i = 0; i < params.size(); i++) {
 		def value = evaluateExpression(rtData, params[0])
-	if (!((value.v instanceof List ? (value.v == [null]) || (value.v == []) || (value.v == ['null']) : false) || (value.v == null) || (value.t == 'error') || (value.v == 'null') || (cast(rtData, value.v, 'string') == ''))) {
-		return value
-	}
+		if (!((value.v instanceof List ? (value.v == [null]) || (value.v == []) || (value.v == ['null']) : false) || (value.v == null) || (value.t == 'error') || (value.v == 'null') || (cast(rtData, value.v, 'string') == ''))) {
+			return value
+		}
 	}
 	return [t: "dynamic", v: null]
 }
@@ -6086,22 +6090,22 @@ private func_substring(rtData, params) {
 	def end = null
 	def result = ''
 	if ((start < value.size()) && (start > -value.size())) {
-	if (count != null) {
-		if (count < 0) {
-			//reverse
-		start = start < 0 ? -start : value.size() - start
-		count = - count
-		value = value.reverse()
+		if (count != null) {
+			if (count < 0) {
+				//reverse
+				start = start < 0 ? -start : value.size() - start
+				count = - count
+				value = value.reverse()
+			}
+			if (start >= 0) {
+				if (count > value.size() - start) count = value.size() - start
+			} else {
+				if (count > -start) count = -start
+			}
 		}
-		if (start >= 0) {
-			if (count > value.size() - start) count = value.size() - start
-		} else {
-			if (count > -start) count = -start
-		}
-	}
-	start = start >= 0 ? start : value.size() + start
-	if (count > value.size() - start) count = value.size() - start
-	result = (count == null) ? value.substring(start) : value.substring(start, start + count)
+		start = start >= 0 ? start : value.size() + start
+		if (count > value.size() - start) count = value.size() - start
+		result = (count == null) ? value.substring(start) : value.substring(start, start + count)
 	}
 	return [t: "string", v: result]
 }
@@ -6120,13 +6124,13 @@ private func_replace(rtData, params) {
 	int cnt = Math.floor((params.size() - 1) / 2)
 	for (int i = 0; i < cnt; i++) {
 		def search = evaluateExpression(rtData, params[i * 2 + 1], 'string').v
-	def replace = evaluateExpression(rtData, params[i * 2 + 2], 'string').v
-	if ((search.size() > 2) && search.startsWith('/') && search.endsWith('/')) {
-		search = ~search.substring(1, search.size() - 1)
-		value = value.replaceAll(search, replace)
-	} else {
-		value = value.replace(search, replace)
-	}
+		def replace = evaluateExpression(rtData, params[i * 2 + 2], 'string').v
+		if ((search.size() > 2) && search.startsWith('/') && search.endsWith('/')) {
+			search = ~search.substring(1, search.size() - 1)
+			value = value.replaceAll(search, replace)
+		} else {
+			value = value.replace(search, replace)
+		}
 	}
 	return [t: "string", v: value]
 }
@@ -6144,7 +6148,7 @@ private func_rangevalue(rtData, params) {
 	int cnt = Math.floor((params.size() - 2) / 2)
 	for (int i = 0; i < cnt; i++) {
 		def point = evaluateExpression(rtData, params[i * 2 + 2], 'decimal').v
-	if (input >= point) value = params[i * 2 + 3]
+		if (input >= point) value = params[i * 2 + 3]
 	}
 	return value
 }
@@ -6200,18 +6204,18 @@ private func_indexof(rtData, params) {
 		return [t: "error", v: "Invalid parameters. Expecting indexOf(stringOrDeviceOrList, substringOrItem)"];
 	}
 	if ((params[0].t == 'device') && (params.size() > 2)) {
-	def item = evaluateExpression(rtData, params[params.size() - 1], 'string').v
-	for (int idx = 0; idx < params.size() - 1; idx++) {
-		def it = evaluateExpression(rtData, params[idx], 'string')
-		if (it.v == item) {
-			return [t: "integer", v: idx]
+		def item = evaluateExpression(rtData, params[params.size() - 1], 'string').v
+		for (int idx = 0; idx < params.size() - 1; idx++) {
+			def it = evaluateExpression(rtData, params[idx], 'string')
+			if (it.v == item) {
+				return [t: "integer", v: idx]
+			}
 		}
-	}
-	return [t: "integer", v: -1]
+		return [t: "integer", v: -1]
 	} else if (params[0].v instanceof Map) {
-	def item = evaluateExpression(rtData, params[1], params[0].t).v
-	def key = params[0].v.find{ it.value == item }?.key
-	return [t: "string", v: key]
+		def item = evaluateExpression(rtData, params[1], params[0].t).v
+		def key = params[0].v.find{ it.value == item }?.key
+		return [t: "string", v: key]
 	} else {
 		def value = evaluateExpression(rtData, params[0], 'string').v
 		def substring = evaluateExpression(rtData, params[1], 'string').v
@@ -6228,18 +6232,18 @@ private func_lastindexof(rtData, params) {
 		return [t: "error", v: "Invalid parameters. Expecting lastIndexOf(string, substring)"];
 	}
 	if ((params[0].t == 'device') && (params.size() > 2)) {
-	def item = evaluateExpression(rtData, params[params.size() - 1], 'string').v
-	for (int idx = params.size() - 2; idx >= 0; idx--) {
-		def it = evaluateExpression(rtData, params[idx], 'string')
-		if (it.v == item) {
-			return [t: "integer", v: idx]
+		def item = evaluateExpression(rtData, params[params.size() - 1], 'string').v
+		for (int idx = params.size() - 2; idx >= 0; idx--) {
+			def it = evaluateExpression(rtData, params[idx], 'string')
+			if (it.v == item) {
+				return [t: "integer", v: idx]
+			}
 		}
-	}
-	return [t: "integer", v: -1]
+		return [t: "integer", v: -1]
 	} else if (params[0].v instanceof Map) {
-	def item = evaluateExpression(rtData, params[1], params[0].t).v
-	def key = params[0].v.find{ it.value == item }?.key
-	return [t: "string", v: key]
+		def item = evaluateExpression(rtData, params[1], params[0].t).v
+		def key = params[0].v.find{ it.value == item }?.key
+		return [t: "string", v: key]
 	} else {
 		def value = evaluateExpression(rtData, params[0], 'string').v
 		def substring = evaluateExpression(rtData, params[1], 'string').v
@@ -6385,8 +6389,8 @@ private func_variance(rtData, params) {
 	List values = []
 	for (param in params) {
 		double value = evaluateExpression(rtData, param, 'decimal').v
-	values.push(value)
-	sum += value
+		values.push(value)
+		sum += value
 	}
 	double avg = sum / values.size()
 	sum = 0
@@ -6516,13 +6520,13 @@ private func_age(rtData, params) {
 	def param = evaluateExpression(rtData, params[0], 'device')
 	if ((param.t == 'device') && (param.a) && param.v.size()) {
 		def device = getDevice(rtData, param.v[0])
-	if (device) {
-		def state = device.currentState(param.a)
-		if (state) {
-			long result = now() - state.getDate().getTime()
-		return [t: "long", v: result]
+		if (device) {
+			def state = device.currentState(param.a)
+			if (state) {
+				long result = now() - state.getDate().getTime()
+				return [t: "long", v: result]
+			}
 		}
-	}
 	}
 	return [t: "error", v: "Invalid device"]
 }
@@ -6605,7 +6609,7 @@ private func_newer(rtData, params) {
 	int result = 0
 	for (def i = 0; i < params.size() - 1; i++) {
 		def age = func_age(rtData, [params[i]])
-	if ((age.t != 'error') && (age.v < threshold)) result++
+		if ((age.t != 'error') && (age.v < threshold)) result++
 	}
 	return [t: "integer", v: result]
 }
@@ -6623,7 +6627,7 @@ private func_older(rtData, params) {
 	int result = 0
 	for (def i = 0; i < params.size() - 1; i++) {
 		def age = func_age(rtData, [params[i]])
-	if ((age.t != 'error') && (age.v >= threshold)) result++
+		if ((age.t != 'error') && (age.v >= threshold)) result++
 	}
 	return [t: "integer", v: result]
 }
@@ -6663,14 +6667,14 @@ private func_contains(rtData, params) {
 		return [t: "error", v: "Invalid parameters. Expecting contains(string, substring)"];
 	}
 	if ((params[0].t == 'device') && (params.size() > 2)) {
-	def item = evaluateExpression(rtData, params[params.size() - 1], 'string').v
-	for (int idx = 0; idx < params.size() - 1; idx++) {
-		def it = evaluateExpression(rtData, params[idx], 'string')
-		if (it.v == item) {
-			return [t: "boolean", v: true]
+		def item = evaluateExpression(rtData, params[params.size() - 1], 'string').v
+		for (int idx = 0; idx < params.size() - 1; idx++) {
+			def it = evaluateExpression(rtData, params[idx], 'string')
+			if (it.v == item) {
+				return [t: "boolean", v: true]
+			}
 		}
-	}
-	return [t: "boolean", v: false]
+		return [t: "boolean", v: false]
 	} else {
 		def string = evaluateExpression(rtData, params[0], 'string').v
 		def substring = evaluateExpression(rtData, params[1], 'string').v
@@ -6690,8 +6694,8 @@ private func_matches(rtData, params) {
 	def string = evaluateExpression(rtData, params[0], 'string').v
 	def pattern = evaluateExpression(rtData, params[1], 'string').v
 	if ((pattern.size() > 2) && pattern.startsWith('/') && pattern.endsWith('/')) {
-	pattern = ~pattern.substring(1, pattern.size() - 1)
-	return [t: "boolean", v: !!(string =~ pattern)]
+		pattern = ~pattern.substring(1, pattern.size() - 1)
+		return [t: "boolean", v: !!(string =~ pattern)]
 	}
 	return [t: "boolean", v: string.contains(pattern)]
 }
@@ -7051,19 +7055,19 @@ private func_random(rtData, params) {
 	int sz = params && (params instanceof List) ? params.size() : 0
 	switch (sz) {
 		case 0:
-		return [t: 'decimal', v: Math.random()]
+			return [t: 'decimal', v: Math.random()]
 		case 1:
-		def range = evaluateExpression(rtData, params[0], 'decimal').v
-		return [t: 'integer', v: (int)Math.round(range * Math.random())]
+			def range = evaluateExpression(rtData, params[0], 'decimal').v
+			return [t: 'integer', v: (int)Math.round(range * Math.random())]
 		case 2:
-		if (((params[0].t == 'integer') || (params[0].t == 'decimal')) && ((params[1].t == 'integer') || (params[1].t == 'decimal'))) {
-			def min = evaluateExpression(rtData, params[0], 'decimal').v
+			if (((params[0].t == 'integer') || (params[0].t == 'decimal')) && ((params[1].t == 'integer') || (params[1].t == 'decimal'))) {
+				def min = evaluateExpression(rtData, params[0], 'decimal').v
 				def max = evaluateExpression(rtData, params[1], 'decimal').v
-		if (min > max) {
-			def swap = min
-			min = max
-			max = swap
-		}
+				if (min > max) {
+				def swap = min
+				min = max
+				max = swap
+			}
 			return [t: 'integer', v: (int)Math.round(min + (max - min) * Math.random())]
 		}
 	}
@@ -7190,7 +7194,8 @@ private func_urlencode(rtData, params) {
 	// URLEncoder converts spaces to + which is then indistinguishable from any
 	// actual + characters in the value. Match encodeURIComponent in ECMAScript
 	// which encodes "a+b c" as "a+b%20c" rather than URLEncoder's "a+b+c"
-	def value = (evaluateExpression(rtData, params[0], 'string').v ?: '').replaceAll('\\+', '__wc_plus__')
+	def t0 = evaluateExpression(rtData, params[0], 'string').v
+	def value = (t0 ?: '').replaceAll('\\+', '__wc_plus__')
 	return [t: 'string', v: URLEncoder.encode(value, 'UTF-8').replaceAll('\\+', '%20').replaceAll('__wc_plus__', '+')]
 }
 private func_encodeuricomponent(rtData, params) { return func_urlencode(rtData, params); }
@@ -7228,7 +7233,6 @@ def String md5(String md5) {
 }
 
 def String hashId(id, updateCache=true) {
-	//enabled hash caching for faster processing
 	def result = state.hash ? state.hash[id] : null
 	if (!result) {
 		result = ":${md5("core." + id)}:"
@@ -8040,8 +8044,8 @@ private getSystemVariableValue(rtData, name) {
 	case "\$time": def t = localDate(); def h = t.hours; def m = t.minutes; return (h == 0 ? 12 : (h > 12 ? h - 12 : h)) + ":" + (m < 10 ? "0$m" : "$m") + " " + (h <12 ? "A.M." : "P.M.")
 	case "\$time24": def t = localDate(); def h = t.hours; def m = t.minutes; return h + ":" + (m < 10 ? "0$m" : "$m")
 	case "\$random": def result = getRandomValue("\$random") ?: (double)Math.random(); setRandomValue("\$random", result); return result
-	case "\$randomColor": def result = getRandomValue("\$randomColor") ?: (colorUtil?.RANDOM ?: getRandomColor(rtData))?.rgb; setRandomValue("\$randomColor", result); return result
-	case "\$randomColorName": def result = getRandomValue("\$randomColorName") ?: (colorUtil?.RANDOM ?: getRandomColor(rtData))?.name; setRandomValue("\$randomColorName", result); return result
+	case "\$randomColor": def result = getRandomValue("\$randomColor") ?: (getRandomColor(rtData))?.rgb; setRandomValue("\$randomColor", result); return result
+	case "\$randomColorName": def result = getRandomValue("\$randomColorName") ?: (getRandomColor(rtData))?.name; setRandomValue("\$randomColorName", result); return result
 	case "\$randomLevel": def result = getRandomValue("\$randomLevel") ?: (int)Math.round(100 * Math.random()); setRandomValue("\$randomLevel", result); return result
 	case "\$randomSaturation": def result = getRandomValue("\$randomSaturation") ?: (int)Math.round(50 + 50 * Math.random()); setRandomValue("\$randomSaturation", result); return result
 	case "\$randomHue": def result = getRandomValue("\$randomHue") ?: (int)Math.round(360 * Math.random()); setRandomValue("\$randomHue", result); return result
@@ -8076,13 +8080,13 @@ private void resetRandomValues() {
 }
 
 private Map getColorByName(rtData, name){
-	if(rtData.colors == null) { rtData.colors = parent.getColors() }
+	if(rtData.colors == null) { rtData.colors = /* parent. */ getColors() }
 	return rtData.colors.find{ it.name == name }
 	//return Colors.find{ it.name == name }
 }
 
 private Map getRandomColor(rtData){
-	if(rtData.colors == null) { rtData.colors = parent.getColors() }
+	if(rtData.colors == null) { rtData.colors = /* parent. */ getColors() }
 	def colors = rtData.colors
 	def random = (int)(Math.random() * colors.size())
 	return colors[random]
@@ -8590,3 +8594,150 @@ return [
 	push:			 [ n: "Push",		d: "Push button {0}",		a: "pushed",		p:[[n: "Button #", t: "integer"]]],
 	pushMomentary:		 [ n: "Push"						]
 ]
+
+private static List getColors(){
+	return [
+		[name:"Alice Blue",	 rgb:"#F0F8FF",	 h:208,	 s:100,	 l:97],
+		[name:"Antique White",	 rgb:"#FAEBD7",	 h:34,	 s:78,	 l:91],
+		[name:"Aqua",	 rgb:"#00FFFF",	 h:180,	 s:100,	 l:50],
+		[name:"Aquamarine",	 rgb:"#7FFFD4",	 h:160,	 s:100,	 l:75],
+		[name:"Azure",	 rgb:"#F0FFFF",	 h:180,	 s:100,	 l:97],
+		[name:"Beige",	 rgb:"#F5F5DC",	 h:60,	 s:56,	 l:91],
+		[name:"Bisque",	 rgb:"#FFE4C4",	 h:33,	 s:100,	 l:88],
+		[name:"Blanched Almond",	 rgb:"#FFEBCD",	 h:36,	 s:100,	 l:90],
+		[name:"Blue",	 rgb:"#0000FF",	 h:240,	 s:100,	 l:50],
+		[name:"Blue Violet",	 rgb:"#8A2BE2",	 h:271,	 s:76,	 l:53],
+		[name:"Brown",	 rgb:"#A52A2A",	 h:0,	 s:59,	 l:41],
+		[name:"Burly Wood",	 rgb:"#DEB887",	 h:34,	 s:57,	 l:70],
+		[name:"Cadet Blue",	 rgb:"#5F9EA0",	 h:182,	 s:25,	 l:50],
+		[name:"Chartreuse",	 rgb:"#7FFF00",	 h:90,	 s:100,	 l:50],
+		[name:"Chocolate",	 rgb:"#D2691E",	 h:25,	 s:75,	 l:47],
+		[name:"Cool White",	 rgb:"#F3F6F7",	 h:187,	 s:19,	 l:96],
+		[name:"Coral",	 rgb:"#FF7F50",	 h:16,	 s:100,	 l:66],
+		[name:"Corn Flower Blue",	 rgb:"#6495ED",	 h:219,	 s:79,	 l:66],
+		[name:"Corn Silk",	 rgb:"#FFF8DC",	 h:48,	 s:100,	 l:93],
+		[name:"Crimson",	 rgb:"#DC143C",	 h:348,	 s:83,	 l:58],
+		[name:"Cyan",	 rgb:"#00FFFF",	 h:180,	 s:100,	 l:50],
+		[name:"Dark Blue",	 rgb:"#00008B",	 h:240,	 s:100,	 l:27],
+		[name:"Dark Cyan",	 rgb:"#008B8B",	 h:180,	 s:100,	 l:27],
+		[name:"Dark Golden Rod",	 rgb:"#B8860B",	 h:43,	 s:89,	 l:38],
+		[name:"Dark Gray",	 rgb:"#A9A9A9",	 h:0,	 s:0,	 l:66],
+		[name:"Dark Green",	 rgb:"#006400",	 h:120,	 s:100,	 l:20],
+		[name:"Dark Khaki",	 rgb:"#BDB76B",	 h:56,	 s:38,	 l:58],
+		[name:"Dark Magenta",	 rgb:"#8B008B",	 h:300,	 s:100,	 l:27],
+		[name:"Dark Olive Green",	 rgb:"#556B2F",	 h:82,	 s:39,	 l:30],
+		[name:"Dark Orange",	 rgb:"#FF8C00",	 h:33,	 s:100,	 l:50],
+		[name:"Dark Orchid",	 rgb:"#9932CC",	 h:280,	 s:61,	 l:50],
+		[name:"Dark Red",	 rgb:"#8B0000",	 h:0,	 s:100,	 l:27],
+		[name:"Dark Salmon",	 rgb:"#E9967A",	 h:15,	 s:72,	 l:70],
+		[name:"Dark Sea Green",	 rgb:"#8FBC8F",	 h:120,	 s:25,	 l:65],
+		[name:"Dark Slate Blue",	 rgb:"#483D8B",	 h:248,	 s:39,	 l:39],
+		[name:"Dark Slate Gray",	 rgb:"#2F4F4F",	 h:180,	 s:25,	 l:25],
+		[name:"Dark Turquoise",	 rgb:"#00CED1",	 h:181,	 s:100,	 l:41],
+		[name:"Dark Violet",	 rgb:"#9400D3",	 h:282,	 s:100,	 l:41],
+		[name:"Daylight White",	 rgb:"#CEF4FD",	 h:191,	 s:9,	 l:90],
+		[name:"Deep Pink",	 rgb:"#FF1493",	 h:328,	 s:100,	 l:54],
+		[name:"Deep Sky Blue",	 rgb:"#00BFFF",	 h:195,	 s:100,	 l:50],
+		[name:"Dim Gray",	 rgb:"#696969",	 h:0,	 s:0,	 l:41],
+		[name:"Dodger Blue",	 rgb:"#1E90FF",	 h:210,	 s:100,	 l:56],
+		[name:"Fire Brick",	 rgb:"#B22222",	 h:0,	 s:68,	 l:42],
+		[name:"Floral White",	 rgb:"#FFFAF0",	 h:40,	 s:100,	 l:97],
+		[name:"Forest Green",	 rgb:"#228B22",	 h:120,	 s:61,	 l:34],
+		[name:"Fuchsia",	 rgb:"#FF00FF",	 h:300,	 s:100,	 l:50],
+		[name:"Gainsboro",	 rgb:"#DCDCDC",	 h:0,	 s:0,	 l:86],
+		[name:"Ghost White",	 rgb:"#F8F8FF",	 h:240,	 s:100,	 l:99],
+		[name:"Gold",	 rgb:"#FFD700",	 h:51,	 s:100,	 l:50],
+		[name:"Golden Rod",	 rgb:"#DAA520",	 h:43,	 s:74,	 l:49],
+		[name:"Gray",	 rgb:"#808080",	 h:0,	 s:0,	 l:50],
+		[name:"Green",	 rgb:"#008000",	 h:120,	 s:100,	 l:25],
+		[name:"Green Yellow",	 rgb:"#ADFF2F",	 h:84,	 s:100,	 l:59],
+		[name:"Honeydew",	 rgb:"#F0FFF0",	 h:120,	 s:100,	 l:97],
+		[name:"Hot Pink",	 rgb:"#FF69B4",	 h:330,	 s:100,	 l:71],
+		[name:"Indian Red",	 rgb:"#CD5C5C",	 h:0,	 s:53,	 l:58],
+		[name:"Indigo",	 rgb:"#4B0082",	 h:275,	 s:100,	 l:25],
+		[name:"Ivory",	 rgb:"#FFFFF0",	 h:60,	 s:100,	 l:97],
+		[name:"Khaki",	 rgb:"#F0E68C",	 h:54,	 s:77,	 l:75],
+		[name:"Lavender",	 rgb:"#E6E6FA",	 h:240,	 s:67,	 l:94],
+		[name:"Lavender Blush",	 rgb:"#FFF0F5",	 h:340,	 s:100,	 l:97],
+		[name:"Lawn Green",	 rgb:"#7CFC00",	 h:90,	 s:100,	 l:49],
+		[name:"Lemon Chiffon",	 rgb:"#FFFACD",	 h:54,	 s:100,	 l:90],
+		[name:"Light Blue",	 rgb:"#ADD8E6",	 h:195,	 s:53,	 l:79],
+		[name:"Light Coral",	 rgb:"#F08080",	 h:0,	 s:79,	 l:72],
+		[name:"Light Cyan",	 rgb:"#E0FFFF",	 h:180,	 s:100,	 l:94],
+		[name:"Light Golden Rod Yellow",	 rgb:"#FAFAD2",	 h:60,	 s:80,	 l:90],
+		[name:"Light Gray",	 rgb:"#D3D3D3",	 h:0,	 s:0,	 l:83],
+		[name:"Light Green",	 rgb:"#90EE90",	 h:120,	 s:73,	 l:75],
+		[name:"Light Pink",	 rgb:"#FFB6C1",	 h:351,	 s:100,	 l:86],
+		[name:"Light Salmon",	 rgb:"#FFA07A",	 h:17,	 s:100,	 l:74],
+		[name:"Light Sea Green",	 rgb:"#20B2AA",	 h:177,	 s:70,	 l:41],
+		[name:"Light Sky Blue",	 rgb:"#87CEFA",	 h:203,	 s:92,	 l:75],
+		[name:"Light Slate Gray",	 rgb:"#778899",	 h:210,	 s:14,	 l:53],
+		[name:"Light Steel Blue",	 rgb:"#B0C4DE",	 h:214,	 s:41,	 l:78],
+		[name:"Light Yellow",	 rgb:"#FFFFE0",	 h:60,	 s:100,	 l:94],
+		[name:"Lime",	 rgb:"#00FF00",	 h:120,	 s:100,	 l:50],
+		[name:"Lime Green",	 rgb:"#32CD32",	 h:120,	 s:61,	 l:50],
+		[name:"Linen",	 rgb:"#FAF0E6",	 h:30,	 s:67,	 l:94],
+		[name:"Maroon",	 rgb:"#800000",	 h:0,	 s:100,	 l:25],
+		[name:"Medium Aquamarine",	 rgb:"#66CDAA",	 h:160,	 s:51,	 l:60],
+		[name:"Medium Blue",	 rgb:"#0000CD",	 h:240,	 s:100,	 l:40],
+		[name:"Medium Orchid",	 rgb:"#BA55D3",	 h:288,	 s:59,	 l:58],
+		[name:"Medium Purple",	 rgb:"#9370DB",	 h:260,	 s:60,	 l:65],
+		[name:"Medium Sea Green",	 rgb:"#3CB371",	 h:147,	 s:50,	 l:47],
+		[name:"Medium Slate Blue",	 rgb:"#7B68EE",	 h:249,	 s:80,	 l:67],
+		[name:"Medium Spring Green",	 rgb:"#00FA9A",	 h:157,	 s:100,	 l:49],
+		[name:"Medium Turquoise",	 rgb:"#48D1CC",	 h:178,	 s:60,	 l:55],
+		[name:"Medium Violet Red",	 rgb:"#C71585",	 h:322,	 s:81,	 l:43],
+		[name:"Midnight Blue",	 rgb:"#191970",	 h:240,	 s:64,	 l:27],
+		[name:"Mint Cream",	 rgb:"#F5FFFA",	 h:150,	 s:100,	 l:98],
+		[name:"Misty Rose",	 rgb:"#FFE4E1",	 h:6,	 s:100,	 l:94],
+		[name:"Moccasin",	 rgb:"#FFE4B5",	 h:38,	 s:100,	 l:85],
+		[name:"Navajo White",	 rgb:"#FFDEAD",	 h:36,	 s:100,	 l:84],
+		[name:"Navy",	 rgb:"#000080",	 h:240,	 s:100,	 l:25],
+		[name:"Old Lace",	 rgb:"#FDF5E6",	 h:39,	 s:85,	 l:95],
+		[name:"Olive",	 rgb:"#808000",	 h:60,	 s:100,	 l:25],
+		[name:"Olive Drab",	 rgb:"#6B8E23",	 h:80,	 s:60,	 l:35],
+		[name:"Orange",	 rgb:"#FFA500",	 h:39,	 s:100,	 l:50],
+		[name:"Orange Red",	 rgb:"#FF4500",	 h:16,	 s:100,	 l:50],
+		[name:"Orchid",	 rgb:"#DA70D6",	 h:302,	 s:59,	 l:65],
+		[name:"Pale Golden Rod",	 rgb:"#EEE8AA",	 h:55,	 s:67,	 l:80],
+		[name:"Pale Green",	 rgb:"#98FB98",	 h:120,	 s:93,	 l:79],
+		[name:"Pale Turquoise",	 rgb:"#AFEEEE",	 h:180,	 s:65,	 l:81],
+		[name:"Pale Violet Red",	 rgb:"#DB7093",	 h:340,	 s:60,	 l:65],
+		[name:"Papaya Whip",	 rgb:"#FFEFD5",	 h:37,	 s:100,	 l:92],
+		[name:"Peach Puff",	 rgb:"#FFDAB9",	 h:28,	 s:100,	 l:86],
+		[name:"Peru",	 rgb:"#CD853F",	 h:30,	 s:59,	 l:53],
+		[name:"Pink",	 rgb:"#FFC0CB",	 h:350,	 s:100,	 l:88],
+		[name:"Plum",	 rgb:"#DDA0DD",	 h:300,	 s:47,	 l:75],
+		[name:"Powder Blue",	 rgb:"#B0E0E6",	 h:187,	 s:52,	 l:80],
+		[name:"Purple",	 rgb:"#800080",	 h:300,	 s:100,	 l:25],
+		[name:"Red",	 rgb:"#FF0000",	 h:0,	 s:100,	 l:50],
+		[name:"Rosy Brown",	 rgb:"#BC8F8F",	 h:0,	 s:25,	 l:65],
+		[name:"Royal Blue",	 rgb:"#4169E1",	 h:225,	 s:73,	 l:57],
+		[name:"Saddle Brown",	 rgb:"#8B4513",	 h:25,	 s:76,	 l:31],
+		[name:"Salmon",	 rgb:"#FA8072",	 h:6,	 s:93,	 l:71],
+		[name:"Sandy Brown",	 rgb:"#F4A460",	 h:28,	 s:87,	 l:67],
+		[name:"Sea Green",	 rgb:"#2E8B57",	 h:146,	 s:50,	 l:36],
+		[name:"Sea Shell",	 rgb:"#FFF5EE",	 h:25,	 s:100,	 l:97],
+		[name:"Sienna",	 rgb:"#A0522D",	 h:19,	 s:56,	 l:40],
+		[name:"Silver",	 rgb:"#C0C0C0",	 h:0,	 s:0,	 l:75],
+		[name:"Sky Blue",	 rgb:"#87CEEB",	 h:197,	 s:71,	 l:73],
+		[name:"Slate Blue",	 rgb:"#6A5ACD",	 h:248,	 s:53,	 l:58],
+		[name:"Slate Gray",	 rgb:"#708090",	 h:210,	 s:13,	 l:50],
+		[name:"Snow",	 rgb:"#FFFAFA",	 h:0,	 s:100,	 l:99],
+		[name:"Soft White",	 rgb:"#B6DA7C",	 h:83,	 s:44,	 l:67],
+		[name:"Spring Green",	 rgb:"#00FF7F",	 h:150,	 s:100,	 l:50],
+		[name:"Steel Blue",	 rgb:"#4682B4",	 h:207,	 s:44,	 l:49],
+		[name:"Tan",	 rgb:"#D2B48C",	 h:34,	 s:44,	 l:69],
+		[name:"Teal",	 rgb:"#008080",	 h:180,	 s:100,	 l:25],
+		[name:"Thistle",	 rgb:"#D8BFD8",	 h:300,	 s:24,	 l:80],
+		[name:"Tomato",	 rgb:"#FF6347",	 h:9,	 s:100,	 l:64],
+		[name:"Turquoise",	 rgb:"#40E0D0",	 h:174,	 s:72,	 l:56],
+		[name:"Violet",	 rgb:"#EE82EE",	 h:300,	 s:76,	 l:72],
+		[name:"Warm White",	 rgb:"#DAF17E",	 h:72,	 s:20,	 l:72],
+		[name:"Wheat",	 rgb:"#F5DEB3",	 h:39,	 s:77,	 l:83],
+		[name:"White",	 rgb:"#FFFFFF",	 h:0,	 s:0,	 l:100],
+		[name:"White Smoke",	 rgb:"#F5F5F5",	 h:0,	 s:0,	 l:96],
+		[name:"Yellow",	 rgb:"#FFFF00",	 h:60,	 s:100,	 l:50],
+		[name:"Yellow Green",	 rgb:"#9ACD32",	 h:80,	 s:61,	 l:50]
+	]
+}

@@ -1407,9 +1407,8 @@ config.factory('dataService', ['$http', '$location', '$rootScope', '$window', '$
 					'Auth-Token': '|'+ iid
 					},
 					data: { i: iid }
-				}				
+				}
 			}
-			
 			if(jsonp){
 				return $http.jsonp(req,{jsonpCallbackParam: 'callback'}).then(function(response) {
 						return response.data;
@@ -1417,8 +1416,8 @@ config.factory('dataService', ['$http', '$location', '$rootScope', '$window', '$
 			}
 			else {
 				return $http(req).then(function(response) {
-						return response.data;
-					});
+					return response.data;
+				});
 			}
 		}
 	}
@@ -1503,9 +1502,8 @@ config.factory('dataService', ['$http', '$location', '$rootScope', '$window', '$
 					'Auth-Token': '|'+iid
 					},
 					data: { i: iid, f: fuelStreamId }
-				}				
+				}
 			}
-			
 			if(jsonp){
 				return $http.jsonp(req,{jsonpCallbackParam: 'callback'}).then(function(response) {
 						return response.data;
@@ -1513,8 +1511,8 @@ config.factory('dataService', ['$http', '$location', '$rootScope', '$window', '$
 			}
 			else {
 				return $http(req).then(function(response) {
-						return response.data;
-					});
+					return response.data;
+				});
 			}
 		}
 	}
