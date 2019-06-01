@@ -169,7 +169,7 @@ private pageSectionDisclaimer() {
 		paragraph "The information you provide while using the Fuel Stream feature is not encrypted and is not filtered in any way. Please avoid providing personally identifiable information in either the canister name, the fuel stream name, or the data point."
 	}
 	section('Local webCoRE servers') {
-		paragraph "Advanced users may enable a local webcore server.   Some features may not be available if you choose to do this."
+		paragraph "Advanced users may enable a local webcore server.   No data sharing with external webCoRE servers is done if this is configured/enabled.  Some features may not be available if you choose to do this."
 	}
 	section('Agreement') {
 		paragraph "Certain advanced features may not work if you do not agree to the webcore.co servers collecting the anonymized information described above."
@@ -374,7 +374,7 @@ def pageSettings() {
 		}
 
 		section(title:"Privacy") {
-			href "pageDisclaimer", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Data Collection")), required: false
+			href "pageDisclaimer", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Data Collection Notice")), required: false
 		}
 
 		section(title: "Maintenance") {
