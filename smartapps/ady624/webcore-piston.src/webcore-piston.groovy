@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update May 31, 2019 for Hubitat
+ * Last update June 27, 2019 for Hubitat
 */
-public static String version() { return "v0.3.10c.20190522" }
-public static String HEversion() { return "v0.3.10c.20190531" }
+public static String version() { return "v0.3.10d.20190627" }
+public static String HEversion() { return "v0.3.10d.20190627" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -2916,7 +2916,7 @@ private long vcmd_flashColor(rtData, device, params) {
 }
 
 private long vcmd_sendNotification(rtData, device, params) {
-	def message = "Hubitat does not support sendNotification" + params[0]
+	def message = "Hubitat does not support sendNotification " + params[0]
 	log message, rtData
 	//sendNotificationEvent(message)
 	return 0
@@ -2932,7 +2932,7 @@ private long vcmd_sendPushNotification(rtData, device, params) {
 	try {
 		t0*.deviceNotification(message)
 	} catch (all) {
-		message = "Default push device not set properly in webCoRE" + params[0]
+		message = "Default push device not set properly in webCoRE " + params[0]
 		error message, rtData
 	}
 	return 0
