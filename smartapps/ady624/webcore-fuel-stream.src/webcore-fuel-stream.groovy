@@ -1,4 +1,7 @@
 private static String handle() { return "webCoRE" }
+public static String version() { return "v0.3.10e.20190628" }
+public static String HEversion() { return "v0.3.10e.20190814" }
+
 definition(
     namespace:"ady624",
     name:"${handle()} Fuel Stream",

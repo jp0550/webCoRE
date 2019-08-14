@@ -16,7 +16,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-public static String version() { return "v0.3.10a.20190627" }
+public static String version() { return "v0.3.10e.20190628" }
+public static String HEversion() { return "v0.3.10e.20190814" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -163,10 +164,10 @@ private void broadcastEvent(deviceId, eventName, eventValue, eventTime) {
     
 /*
     if(asynchttp_v1){
-        asynchttp_v1.put(null, params)
+	asynchttp_v1.put(null, params)
     }
     else { */
-        asynchttpPut('myDone', params, [bbb:0])
+	asynchttpPut('myDone', params, [bbb:0])
     //}
 }
 
@@ -181,28 +182,35 @@ def myDone(resp, data) {
 /******************************************************************************/
 def String md5(String md5) {
    try {
-        java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
-        byte[] array = md.digest(md5.getBytes())
-        def result = ""
-        for (int i = 0; i < array.length; ++i) {
-          result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
-       }
-        return result
+	java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
+	byte[] array = md.digest(md5.getBytes())
+	def result = ""
+	for (int i = 0; i < array.length; ++i) {
+		result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
+	}
+	return result
     } catch (java.security.NoSuchAlgorithmException e) {
     }
     return null;
 }
 
-def String hashId(id) {
+def String hashId(id, updateCache=true) {
 	//enabled hash caching for faster processing
-	def result = state.hash ? state.hash[id] : null
-    if (!result) {
+	String result
+	String myId = id.toString()
+	def hash = [:]
+	if(state.hash) {
+		hash = state.hash
+		result = (String) hash."${myId}"
+	}
+	if (!result) {
 		result = ":${md5("core." + id)}:"
-        def hash = state.hash ?: [:]
-        hash[id] = result
-        state.hash = hash
-    }
-    return result
+		if(updateCache) {
+			hash."${myId}" = result
+			state.hash = hash
+		}
+	}
+	return result
 }
 
 private isHubitat(){

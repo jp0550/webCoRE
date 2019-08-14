@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update June 27, 2019 for Hubitat
+ * Last update August 14, 2019 for Hubitat
  */
-public static String version() { return "v0.3.10d.20190627" }
-public static String HEversion() { return "v0.3.10d.20190627" }
+public static String version() { return "v0.3.10e.20190628" }
+public static String HEversion() { return "v0.3.10e.20190814" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -207,10 +207,10 @@ public ahttpRequestHandler(resp, callbackData) {
 
 	} else {
 		if(resp.hasError()) {
-			error "apixu http Response Status: ${resp.status}   error Message: ${resp.getErrorMessage()}"
+			log.error "apixu http Response Status: ${resp.status}   error Message: ${resp.getErrorMessage()}"
 			return
 		}
-		error "apixu no data: ${resp.status}   resp.data: ${resp.data} resp.json: ${resp.json}"
+		log.error "apixu no data: ${resp.status}   resp.data: ${resp.data} resp.json: ${resp.json}"
 		return
 	}
 	state.obs = json
