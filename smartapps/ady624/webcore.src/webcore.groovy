@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 14, 2019 for Hubitat
+ * Last Updated August 15, 2019 for Hubitat
 */
 public String version() { return "v0.3.10e.20190628" }
-public String HEversion() { return "v0.3.10e.20190814" }
+public String HEversion() { return "v0.3.10e.20190815" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -1067,7 +1067,7 @@ private api_intf_dashboard_piston_get() {
 	if(!isCustomEndpoint() || customHubUrl.contains(hubUID)){
 		//data saver for hubitat ~100K limit	
 		int responseLength = jsonData.getBytes("UTF-8").length
-		if(responseLength > (110 * 1024)){ //these are loaded anyway right after loading the piston
+		if(responseLength > (105 * 1024)){ //these are loaded anyway right after loading the piston
 			log.warn "Trimming ${ (int)(responseLength/1024) }KB response to smaller size (${requireDb})"
 /*
 			//result.instance = null
@@ -1090,8 +1090,23 @@ private api_intf_dashboard_piston_get() {
 			int svLength = responseLength
 			jsonData = groovy.json.JsonOutput.toJson(result)
 			responseLength = jsonData.getBytes("UTF-8").length
-			log.debug "Trimmed response length: ${ (int)(responseLength/1024) }KB"
-			if(responseLength == svLength || responseLength > (110 * 1024)) log.warn "TRIMMING may be unsucessful, you should load a smaller piston then reload this piston"
+			log.debug "First Trimmed response length: ${ (int)(responseLength/1024) }KB"
+			if(responseLength == svLength || responseLength > (105 * 1024)) {
+				log.warn "First TRIMMING may be un-successful, trying further trimming ${ (int)(responseLength/1024) }KB"
+				if(requireDb) {
+					result.instance.deviceVersion = 0
+					result.instance.devices = [:]
+					result.data?.systemVars = [:]
+					result.data?.globalVars = [:]
+					result.data?.fuelStreamUrls = [:]
+				}
+				jsonData = groovy.json.JsonOutput.toJson(result)
+				responseLength = jsonData.getBytes("UTF-8").length
+				log.debug "Second Trimmed response length: ${ (int)(responseLength/1024) }KB"
+				if(responseLength == svLength || responseLength > (107 * 1024)) {
+					log.warn "Final TRIMMING may be un-successful, you should load a smaller piston then reload this piston ${ (int)(responseLength/1024) }KB"
+				} else log.warn "Final TRIMMING successful, you should load a small piston again to complete IDE update ${ (int)(responseLength/1024) }KB"
+			} else log.warn "First TRIMMING successful"
 		}
 	}
 	
