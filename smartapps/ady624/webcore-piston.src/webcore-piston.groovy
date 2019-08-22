@@ -52,7 +52,7 @@ preferences {
 	page(name: "pageDumpPiston")
 }
 
-private static boolean eric() { return true }
+private static boolean eric() { return false }
 
 /*** CONFIGURATION PAGES				***/
 
