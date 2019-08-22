@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 15, 2019 for Hubitat
+ * Last Updated August 21, 2019 for Hubitat
 */
 public String version() { return "v0.3.10e.20190628" }
 public String HEversion() { return "v0.3.10e.20190815" }
@@ -39,7 +39,8 @@ definition(
 	/* icons courtesy of @chauger - thank you */
 	iconUrl: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE.png",
 	iconX2Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@2x.png",
-	iconX3Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@3x.png"
+	iconX3Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@3x.png",
+	importUrl: "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore.src/webcore.groovy"
 )
 
 
@@ -142,7 +143,7 @@ private String inputTitleStr(title)	{ return "<u>$title</u>" }
 private String pageTitleStr(title)		{ return "<h1>$title</h1>" }
 private String paraTitleStr(title)		{ return "<b>$title</b>" }
 
-private String imgTitle(imgSrc, titleStr, color=null, imgWidth=30, imgHeight=null) {
+private String imgTitle(String imgSrc, String titleStr, String color=(String)null, imgWidth=30, imgHeight=null) {
 	String imgStyle = ""
 	imgStyle += imgWidth ? "width: ${imgWidth}px !important;" : ""
 	imgStyle += imgHeight ? "${imgWidth ? " " : ""}height: ${imgHeight}px !important;" : ""
@@ -811,7 +812,7 @@ mappings {
 	path("/tap/:tapId") {action: [GET: "api_tap"]}
 }
 
-private api_get_error_result(error) {
+private Map api_get_error_result(error) {
 	return [
 		name: location.name + ' \\ ' + (app.label ?: app.name),
 		error: error,
@@ -819,7 +820,7 @@ private api_get_error_result(error) {
 	]
 }
 
-private getHubitatVersion(){
+private Map getHubitatVersion(){
 	try {
 		return location.getHubs().collectEntries {[it.id, it.getFirmwareVersionString()]}
 	}
@@ -828,7 +829,7 @@ private getHubitatVersion(){
 	}
 }
 
-private api_get_base_result(String deviceVersion = "0", boolean updateCache = false, boolean dashCall = false) {
+private Map api_get_base_result(String deviceVersion = "0", boolean updateCache = false, boolean dashCall = false) {
 	def tz = location.getTimeZone()
 	String currentDeviceVersion = (String) state.deviceVersion
 	Boolean sendDevices = (deviceVersion != currentDeviceVersion) && !dashCall
@@ -942,8 +943,8 @@ private api_intf_dashboard_load() {
 	} else {
 		if(params.pin) {
 			if(settings.PIN && (md5("pin:${settings.PIN}") == params.pin)) {
-		//result = api_get_base_result(params.dev, true, true)
-				result = api_get_base_result()
+				result = api_get_base_result(params.dev, true, true)
+				//result = api_get_base_result()
 				result.instance.token = createSecurityToken()
 			} else {
 				error "Dashboard: Authentication failed due to an invalid PIN"
@@ -951,6 +952,9 @@ private api_intf_dashboard_load() {
 		}
 		if(!result) result = api_get_error_result("ERR_INVALID_TOKEN")
 	}
+
+	checkResultSize(result)
+
 	//for accuracy, use the time as close as possible to the render
 	result.now = now()
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
@@ -1031,7 +1035,7 @@ private api_intf_dashboard_piston_get() {
 		requireDb = serverDbVersion != clientDbVersion
 		if(pistonId) {
 //ERS
-			result = api_get_base_result(requireDb ? "0" : params.dev, true) // (may send too much at once)
+			result = api_get_base_result(/*requireDb ? "0" :*/ params.dev, true) // (may send too much at once)
 			piston = getChildApps().find{ hashId(it.id) == pistonId };
 			if(piston) {
 				Map t0 = piston.get()
@@ -1062,12 +1066,24 @@ private api_intf_dashboard_piston_get() {
 	} else {
 		result = api_get_error_result("ERR_INVALID_TOKEN")
 	}
+	
+	checkResultSize(result, requireDb)
 
+	//for accuracy, use the time as close as possible to the render
+	result.now = now()
+
+	//def jsonData = groovy.json.JsonOutput.toJson(result)
+	//log.debug "Trimmed resonse length: ${jsonData.getBytes("UTF-8").length}"
+	//render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${jsonData})"
+	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
+}
+
+private void checkResultSize(Map result, boolean requireDb = false) {
 	def jsonData = groovy.json.JsonOutput.toJson(result)
 	if(!isCustomEndpoint() || customHubUrl.contains(hubUID)){
 		//data saver for hubitat ~100K limit	
 		int responseLength = jsonData.getBytes("UTF-8").length
-		if(responseLength > (105 * 1024)){ //these are loaded anyway right after loading the piston
+		if(responseLength > (107 * 1024)){ //these are loaded anyway right after loading the piston
 			log.warn "Trimming ${ (int)(responseLength/1024) }KB response to smaller size (${requireDb})"
 /*
 			//result.instance = null
@@ -1091,7 +1107,7 @@ private api_intf_dashboard_piston_get() {
 			jsonData = groovy.json.JsonOutput.toJson(result)
 			responseLength = jsonData.getBytes("UTF-8").length
 			log.debug "First Trimmed response length: ${ (int)(responseLength/1024) }KB"
-			if(responseLength == svLength || responseLength > (105 * 1024)) {
+			if(responseLength == svLength || responseLength > (107 * 1024)) {
 				log.warn "First TRIMMING may be un-successful, trying further trimming ${ (int)(responseLength/1024) }KB"
 				if(requireDb) {
 					result.instance.deviceVersion = 0
@@ -1109,11 +1125,8 @@ private api_intf_dashboard_piston_get() {
 			} else log.warn "First TRIMMING successful"
 		}
 	}
-	
-	//for accuracy, use the time as close as possible to the render
-	result.now = now()
 	//log.debug "Trimmed resonse length: ${jsonData.getBytes("UTF-8").length}"
-	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${jsonData})"
+	return //result
 }
 
 
@@ -1130,10 +1143,12 @@ private api_intf_dashboard_piston_backup() {
 					if(pd) {
 						pd.instance = [id: hashId(app.id), name: app.label]
 						result.pistons.push(pd)
-						String jsonData = groovy.json.JsonOutput.toJson(result)
-						int responseLength = jsonData.getBytes("UTF-8").length
-						if(responseLength > 110 * 1024) {
-							log.warn "Backup too big ${ (int)(responseLength/1024) }KB response"
+						if(!isCustomEndpoint() || customHubUrl.contains(hubUID)){
+							String jsonData = groovy.json.JsonOutput.toJson(result)
+							int responseLength = jsonData.getBytes("UTF-8").length
+							if(responseLength > 110 * 1024) {
+								log.warn "Backup too big ${ (int)(responseLength/1024) }KB response"
+							}
 						}
 					}
 				}

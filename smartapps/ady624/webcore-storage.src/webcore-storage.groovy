@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 14, 2019 for Hubitat
+ * Last update August 17, 2019 for Hubitat
  */
 public static String version() { return "v0.3.10e.20190628" }
 public static String HEversion() { return "v0.3.10e.20190814" }
@@ -34,7 +34,8 @@ definition(
 	/* icons courtesy of @chauger - thank you */
 	iconUrl: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE.png",
 	iconX2Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@2x.png",
-	iconX3Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@3x.png"
+	iconX3Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@3x.png",
+	importUrl: "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-storage.src/webcore-storage.groovy"
 )
 
 preferences {
@@ -108,12 +109,12 @@ private pageSelectDevices() {
 	}
 }
 
-def sectionTitleStr(title)	{ return "<h3>$title</h3>" }
-def inputTitleStr(title)	{ return "<u>$title</u>" }
-def pageTitleStr(title)		{ return "<h1>$title</h1>" }
-def paraTitleStr(title)		{ return "<b>$title</b>" }
+private String sectionTitleStr(title)	{ return "<h3>$title</h3>" }
+private String inputTitleStr(title)	{ return "<u>$title</u>" }
+private String pageTitleStr(title)	{ return "<h1>$title</h1>" }
+private String paraTitleStr(title)	{ return "<b>$title</b>" }
 
-def imgTitle(imgSrc, titleStr, color=null, imgWidth=30, imgHeight=null) {
+private String imgTitle(String imgSrc, String titleStr, String color=(String)null, imgWidth=30, imgHeight=null) {
 	def imgStyle = ""
 	imgStyle += imgWidth ? "width: ${imgWidth}px !important;" : ""
 	imgStyle += imgHeight ? "${imgWidth ? " " : ""}height: ${imgHeight}px !important;" : ""
@@ -128,20 +129,20 @@ def imgTitle(imgSrc, titleStr, color=null, imgWidth=30, imgHeight=null) {
 /******************************************************************************/
 
 
-private installed() {
+void installed() {
 	initialize()
-	return true
+	return// true
 }
 
-private updated() {
+void updated() {
 	unsubscribe()
 	unschedule()
 	initialize()
 	startWeather()
-	return true
+	return// true
 }
 
-public startWeather() {
+public void startWeather() {
 	String myKey = state.apixuKey ?: null
 	String myZip = state.zipCode ?: location.zipCode
 	if(myKey && myZip) {
@@ -151,39 +152,42 @@ public startWeather() {
 	}
 }
 
-public stopWeather() {
+public void stopWeather() {
 	state.apixuKey = null
 	unschedule()
 	stateRemove("obs")
 }
 
-private initialize() {
+private void initialize() {
 	//update parent if this is managed devices.
 	//parent.refreshDevices()
+	stateRemove("obs")
 }
 
 
-public updateAPIXUdata() {
+public void updateAPIXUdata() {
 	String myKey = state.apixuKey ?: null
 	String myZip = state.zipCode ?: location.zipCode
 	if(myKey && myZip) {
-		def myUri = "https://api.apixu.com/v1/forecast.json?key=${myKey}&q=${myZip}&days=7"
+		String myUri = "https://api.apixu.com/v1/forecast.json?key=${myKey}&q=${myZip}&days=7"
 		def params = [ uri: myUri ]
 		try {
 			asynchttpGet('ahttpRequestHandler', params, [tt: 'finishPoll'])
 		} catch (e) {
 			log.error "http call failed for ApiXU weather api: $e"
-			return false
+			return //false
 		}
-		return true
+		return //true
 	}
-	return false
+	return //false
 }
 
-public ahttpRequestHandler(resp, callbackData) {
+@Field static Map theObsFLD
+
+public void ahttpRequestHandler(resp, callbackData) {
 	def json = [:]
 	def obs = [:]
-	def err
+//	def err
 	if ((resp.status == 200) && resp.data) {
 		try {
 			json = resp.getJson()
@@ -192,12 +196,16 @@ public ahttpRequestHandler(resp, callbackData) {
 			return
 		}
 
-		for(def i = 0; i <= 6; i++) {
-			int t0 = json.forecast.forecastday[i].day.condition.code
-			String t1 = getWUIconName(t0,1)
-			json.forecast.forecastday[i].day.condition.wuicon_name = t1
-			String t2 = getWUIconNum(t0)
-			json.forecast.forecastday[i].day.condition.wuicon = t2
+		if(!json) return
+		if(json.forecast && json.forecast.forcastday) {
+			for(int i = 0; i <= 6; i++) {
+				def t0 = json.forecast.forecastday[i]?.day?.condition.code
+				if(!t0) continue
+				String t1 = getWUIconName(t0,1)
+				json.forecast.forecastday[i].day.condition.wuicon_name = t1
+				String t2 = getWUIconNum(t0)
+				json.forecast.forecastday[i].day.condition.wuicon = t2
+			}
 		}
 		int tt0 = json.current.condition.code
 		String tt1 = getWUIconName(tt0,1)
@@ -213,20 +221,25 @@ public ahttpRequestHandler(resp, callbackData) {
 		log.error "apixu no data: ${resp.status}   resp.data: ${resp.data} resp.json: ${resp.json}"
 		return
 	}
-	state.obs = json
-	return null
+	theObsFLD = json
+//	state.obs = json
+	return //null
 	//log.debug "$json"
 }
 
-public getWData() {
+public Map getWData() {
 	def obs = [:]
-	if(state.obs) {
-		obs = state.obs
-		def t0 = "${obs.current.last_updated}"
+	//if(state.obs) {
+	if(theObsFLD) {
+		obs = theObsFLD //state.obs
+		String t0 = "${obs.current.last_updated}"
 		def t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
-		def s = GetTimeDiffSeconds(t1, null, "getApiXUData").toInteger()
+		int s = GetTimeDiffSeconds(t1, null, "getApiXUData").toInteger()
 		if(s > (60*60*4)) { // if really old
-			stateRemove("obs")
+			//stateRemove("obs")
+			log.warn "removing very old weather data"
+			theObsFLD = null
+			obs = [:]
 		} else return obs
 	}
 	return obs
@@ -239,7 +252,7 @@ def getTimeZone() {
 	return tz
 }
 
-def getDtNow() {
+String getDtNow() {
 	def now = new Date()
 	return formatDt(now)
 }
@@ -247,7 +260,7 @@ def getDtNow() {
 import java.text.SimpleDateFormat
 //import groovy.time.*
 
-def formatDt(dt) {
+String formatDt(dt) {
 	def tf = new SimpleDateFormat("E MMM dd HH:mm:ss z yyyy")
 	if(getTimeZone()) { tf.setTimeZone(getTimeZone()) }
 	else {
@@ -256,30 +269,30 @@ def formatDt(dt) {
 	return tf.format(dt)
 }
 
-def GetTimeDiffSeconds(strtDate, stpDate=null, methName=null) {
+def GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=null) {
 	//LogTrace("[GetTimeDiffSeconds] StartDate: $strtDate | StopDate: ${stpDate ?: "Not Sent"} | MethodName: ${methName ?: "Not Sent"})")
 	if((strtDate && !stpDate) || (strtDate && stpDate)) {
 		//if(strtDate?.contains("dtNow")) { return 10000 }
 		def now = new Date()
-		def stopVal = stpDate ? stpDate.toString() : formatDt(now)
-		def start = Date.parse("E MMM dd HH:mm:ss z yyyy", strtDate).getTime()
-		def stop = Date.parse("E MMM dd HH:mm:ss z yyyy", stopVal).getTime()
-		def diff = (int) (long) (stop - start) / 1000
+		String stopVal = stpDate ? stpDate.toString() : formatDt(now)
+		long start = Date.parse("E MMM dd HH:mm:ss z yyyy", strtDate).getTime()
+		long stop = Date.parse("E MMM dd HH:mm:ss z yyyy", stopVal).getTime()
+		long diff = (int) (long) (stop - start) / 1000
 //		LogTrace("[GetTimeDiffSeconds] Results for '$methName': ($diff seconds)")
 		return diff
 	} else { return null }
 }
 
-def settingsToState(myKey, setval) {
+public void settingsToState(myKey, setval) {
 	if(setval) {
 		atomicState."${myKey}" = setval
 		state."${myKey}" = setval
 	} else state.remove("${myKey}" as String)
 }
 
-def stateRemove(key) {
+void stateRemove(key) {
 	state.remove(key?.toString())
-	return true
+	return //true
 }
 
 /******************************************************************************/
@@ -292,7 +305,7 @@ public getStorageSettings(){
  	settings   
 }
 
-def initData(devices, contacts) {
+public void initData(devices, contacts) {
 	if (devices) {
 		for(item in devices) {
 			if (item) {
@@ -304,7 +317,7 @@ def initData(devices, contacts) {
 	}
 }
 
-def Map listAvailableDevices(raw = false) {
+public Map listAvailableDevices(boolean raw = false) {
 	def overrides = commandOverrides()
 	if (raw) {
 		return settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}
@@ -321,7 +334,7 @@ private def transformCommand(command, overrides){
 	return command.getName()
 }
 
-def Map getDashboardData() {
+public Map getDashboardData() {
 	def value
 //	def start = now()
 	return settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev ->
@@ -338,7 +351,7 @@ public String mem(showBytes = true) {
 }
 
 /* Push command has multiple overloads in hubitat */
-public Map commandOverrides(){
+private Map commandOverrides(){
 	return (isHubitat() ? [
 //		push : [c: "push", s: null , r: "pushMomentary"],
 		flash : [c: "flash", s: null , r: "flashNative"],//s: command signature
@@ -350,11 +363,11 @@ public Map commandOverrides(){
 /*** SECURITY METHODS														***/
 /***																		***/
 /******************************************************************************/
-def String md5(String md5) {
+private String md5(String md5) {
 	try {
 		java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
 		byte[] array = md.digest(md5.getBytes())
-		def result = ""
+		String result = ""
 		for (int i = 0; i < array.length; ++i) {
 			result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
 		}
@@ -364,9 +377,9 @@ def String md5(String md5) {
 	return null;
 }
 
-def String hashId(id) {
+private String hashId(id) {
 	//enabled hash caching for faster processing
-	def result = state.hash ? state.hash[id] : null
+	String result = state.hash ? state.hash[id] : null
 	if (!result) {
 		result = ":${md5("core." + id)}:"
 		def hash = state.hash ?: [:]
@@ -381,14 +394,14 @@ private isHubitat(){
 }
 
 
-def getWUIconName(condition_code, is_day)	 {
+String getWUIconName(condition_code, int is_day=0)	 {
 	def cC = condition_code
-	def wuIcon = (conditionFactor[cC] ? conditionFactor[cC][2] : '')
+	String wuIcon = (conditionFactor[cC] ? conditionFactor[cC][2] : '')
 	if (is_day != 1 && wuIcon)	wuIcon = 'nt_' + wuIcon;
 	return wuIcon
 }
 
-def getWUIconNum(wCode)	 {
+String getWUIconNum(int wCode)	 {
 	def imgItem = imgNames.find{ it.code == wCode }
 	return (imgItem ? imgItem.img : '44')
 }

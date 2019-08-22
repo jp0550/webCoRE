@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 15, 2019 for Hubitat
+ * Last update August 21, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10e.20190628" }
 public static String HEversion() { return "v0.3.10e.20190815" }
@@ -40,7 +40,8 @@ definition(
 	parent: "ady624:${handle()}",
 	iconUrl: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE.png",
 	iconX2Url: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png",
-	iconX3Url: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png"
+	iconX3Url: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png",
+	importUrl: "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-piston.src/webcore-piston.groovy"
 )
 
 preferences {
@@ -51,7 +52,7 @@ preferences {
 	page(name: "pageDumpPiston")
 }
 
-private static boolean eric() { return false }
+private static boolean eric() { return true }
 
 /*** CONFIGURATION PAGES				***/
 
@@ -3382,7 +3383,7 @@ private long vcmd_httpRequest(Map rtData, device, List params) {
 		def requestParams = [
 			uri: "${protocol}://${userPart}${uri}",
 			query: useQueryString ? data : null,
-			headers: (auth ? [Authorization: auth] : [:]),
+			headers: (auth ? ((auth.startsWith('{') && auth.endsWith('}')) ? ( new groovy.json.JsonSlurper().parseText( auth ) ) : [Authorization: auth]) : [:]),
 			requestContentType: requestContentType,
 			body: !useQueryString ? data : null
 		]
@@ -3415,7 +3416,7 @@ private long vcmd_httpRequest(Map rtData, device, List params) {
 	return 0
 }
 
-public ahttpRequestHandler(resp, Map callbackData) {
+public void ahttpRequestHandler(resp, Map callbackData) {
 	boolean binary = false
 	def t0 = resp.getHeaders()
 	def t1 = t0 && t0."Content-Type" ? t0."Content-Type" : null
@@ -3488,7 +3489,7 @@ private long vcmd_writeToFuelStream(Map rtData, device, List params) {
 		n: name,
 		s: source,
 		d: data,
-		i: rtData.instanceId
+		i: (String)rtData.instanceId
 	]
 
 	if(rtData.useLocalFuelStreams) {
@@ -3509,7 +3510,7 @@ private long vcmd_storeMedia(Map rtData, device, List params) {
 		uri: "https://api-${rtData.region}-${rtData.instanceId[32]}.webcore.co:9247",
 		path: "/media/store",
 		headers: [
-			'ST' : rtData.instanceId,
+			'ST' : (String)rtData.instanceId,
 			'media-type' : rtData.mediaType
 		],
 		body: data,
@@ -3519,7 +3520,7 @@ private long vcmd_storeMedia(Map rtData, device, List params) {
 	return 24000
 }
 
-public asyncHttpRequestHandler(response, Map callbackData) {
+public void asyncHttpRequestHandler(response, Map callbackData) {
 	def mediaId
 	def mediaUrl
 	if(response.status == 200) {
@@ -4253,7 +4254,7 @@ private boolean valueWas(Map rtData, Map comparisonValue, Map rightValue, Map ri
 	return result
 }
 
-private boolean valueChanged(rtData, Map comparisonValue, Map timeValue) {
+private boolean valueChanged(Map rtData, Map comparisonValue, Map timeValue) {
 	if(!comparisonValue || !comparisonValue.v || !comparisonValue.v.d || !comparisonValue.v.a || !timeValue || !timeValue.v || !timeValue.vt) {
 		return false
 	}
@@ -4522,14 +4523,17 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 		String attribute = (String)null
 		if(((String)expression.t == 'device') && (expression.id)) {
 			devices[expression.id] = [c: (comparisonType ? 1 : 0) + (devices[expression.id]?.c ?: 0)]
-			subscriptionId = "${expression.id}${expression.a}"
+			//subscriptionId = "${expression.id}${expression.a}"
 			deviceId = (String)expression.id
 			attribute = (String)expression.a
+			subscriptionId = "${deviceId}${attribute}"
 		}
-		if(((String)expression.t == 'variable') && expression.x && expression.x.startsWith('@')) {
-			subscriptionId = "${expression.x}"
+		String exprX = (String)expression.x
+		//if(((String)expression.t == 'variable') && expression.x && expression.x.startsWith('@')) {
+		if(((String)expression.t == 'variable') && exprX && exprX.startsWith('@')) {
+			subscriptionId = "${exprX}"
 			deviceId = rtData.locationId
-			attribute = "${expression.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId}.${expression.x}"
+			attribute = "${exprX.startsWith('@@') ? '@@' + handle() : (String)rtData.instanceId}.${exprX}"
 		}
 		if(subscriptionId && deviceId) {
 			String ct = (String)subscriptions[subscriptionId]?.t ?: (String)null
@@ -4548,12 +4552,13 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 	}
 	operandTraverser = { Map node, Map operand, value, String comparisonType ->
 		if(!operand) return
-		switch (operand.t) {
+		switch ((String)operand.t) {
 		case "p": //physical device
 			for(String deviceId in expandDeviceList(rtData, operand.d, true)) {
 				devices[deviceId] = [c: (comparisonType ? 1 : 0) + (devices[deviceId]?.c ?: 0)]
-				String subscriptionId = "$deviceId${operand.a}"
+				//String subscriptionId = "$deviceId${operand.a}"
 				String attribute = "${operand.a}"
+				String subscriptionId = "$deviceId${attribute}"
 				//if we have any trigger, it takes precedence over anything else
 				String ct = (String)subscriptions[subscriptionId]?.t ?: (String)null
 				String oct = ct
@@ -4591,21 +4596,22 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 			devices[deviceId] = [c: (comparisonType ? 1 : 0) + (devices[deviceId]?.c ?: 0)]
 			String subscriptionId = (String)null
 			String attribute = (String)null
-			switch ((String)operand.v) {
+			String operV = (String)operand.v
+			switch (operV) {
 			case 'alarmSystemStatus':
-				subscriptionId = "$deviceId${operand.v}"
+				subscriptionId = "$deviceId${operV}"
 				attribute = "hsmStatus"
 				break;
 			case 'alarmSystemAlert':
-				subscriptionId = "$deviceId${operand.v}"
+				subscriptionId = "$deviceId${operV}"
 				attribute = "hsmAlert"
 				break;
 			case 'alarmSystemEvent':
-				subscriptionId = "$deviceId${operand.v}"
+				subscriptionId = "$deviceId${operV}"
 				attribute = "hsmSetArm"
 				break;
 			case 'alarmSystemRule':
-				subscriptionId = "$deviceId${operand.v}"
+				subscriptionId = "$deviceId${operV}"
 				attribute = "hsmRules"
 				break;
 			case 'time':
@@ -4613,23 +4619,23 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 			case 'datetime':
 			case 'mode':
 			case 'powerSource':
-				subscriptionId = "$deviceId${operand.v}"
-				attribute = (String)operand.v
+				subscriptionId = "$deviceId${operV}"
+				attribute = operV
 				break
 			case 'email':
-				subscriptionId = "$deviceId${operand.v}${rtData.id}"
+				subscriptionId = "$deviceId${operV}${rtData.id}"
 				attribute = "email.${rtData.id}" // receive email does not work in webcore
 				break
 			case 'ifttt':
 				if(value && ((String)value.t == 'c') && (value.c)) {
-					def options = VirtualDevices()[(String)operand.v]?.o
+					def options = VirtualDevices()[operV]?.o
 					def item = options ? options[value.c] : value.c
 					if(item) {
-						subscriptionId = "$deviceId${operand.v}${item}"
+						subscriptionId = "$deviceId${operV}${item}"
 
 						//def attrVal = isHubitat() ? "" : ".${item}"
 						String attrVal = ".${item}"
-						attribute = "${operand.v}${attrVal}"
+						attribute = "${operV}${attrVal}"
 					}
 				}
 				break
@@ -4646,9 +4652,10 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 			}
 			break;
 		case 'x':
-			if(operand.x && operand.x.startsWith('@')) {
-				String subscriptionId = operand.x
-				String attribute = "${operand.x.startsWith('@@') ? '@@' + handle() : rtData.instanceId}.${operand.x}"
+			String operX = (String)operand.x
+			if(operX && operX.startsWith('@')) {
+				String subscriptionId = operX
+				String attribute = "${operX.startsWith('@@') ? '@@' + handle() : (String)rtData.instanceId}.${operX}"
 				String ct = (String)subscriptions[subscriptionId]?.t ?: (String)null
 				if((ct == 'trigger') || (comparisonType == 'trigger')) {
 					ct = 'trigger'
@@ -4683,7 +4690,7 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 			}
 			if(comparison) {
 				condition.ct = comparisonType.take(1)
-				def paramCount = comparison.p ?: 0
+				int paramCount = comparison.p ?: 0
 				for(int i = 0; i <= paramCount; i++) {
 					//get the operand to parse
 					def operand = (i == 0 ? condition.lo : (i == 1 ? condition.ro : condition.ro2))
@@ -4780,7 +4787,7 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 		if(!rtData.piston.o.des && (String)subscription.value.t && !!subscription.value.c && (altSub != "never") && (((String)subscription.value.t == "trigger") || (altSub == "always") || !hasTriggers)) {
 			def device = ((String)subscription.value.d).startsWith(':') ? getDevice(rtData, (String)subscription.value.d) : null
 			String t0 = (String)subscription.value.a
-			String a = (t0 == 'orientation') || (t0 == 'axisX') || (t0 == 'axisY') || (t0 == 'axisZ') ? 'threeAxis' : subscription.value.a
+			String a = (t0 == 'orientation') || (t0 == 'axisX') || (t0 == 'axisY') || (t0 == 'axisZ') ? 'threeAxis' : (String)subscription.value.a
 			if(device) {
 				for (condition in subscription.value.c) if(condition) {
 					String t1 = (String)condition.sm
@@ -4849,7 +4856,6 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 	}
 }
 
-
 private List expandDeviceList(Map rtData, List devices, boolean localVarsOnly = false) {
 	localVarsOnly = false	//temporary allowing global vars
 	List result = []
@@ -4876,7 +4882,6 @@ private List expandDeviceList(Map rtData, List devices, boolean localVarsOnly = 
 
 def appHandler(evt) {
 }
-
 
 private String sanitizeVariableName(String name) {
 	name = name ? "$name".trim().replace(" ", "_") : null
@@ -5285,18 +5290,9 @@ private Map getVariable(Map rtData, String name) {
 				var.index = cast(rtData, value, 'string', dataType)
 			}
 			result.v = result.v[var.index]
-//		} else {
-			//result.v = "$result.v"
 		}
 	} else {
-	/*	if(result && (result.t == 'device')) {
-			def deviceIds = []
-			def devices = []
-			for(deviceId in ((result.v instanceof List) ? result.v : [result.v])) {
-				deviceIds.push(deviceId)
-			}
-			result = [t: result.t, v: deviceIds]
-		} else*/ if(result.v instanceof Map) {
+		if(result.v instanceof Map) {
 			//we're dealing with an operand, let's parse it
 			//result = evaluateExpression(rtData, evaluateOperand(rtData, null, result.v), (String)result.t)
 			String tt0 = (String)result.t
@@ -6062,7 +6058,7 @@ private Map func_celsius(Map rtData, List params) {
 /*** fahrenheit converts temperature from Celsius to Fahrenheit			***/
 /*** Usage: fahrenheit(temperature)						***/
 /******************************************************************************/
-private Map func_fahrenheit(rtData, params) {
+private Map func_fahrenheit(Map rtData, List params) {
 	if(!params || !(params instanceof List) || (params.size() < 1)) {
 		return [t: "error", v: "Invalid parameters. Expecting fahrenheit(temperature)"];
 	}
