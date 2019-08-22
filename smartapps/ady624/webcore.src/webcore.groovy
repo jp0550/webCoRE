@@ -20,8 +20,8 @@
  *
  * Last Updated August 22, 2019 for Hubitat
 */
-public String version() { return "v0.3.10e.20190628" }
-public String HEversion() { return "v0.3.10e.20190822" }
+public String version() { return "v0.3.10f.20190822" }
+public String HEversion() { return "v0.3.10f.20190822" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
