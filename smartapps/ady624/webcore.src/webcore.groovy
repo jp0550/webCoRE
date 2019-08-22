@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 21, 2019 for Hubitat
+ * Last Updated August 22, 2019 for Hubitat
 */
 public String version() { return "v0.3.10e.20190628" }
-public String HEversion() { return "v0.3.10e.20190815" }
+public String HEversion() { return "v0.3.10e.20190822" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -829,9 +829,9 @@ private Map getHubitatVersion(){
 	}
 }
 
-private Map api_get_base_result(String deviceVersion = "0", boolean updateCache = false, boolean dashCall = false) {
+private Map api_get_base_result(deviceVersion=0, boolean updateCache = false, boolean dashCall = false) {
 	def tz = location.getTimeZone()
-	String currentDeviceVersion = (String) state.deviceVersion
+	String currentDeviceVersion = (String)state.deviceVersion
 	Boolean sendDevices = (deviceVersion != currentDeviceVersion) && !dashCall
 	String name = handle() + ' Piston'
 	//long incidentThreshold = now() - 604800000
@@ -934,7 +934,7 @@ private api_intf_dashboard_load() {
 	recoveryHandler()
 	//debug "Dashboard: Request received to initialize instance"
 	if(verifySecurityToken(params.token)) {
-		result = api_get_base_result(params.dev, true, true)
+		result = api_get_base_result(params.dev, true /*, true*/)
 		if(params.dashboard == "1") {
 			startDashboard()
 		} else {
@@ -943,7 +943,7 @@ private api_intf_dashboard_load() {
 	} else {
 		if(params.pin) {
 			if(settings.PIN && (md5("pin:${settings.PIN}") == params.pin)) {
-				result = api_get_base_result(params.dev, true, true)
+				result = api_get_base_result(params.dev, true /*, true*/)
 				//result = api_get_base_result()
 				result.instance.token = createSecurityToken()
 			} else {
@@ -1035,7 +1035,7 @@ private api_intf_dashboard_piston_get() {
 		requireDb = serverDbVersion != clientDbVersion
 		if(pistonId) {
 //ERS
-			result = api_get_base_result(/*requireDb ? "0" :*/ params.dev, true) // (may send too much at once)
+			result = api_get_base_result(requireDb ? 0 : params.dev, true) // (may send too much at once)
 			piston = getChildApps().find{ hashId(it.id) == pistonId };
 			if(piston) {
 				Map t0 = piston.get()
@@ -1656,14 +1656,15 @@ private api_intf_dashboard_piston_evaluate() {
 
 private api_intf_dashboard_piston_activity() {
 	def result
+	//debug "Dashboard: Activity request received $params"
 	if(verifySecurityToken(params.token)) {
 		def piston = getChildApps().find{ hashId(it.id) == params.id };
 		if(piston) {
 			def t0 = piston.activity(params.log)
 			result = [status: "ST_SUCCESS", activity: (t0 ?: [:]) + [globalVars: listAvailableVariables()/*, mode: hashId(location.getCurrentMode().id), shm: location.currentState("alarmSystemStatus")?.value, hubs: location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}*/]]
-	} else {
+		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
-	}
+		}
 	} else {
 		result = api_get_error_result("ERR_INVALID_TOKEN")
 	}
@@ -1792,7 +1793,7 @@ private void cleanUp() {
 	state.remove('globalVars')
 	state.remove('devices')
 	state.remove('migratedStorage')
-	def a = api_get_base_result("1", true, true)
+	def a = api_get_base_result(1, true, true)
 	} catch (all) {
 	}
 }
@@ -3385,9 +3386,11 @@ private static Map getAlarmSystemStatusOptions() {
 private static Map getHubitatAlarmSystemStatusOptions() {
 	return [	
 		armedAway:		"Armed Away",
-		armingAway:		"Arming Pending exit delay",
+		armingAway:		"Arming Away Pending exit delay",
 		armedHome: 		"Armed Home",
+		armingHome: 		"Arming Home pending exit delay",
 		armedNight: 		"Armed Night",
+		armingNight: 		"Arming Night pending exit delay",
 		disarmed: 		"Disarmed",
 		allDisarmed:		"All Disarmed"
 	]	
@@ -3457,7 +3460,7 @@ public Map getChildVirtDevices() {
 		Map t0 = [:]
 		def hasAC = it.value.ac
 		def hasO = it.value.o
-		if(hasA != null) t0 = t0 + [ac:hasAC]
+		if(hasAC != null) t0 = t0 + [ac:hasAC]
 		if(hasO != null) t0 = t0 + [o:hasO]
 		if(t0 == [:]) t0 = [ n:"a" ]
 		cleanResult."${it.key}" = t0
