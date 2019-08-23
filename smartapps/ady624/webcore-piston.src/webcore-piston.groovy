@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 22, 2019 for Hubitat
+ * Last update August 23, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10f.20190822" }
-public static String HEversion() { return "v0.3.10f.20190822" }
+public static String HEversion() { return "v0.3.10f.20190823" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -86,10 +86,10 @@ def pageMain() {
 
 			section(sectionTitleStr("Application Info")) {
 				Map rtData = getTemporaryRunTimeData(now())
-				if(!!rtData.disabled) {
+				if((boolean)rtData.disabled) {
 					paragraph "Piston is disabled by webCoRE"
 				}
-				if(!rtData.active) {
+				if(!(boolean)rtData.active) {
 					paragraph "Piston is paused"
 				}
 				if(!rtData.bin) {
@@ -353,14 +353,14 @@ public Map get(boolean minimal = false) { // minimal is backup
 	def rtData = getRunTimeData()
 	return [
 		meta: [
-			id: rtData.id,
-			author: rtData.author,
+			id: (String)rtData.id,
+			author: (String)rtData.author,
 			name: rtData.svLabel ?: app.label,
 			created: rtData.created,
 			modified: rtData.modified,
 			build: rtData.build,
 			bin: rtData.bin,
-			active: rtData.active,
+			active: (boolean)rtData.active,
 			category: rtData.category ?: 0
 		],
 		piston: rtData.piston
@@ -465,7 +465,7 @@ public Map setup(data, chunks) {
 		app.updateSetting(chunk.key, [type: 'text', value: chunk.value])
 	}
 	app.updateSetting('bin', [type: 'text', value: state.bin ?: ''])
-	app.updateSetting('author', [type: 'text', value: state.author ?: ''])
+	app.updateSetting('author', [type: 'text', value: (String)state.author ?: ''])
 
 	state.pep = piston.o?.pep ? true : false // pep is parallel execution - this serializes execution of events
 
@@ -563,8 +563,8 @@ log.warn "something call settingToState with ${myKey}"
 
 private void checkLabel(Map rtData = null) {
 	if(!rtData) rtData = getTemporaryRunTimeData(now())
-	boolean act = rtData.active
-	boolean dis = rtData.disabled
+	boolean act = (boolean)rtData.active
+	boolean dis = (boolean)rtData.disabled
 	boolean found = match(app.label, "<span")
 	if(!act || dis) {
 		if(!found && !state.svLabel) {
@@ -604,11 +604,11 @@ public void config(data) { // creates a new piston
 		app.updateSetting('bin', [type: 'text', value: state.bin ?: ''])
 	}
 	if(data.author) {
-		state.author = data.author
+		state.author = (String)data.author
 		app.updateSetting('author', [type: 'text', value: state.author ?: ''])
 	}
 	if(data.initialVersion) {
-		state.initialVersion = data.initialVersion
+		state.initialVersion = (String)data.initialVersion
 	}
 	clearMyCache("config")
 }
@@ -834,13 +834,13 @@ private Map getDSCache() {
 			logging: state.logging ? (int)state.logging : 0,
 			svLabel: state.svLabel,
 			name: state.svLabel ?: app.label,
-			active: state.active,
+			active: state.active ? true : false,
 			category: state.category,
 			pep: (boolean)state.pep,
 			created: state.created,
 			modified: state.modified,
 			build: state.build,
-			author: state.author,
+			author: (String)state.author,
 			bin: state.bin,
 		]
 		t1.devices = (settings.dev && (settings.dev instanceof List) ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:])
@@ -1444,8 +1444,8 @@ private void finalizeEvent(Map rtData, Map initialMsg, boolean success = true) {
 		def st = [:] + state.state
 		st.remove('old')
 		Map myRt = [
-			id: rtData.id,
-			active: rtData.active,
+			id: (String)rtData.id,
+			active: (boolean)rtData.active,
 			category: rtData.category,
 			stats: [
 				nextSchedule: rtData.stats.nextSchedule // state.nextSchedule
@@ -1668,7 +1668,7 @@ private boolean executeStatement(Map rtData, Map statement, boolean async = fals
 					String deviceId = (rtData.event.device) ? hashId(rtData.event.device.id) : null
 					for (event in statement.c) {
 						def operand = event.lo
-						if(operand && operand.t) {
+						if(operand && (String)operand.t) {
 							switch ((String)operand.t) {
 							case 'p':
 								if(!!deviceId && ((String)rtData.event.name == (String)operand.a) && !!operand.d && (deviceId in expandDeviceList(rtData, operand.d, true))) perform = true
@@ -2738,23 +2738,25 @@ private long vcmd_setTileColor(Map rtData, device, List params) {
 }
 
 private long vcmd_setTileTitle(Map rtData, device, List params) {
-	int index = (int)cast(rtData, params[0], 'integer')
-	if((index < 1) || (index > 16)) return 0
-	rtData.state["i$index"] = (String)params[1]
-	return 0
+	return helper_setTile(rtData, 'i', params)
 }
 
 private long vcmd_setTileText(Map rtData, device, List params) {
-	int index = (int)cast(rtData, params[0], 'integer')
-	if((index < 1) || (index > 16)) return 0
-	rtData.state["t$index"] = (String)params[1]
-	return 0
+	return helper_setTile(rtData, 't', params)
 }
 
 private long vcmd_setTileFooter(Map rtData, device, List params) {
+	return helper_setTile(rtData, 'o', params)
+}
+
+private long vcmd_setTileOTitle(Map rtData, device, List params) {
+	return helper_setTile(rtData, 'p', params)
+}
+
+private long helper_setTile(Map rtData, String typ, List params) {
 	int index = (int)cast(rtData, params[0], 'integer')
 	if((index < 1) || (index > 16)) return 0
-	rtData.state["o$index"] = (String)params[1]
+	rtData.state["${typ}$index"] = (String)params[1]
 	return 0
 }
 
@@ -2779,9 +2781,9 @@ private long vcmd_clearTile(Map rtData, device, List params) {
 	rtData.state["o$index"] = ''
 	rtData.state["b$index"] = ''
 	rtData.state["f$index"] = ''
+	rtData.state["p$index"] = ''
 	return 0
 }
-
 
 private long vcmd_setLocationMode(Map rtData, device, List params) {
 	String  modeIdOrName = params[0]
@@ -5324,7 +5326,7 @@ private Map setVariable(Map rtData, String name, value) {
 			return variable
 		}
 	} else {
-		def variable = rtData.localVars[var.name]
+		def variable = rtData.localVars[tname]
 		if(variable instanceof Map) {
 			if(variable.t.endsWith(']')) {
 				//we're dealing with a list
@@ -5339,12 +5341,12 @@ private Map setVariable(Map rtData, String name, value) {
 				variable.v = cast(rtData, value, variable.t)
 			}
 			if(!variable.f) {
-				def vars = state.vars
+				def vars
+				if((boolean)rtData.pep) vars = atomicState.vars
+				else vars = state.vars
 				vars[tname] = variable.v
-				state.vars = vars
-				if((boolean)rtData.pep) {
-					atomicState.vars = vars
-				}
+				if((boolean)rtData.pep) atomicState.vars = vars
+				else state.vars = vars
 			}
 			return variable
 
@@ -8296,10 +8298,10 @@ private getSystemVariableValue(Map rtData, String name) {
 	case '$nfl': return "${rtData.nfl}".toString()
 	case '$incidents': return "${rtData.incidents}".toString()
 	case '$mediaId': return rtData.mediaId
-	case '$mediaUrl': return rtData.mediaUrl
-	case '$mediaType': return rtData.mediaType
+	case '$mediaUrl': return (String)rtData.mediaUrl
+	case '$mediaType': return (String)rtData.mediaType
 	case '$mediaSize': return (rtData.mediaData ? rtData.mediaData.size() : 0)
-	case '$name': return app.label
+	case '$name': return (String)app.label
 	case '$version': return version()
 	case '$versionH': return HEversion()
 	case '$now': return (long)now()

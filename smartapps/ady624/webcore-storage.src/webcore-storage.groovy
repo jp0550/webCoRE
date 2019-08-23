@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 17, 2019 for Hubitat
+ * Last update August 23, 2019 for Hubitat
  */
-public static String version() { return "v0.3.10e.20190628" }
-public static String HEversion() { return "v0.3.10e.20190814" }
+public static String version() { return "v0.3.10f.20190822" }
+public static String HEversion() { return "v0.3.10f.20190822" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -148,7 +148,7 @@ public void startWeather() {
 	if(myKey && myZip) {
 		unschedule()
 		runEvery30Minutes(updateAPIXUdata)
-		//updateAPIXUdata()
+		updateAPIXUdata()
 	}
 }
 
@@ -197,7 +197,7 @@ public void ahttpRequestHandler(resp, callbackData) {
 		}
 
 		if(!json) return
-		if(json.forecast && json.forecast.forcastday) {
+		if(json.forecast && json.forecast.forecastday) {
 			for(int i = 0; i <= 6; i++) {
 				def t0 = json.forecast.forecastday[i]?.day?.condition.code
 				if(!t0) continue
@@ -235,9 +235,9 @@ public Map getWData() {
 		String t0 = "${obs.current.last_updated}"
 		def t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
 		int s = GetTimeDiffSeconds(t1, null, "getApiXUData").toInteger()
-		if(s > (60*60*4)) { // if really old
+		if(s > (60*60*6)) { // if really old
 			//stateRemove("obs")
-			log.warn "removing very old weather data"
+			log.warn "removing very old weather data $t0   $s"
 			theObsFLD = null
 			obs = [:]
 		} else return obs
