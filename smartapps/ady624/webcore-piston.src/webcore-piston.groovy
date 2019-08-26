@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 23, 2019 for Hubitat
+ * Last update August 25, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10f.20190822" }
 public static String HEversion() { return "v0.3.10f.20190823" }
@@ -2115,7 +2115,7 @@ private long executeVirtualCommand(Map rtData, devices, String command, List par
 	return delay
 }
 
-private executePhysicalCommand(Map rtData, device, String command, List params = [], delay = null, String scheduleDevice = (String)null, boolean disableCommandOptimization = false) {
+private void executePhysicalCommand(Map rtData, device, String command, params = [], delay = null, String scheduleDevice = (String)null, boolean disableCommandOptimization = false) {
 	if(!!delay && !!scheduleDevice) {
 		//delay without schedules is not supported in hubitat
 		scheduleDevice = hashId(device.id)
