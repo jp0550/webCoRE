@@ -37,9 +37,9 @@ definition(
 	category: "Convenience",
 	singleInstance: false,
 	/* icons courtesy of @chauger - thank you */
-	iconUrl: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE.png",
-	iconX2Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@2x.png",
-	iconX3Url: "https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE@3x.png",
+	iconUrl: "https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/app-CoRE.png",
+	iconX2Url: "https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/app-CoRE@2x.png",
+	iconX3Url: "https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/app-CoRE@3x.png",
 	importUrl: "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore.src/webcore.groovy"
 )
 
@@ -117,22 +117,22 @@ def pageMain() {
 
 		if(settings.agreement) {
 			section("Engine block") {
-				href "pageEngineBlock", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/app-CoRE.png", inputTitleStr("Cast iron")), description: app.version()+" HE: "+ app.HEversion(), required: false
+				href "pageEngineBlock", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/app-CoRE.png", inputTitleStr("Cast iron")), description: app.version()+" HE: "+ app.HEversion(), required: false
 			}
 		}
 
 		section("Dashboard") {
 			if(!state.endpoint) {
-				href "pageInitializeDashboard", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), description: "Tap to initialize", required: false
+				href "pageInitializeDashboard", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), description: "Tap to initialize", required: false
 			} else {
 				//trace "*** DO NOT SHARE THIS LINK WITH ANYONE *** Dashboard URL: ${getDashboardInitUrl()}"
-				href "", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), style: "external", url: getDashboardInitUrl(), description: "Tap to open", required: false
-				href "", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/browser-reg.png", inputTitleStr("Register a browser")), style: "embedded", url: getDashboardInitUrl(true), description: "Tap to open", required: false
+				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), style: "external", url: getDashboardInitUrl(), description: "Tap to open", required: false
+				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/browser-reg.png", inputTitleStr("Register a browser")), style: "embedded", url: getDashboardInitUrl(true), description: "Tap to open", required: false
 			}
 		}
 
 		section(title:"Settings") {
-			href "pageSettings", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Settings")), required: false
+			href "pageSettings", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Settings")), required: false
 		}
 
 	}
@@ -377,7 +377,7 @@ def pageSettings() {
 		}
 
 		section(title:"Privacy") {
-			href "pageDisclaimer", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Data Collection Notice")), required: false
+			href "pageDisclaimer", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Data Collection Notice")), required: false
 		}
 
 		section(title: "Maintenance") {

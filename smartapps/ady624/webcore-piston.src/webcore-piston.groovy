@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 25, 2019 for Hubitat
+ * Last update August 26, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10f.20190822" }
 public static String HEversion() { return "v0.3.10f.20190823" }
@@ -38,9 +38,9 @@ definition(
 	description: "Do not install this directly, use webCoRE instead",
 	category: "Convenience",
 	parent: "ady624:${handle()}",
-	iconUrl: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE.png",
-	iconX2Url: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png",
-	iconX3Url: "https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png",
+	iconUrl: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png",
+	iconX2Url: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png",
+	iconX3Url: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png",
 	importUrl: "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-piston.src/webcore-piston.groovy"
 )
 
@@ -66,7 +66,7 @@ def pageMain() {
 				paragraph "If you are trying to install webCoRE, please go back one step and choose webCoRE, not webCoRE Piston. You can also visit wiki.webcore.co for more information on how to install and use webCoRE"
 				if(parent) {
 					String t0 = (String)parent.getWikiUrl()
-					href "", title: imgTitle("https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("More information")), description: t0, style: "external", url: t0, required: false
+					href "", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("More information")), description: t0, style: "external", url: t0, required: false
 				}
 			}
 		} else {
@@ -78,7 +78,7 @@ def pageMain() {
 				String dashboardUrl = (String)parent.getDashboardUrl()
 				if(dashboardUrl) {
 					dashboardUrl = "${dashboardUrl}piston/${hashId(app.id)}"
-					href "", title: imgTitle("https://cdn.rawgit.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("View piston in dashboard")), style: "external", url: dashboardUrl, required: false
+					href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("View piston in dashboard")), style: "external", url: dashboardUrl, required: false
 				} else {
 					paragraph "Sorry, your dashboard does not seem to be enabled, please go to the parent app and enable the dashboard."
 				}
@@ -7457,7 +7457,7 @@ private Map func_encodeuricomponent(Map rtData, List params) { return func_urlen
 /***										***/
 /******************************************************************************/
 
-private mem(showBytes = true) {
+private String mem(showBytes = true) {
 	def mbytes = new groovy.json.JsonOutput().toJson(state)
 	int bytes = mbytes.toString().length()
 	return Math.round(100.00 * (bytes/ 100000.00)) + "%${showBytes ? " ($bytes bytes)" : ""}"
