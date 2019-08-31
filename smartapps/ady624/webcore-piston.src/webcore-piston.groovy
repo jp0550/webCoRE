@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 26, 2019 for Hubitat
+ * Last update August 30, 2019 for Hubitat
 */
 public static String version() { return "v0.3.10f.20190822" }
-public static String HEversion() { return "v0.3.10f.20190823" }
+public static String HEversion() { return "v0.3.10f.20190830" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -326,7 +326,6 @@ void initialize() {
 	cleanState()
 
 	clearMyCache("initialize")
-	//clearParentCache()
 
 	if(!!state.active) {
 		resume()
@@ -475,7 +474,7 @@ public Map setup(data, chunks) {
 		if(!!state.svLabel) {
 			String res = state.svLabel
 			app.updateLabel(res)
-			state.svLabel = null
+			state.svLabel = (String)null
 		}
 		app.updateLabel(data.n)
 	}
@@ -586,8 +585,8 @@ private void checkLabel(Map rtData = null) {
 		if(found && !!state.svLabel) {
 			String res = state.svLabel
 			app.updateLabel(res)
-			state.svLabel = null
-			if(rtData) rtData.svLabel = null
+			state.svLabel = (String)null
+			if(rtData) rtData.svLabel = (String)null
 			clearMyCache("checklabel")
 			return
 		}
@@ -808,7 +807,7 @@ private Map getTemporaryRunTimeData(long startTime) {
 
 @Field static Map theCacheFLD  // each piston has a map in here
 
-private void clearMyCache(String meth=null) {
+private void clearMyCache(String meth=(String)null) {
 	String myId = hashId(app.id)
 	if(!myId) return
 	if(theCacheFLD) {
@@ -856,7 +855,7 @@ private Map getDSCache() {
 
 @Field static Map theParentCacheFLD
 
-public void clearParentCache(String meth=null) {
+public void clearParentCache(String meth=(String)null) {
 	theParentCacheFLD = null
 	if(eric()) log.warn "clearing parent cache $meth"
 }
@@ -2115,7 +2114,7 @@ private long executeVirtualCommand(Map rtData, devices, String command, List par
 	return delay
 }
 
-private void executePhysicalCommand(Map rtData, device, String command, params = [], delay = null, String scheduleDevice = (String)null, boolean disableCommandOptimization = false) {
+private void executePhysicalCommand(Map rtData, device, String command, params = [], delay = null, String scheduleDevice=(String)null, boolean disableCommandOptimization = false) {
 	if(!!delay && !!scheduleDevice) {
 		//delay without schedules is not supported in hubitat
 		scheduleDevice = hashId(device.id)
@@ -2146,7 +2145,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params =
 		boolean skip = false
 		if(!rtData.piston.o?.dco && !disableCommandOptimization && !(command in ['setColorTemperature', 'setColor', 'setHue', 'setSaturation'])) {
 			//def cmd = rtData.commands.physical[command]
-			def cmd = PhysicalCommands().command
+			def cmd = PhysicalCommands()[command]
 			if(cmd && cmd.a) {
 				if(cmd.v && !params.size()) {
 					//commands with no parameter that set an attribute to a preset value
@@ -2593,7 +2592,7 @@ private void requestWakeUp(Map rtData, Map statement, Map task, long timeOrDelay
 
 private long do_setLevel(Map rtData, device, List params, String attr, val=null) {
 	int arg = val != null ? (int)val : (int)params[0]
-	String mstate = params.size() > 1 ? (String)params[1] : ""
+	def mstate = params.size() > 1 ? params[1] : ""
 	if(mstate && (getDeviceAttributeValue(rtData, device, 'switch') != mstate)) {
 		return 0
 	}
@@ -3951,9 +3950,9 @@ private boolean evaluateCondition(Map rtData, Map condition, String collection, 
 		return tt1
 	} else {
 		not = !!condition.n
-		def comparison = Comparisons().triggers[condition.co]
+		def comparison = Comparisons().triggers[(String)condition.co]
 		boolean trigger = !!comparison
-		if(!comparison) comparison = Comparisons().conditions[condition.co]
+		if(!comparison) comparison = Comparisons().conditions[(String)condition.co]
 		rtData.wakingUp = ((String)rtData.event.name == 'time') && (!!rtData.event.schedule) && ((int)rtData.event.schedule.s == (int)condition.$)
 		if(rtData.fastForwardTo || comparison) {
 			if(!rtData.fastForwardTo || ((int)rtData.fastForwardTo == -9 /*initial run*/)) {
@@ -4906,9 +4905,9 @@ private getDevice(Map rtData, idOrName) {
 		if(rtData.allDevices) {
 			def deviceMap = rtData.allDevices.find{ (idOrName == (String)it.key) || (idOrName == it.value.getDisplayName()) }
 			if(deviceMap) {
-				rtData.updateDevices = true
-				rtData.devices[deviceMap.key] = deviceMap.value
 				device = deviceMap.value
+				rtData.updateDevices = true
+				rtData.devices[deviceMap.key] = device
 			}
 		} else {
 			error "Device ${idOrName} was not found. Please review your piston.", rtData
@@ -4943,7 +4942,7 @@ private getDeviceAttributeValue(Map rtData, device, String attributeName) {
 	}
 }
 
-private Map getDeviceAttribute(Map rtData, String deviceId, String attributeName, subDeviceIndex = null, Boolean trigger = false) {
+private Map getDeviceAttribute(Map rtData, String deviceId, String attributeName, subDeviceIndex=null, Boolean trigger = false) {
 	if(deviceId == rtData.locationId) {
 		//we have the location here
 		switch (attributeName) {
@@ -4951,8 +4950,8 @@ private Map getDeviceAttribute(Map rtData, String deviceId, String attributeName
 			def mode = location.getCurrentMode()
 			return [t: 'string', v: hashId(mode.getId()), n: mode.getName()]
 		case 'alarmSystemStatus':
-			def v = location.hsmStatus
-			def n = VirtualDevices()['alarmSystemStatus']?.o[v]
+			String v = location.hsmStatus
+			String n = VirtualDevices()['alarmSystemStatus']?.o[v]
 			return [t: 'string', v: v, n: n]
 		}
 		return [t: 'string', v: location.getName().toString()]
@@ -4984,7 +4983,7 @@ private Map getDeviceAttribute(Map rtData, String deviceId, String attributeName
 	return [t: "error", v: "Device '${deviceId}' not found"]
 }
 
-private Map getJsonData(Map rtData, data, String name, String feature = null) {
+private Map getJsonData(Map rtData, data, String name, String feature=(String)null) {
 	if(data != null) {
 	try {
 		List parts = name.replace('][', '].[').tokenize('.')
@@ -5219,7 +5218,7 @@ private Map getNFL(Map rtData, String name) {
 @Field static boolean initGlobalFLD
 @Field static Map globalVarsFLD
 
-public void clearGlobalCache(String meth=null) {
+public void clearGlobalCache(String meth=(String)null) {
 	globalVarsFLD = [:]
 	initGlobalFLD = false
 	if(eric()) log.warn "clearing Global cache $meth"
@@ -5368,7 +5367,7 @@ public def setLocalVariable(String name, value) {  // called by parent (IDE) to 
 /*** EXPRESSION FUNCTIONS							***/
 /******************************************************************************/
 
-public Map proxyEvaluateExpression(Map rtData, Map expression, String dataType = (String)null) {
+public Map proxyEvaluateExpression(Map rtData, Map expression, String dataType=(String)null) {
 	rtData = getRunTimeData(rtData)
 	resetRandomValues(rtData)
 	try {
@@ -5390,7 +5389,7 @@ private Map simplifyExpression(Map expression) {
 	return expression
 }
 
-private Map evaluateExpression(Map rtData, Map expression, String dataType = (String)null) {
+private Map evaluateExpression(Map rtData, Map expression, String dataType=(String)null) {
 	//if dealing with an expression that has multiple items, let's evaluate each item one by one
 	//let's evaluate this expression
 	if(!expression) return [t: 'error', v: 'Null expression']
@@ -7525,7 +7524,7 @@ private long getTimeToday(long time) {
 	return result + ((int)location.timeZone.getOffset(t0) - (int)location.timeZone.getOffset(result))
 }
 
-private cast(Map rtData, value, String dataType, String srcDataType = (String)null) {
+private cast(Map rtData, value, String dataType, String srcDataType=(String)null) {
 //ERS
 	//error "CASTING ($srcDataType) $value as $dataType", rtData
 	//if(srcDataType == 'vector3') error "got x = $value.x", rtData
@@ -7963,7 +7962,7 @@ private isDeviceLocation(device) {
 /******************************************************************************/
 /*** DEBUG FUNCTIONS									***/
 /******************************************************************************/
-private log(message, Map rtData = null, shift = null, err = null, String cmd = null, boolean force = false) {
+private log(message, Map rtData = null, shift = null, err = null, String cmd=(String)null, boolean force=false) {
 	if(cmd == "timer") {
 		return [m: message, t: now(), s: shift, e: err]
 	}

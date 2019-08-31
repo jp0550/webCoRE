@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 23, 2019 for Hubitat
+ * Last update August 30, 2019 for Hubitat
  */
 public static String version() { return "v0.3.10f.20190822" }
-public static String HEversion() { return "v0.3.10f.20190822" }
+public static String HEversion() { return "v0.3.10f.20190830" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -199,7 +199,7 @@ public void ahttpRequestHandler(resp, callbackData) {
 		if(!json) return
 		if(json.forecast && json.forecast.forecastday) {
 			for(int i = 0; i <= 6; i++) {
-				def t0 = json.forecast.forecastday[i]?.day?.condition.code
+				def t0 = json.forecast.forecastday[i]?.day?.condition?.code
 				if(!t0) continue
 				String t1 = getWUIconName(t0,1)
 				json.forecast.forecastday[i].day.condition.wuicon_name = t1
