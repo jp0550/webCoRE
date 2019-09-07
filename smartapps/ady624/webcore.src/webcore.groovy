@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 30, 2019 for Hubitat
+ * Last Updated September 6, 2019 for Hubitat
 */
 public String version() { return "v0.3.10f.20190822" }
 public String HEversion() { return "v0.3.10f.20190830" }
@@ -1744,7 +1744,7 @@ void recoveryHandler() {
 		registerInstance(false)
 	}
 	long t = now()
-	long lastRecovered = (long) state.lastRecovered
+	long lastRecovered = state.lastRecovered ?: 0L
 	long recTime = 900000L  // 15 min in ms
 	if(lastRecovered && (t - lastRecovered < recTime)) return
 
