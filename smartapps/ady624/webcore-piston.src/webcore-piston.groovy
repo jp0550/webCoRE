@@ -5163,7 +5163,7 @@ private getDevice(Map rtData, String idOrName) {
 			if((int)rtData.logging > 2) debug msg, rtData
 		}
 		if(rtData.allDevices) {
-			Map deviceMap = rtData.allDevices.find{ (idOrName == (String)it.key) || (idOrName == it.value.getDisplayName()) }
+			def deviceMap = rtData.allDevices.find{ (idOrName == (String)it.key) || (idOrName == it.value.getDisplayName()) }
 			if(deviceMap) {
 				device = deviceMap.value
 				rtData.updateDevices = true
