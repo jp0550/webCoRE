@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated September 6, 2019 for Hubitat
+ * Last Updated October 10, 2019 for Hubitat
 */
-public String version() { return "v0.3.10f.20190822" }
-public String HEversion() { return "v0.3.10f.20190830" }
+public String version() { return "v0.3.110.20191009" }
+public String HEversion() { return "v0.3.110.20191009_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -85,22 +85,22 @@ def pageMain() {
 			if(success) {
 				if(!state.oAuthRequired) {
 					section('Note') {
-						paragraph "If you have previously installed ${handle()} and are trying to open it, please go back to Apps in the HE dashboard access ${handle()}.\r\n\r\nIf you are trying to install another instance of ${handle()} then please continue with the steps.", required: true
+						paragraph "If you have previously installed ${handle()} and are trying to open it, please go back to Apps in the HE console access ${handle()}.\r\n\r\nIf you are trying to install another instance of ${handle()} then please continue with the steps.", required: true
 					}
 				}
-			   	if(location.getTimeZone()) {
-		 			section() {
+				if(location.getTimeZone()) {
+					section() {
 						paragraph "It looks like you are ready to go, please tap Next"
-				   	}
+					}
 				} else {
- 					section() {
+					section() {
 						paragraph "Your location is not correctly setup."
-			   		}
+					}
 					pageSectionTimeZoneInstructions()
 				}
 			} else {
 				section() {
-					paragraph "We'll start by configuring the dashboard. You need to setup OAuth in the HE dashboard for the ${handle()} App."
+					paragraph "We'll start by configuring. You need to setup OAuth in the HE console for the ${handle()} App."
 				}
 				pageSectionInstructions()
 				section () {
@@ -155,7 +155,7 @@ private String imgTitle(String imgSrc, String titleStr, String color=(String)nul
 private pageSectionDisclaimer() {
 	section('Disclaimer') {
 		paragraph "Please read the following information carefully", required: true
-		paragraph "webCoRE is a web-enabled product, which means data travels across the internet. webCoRE is using TLS for encryption of data and NEVER provides real object IDs to any system outside the WebCoRE server. The IDs are hashed into a string of letters and numbers that cannot be 'decoded' back to their original value. These hashed IDs are stored by your browser and can be cleaned up by using the Logout action under the dashboard."
+		paragraph "webCoRE is a web-enabled product, which means data travels across the internet. webCoRE is using TLS for encryption of data and NEVER provides real object IDs to any system outside the WebCoRE server. The IDs are hashed into a string of letters and numbers that cannot be 'decoded' back to their original value. These hashed IDs are stored by your browser and can be cleaned up by using the Logout action in the dashboard."
 		paragraph "Access to a webCoRE App is done through the browser using a security password provided during the installation of webCoRE. The browser never stores this password and it is only used during the initial registration and authentication of your browser. A security token is generated for each browser and is used for any subsequent communication. This token expires at a preset life length, or when the password is changed, or when the tokens are manually revoked from the webCoRE App's Settings menu."
 	}
 	section('Server-side features') {
@@ -172,7 +172,7 @@ private pageSectionDisclaimer() {
 		paragraph "The information you provide while using the Fuel Stream feature is not encrypted and is not filtered in any way. Please avoid providing personally identifiable information in either the canister name, the fuel stream name, or the data point."
 	}
 	section('Local webCoRE servers') {
-		paragraph "Advanced users may enable a local webcore server.   No data sharing with external webCoRE servers is done if this is configured/enabled.  Some features may not be available if you choose to do this."
+		paragraph "Advanced users may enable a local webcore server. No data sharing with external webCoRE servers is done if this is configured/enabled. Some features may not be available if you choose to do this."
 	}
 	section('Agreement') {
 		paragraph "Certain advanced features may not work if you do not agree to the webcore.co servers collecting the anonymized information described above."
@@ -190,7 +190,7 @@ private pageSectionInstructions() {
 	state.oAuthRequired = true
 	section () {
 		paragraph "Please follow these steps:", required: true
-		paragraph "1. Go to your HE dashboard and log in", required: true
+		paragraph "1. Go to your HE console and log in", required: true
 		paragraph "2. Click on 'Apps Code' and locate the '${handle()}' App in the list", required: true
 		paragraph "3. Click the App name", required: true
 		paragraph "4. Click on 'OAuth'", required: true
@@ -202,7 +202,7 @@ private pageSectionInstructions() {
 private pageSectionTimeZoneInstructions() {
 	section () {
 		paragraph "Please follow these steps to setup your location timezone:", required: true
-		paragraph "1. Using the HE dashboard, abort this installation and go to 'Settings' section", required: true
+		paragraph "1. Using the HE console, abort this installation and go to 'Settings' section", required: true
 		paragraph "2. Click on 'Location and Modes'", required: true
 		paragraph "3. Edit your postal code, and time zone, then Click on the map to edit your location", required: true
 		paragraph "4. Find your location on the map and place the pin there, adjusting the desired radius", required: true
@@ -218,9 +218,9 @@ private pageInitializeDashboard() {
 	dynamicPage(name: "pageInitializeDashboard", title: "", nextPage: success && hasTZ ? "pageSelectDevices" : null) {
 		if(!state.installed) {
 			if(success) {
-			   	if(hasTZ) {
+				if(hasTZ) {
 					section() {
-						paragraph "Great, the dashboard is ready to go."
+						paragraph "Great, ready to go."
 					}
 					section() {
 						paragraph "Now, please choose a name for this ${handle()} instance"
@@ -231,10 +231,10 @@ private pageInitializeDashboard() {
 					pageSectionDisclaimer()
 
 					section() {
-						paragraph "${state.installed ? "Tap Done to continue." : "Next, choose a security password for your dashboard. You will need to enter this password when accessing your dashboard for the first time, and possibly from time to time, depending on your settings."}", required: false
+						paragraph "${state.installed ? "Tap Done to continue." : "Next, choose a security password for your ${handle()} dashboard. You will need to enter this password when accessing your dashboard for the first time, and possibly from time to time, depending on your settings."}", required: false
 					}
 				} else {
-	 				section() {
+					section() {
 						paragraph "Your location is not correctly setup."
 					}
 					pageSectionTimeZoneInstructions()
@@ -268,10 +268,10 @@ private pageEngineBlock() {
 
 
 private pageSelectDevices() {
-	refreshDevices()
-	dynamicPage(name: "pageSelectDevices", title: "", nextPage: state.installed ? null : "pageFinishInstall") {
+	dynamicPage(name: "pageSelectDevices", title: "", nextPage: "pageFinishInstall") {
 		section() {
 			paragraph "${state.installed ? "Select the devices you want ${handle()} to have access to." : "Great, now let's select some devices."}"
+			paragraph "A DEVICE ONLY NEEDS TO BE SELECTED ONCE, THE CATEGORIES BELOW ARE TO MAKE THEM EASIER TO FIND."
 			paragraph "It is a good idea to only select the devices you plan on using with ${handle()} pistons. Pistons will only have access to the devices you selected."
 		}
 		if(!state.installed) {
@@ -293,7 +293,7 @@ private pageSelectDevices() {
 		section (sectionTitleStr('Select devices by capability')) {
 			paragraph "If you cannot find a device by type, you may try looking for it by category below"
 			def d
-			for (capability in capabilities().findAll{ (!(it.value.d in [null, 'actuators', 'sensors'])) }.sort{ it.value.d }) {
+			for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }) {
 				if(capability.value.d != d) input "dev:${capability.key}", "capability.${capability.key}", multiple: true, title: "Which ${capability.value.d}", required: false
 				d = capability.value.d
 			}
@@ -302,17 +302,25 @@ private pageSelectDevices() {
 }
 
 private pageFinishInstall() {
-	initTokens()
+	def inst = state.installed
+	if(!inst) initTokens()
+	refreshDevices()
 	dynamicPage(name: "pageFinishInstall", title: "", install: true) {
-		section() {
-			paragraph "Excellent! You are now ready to use ${handle()}"
-		}
-		section("Note") {
-			paragraph "After you tap Done, go to 'Apps',  and open the '${app.label}' App to access the dashboard.", required: true
-			paragraph "You can also access the dashboard on any another device by entering ${domain()} in the address bar of your browser.", required: true
-		}
-		section() {
-			paragraph "Now tap Done and enjoy ${handle()}!"
+		if(!inst) {
+			section() {
+				paragraph "Excellent! You are now ready to use ${handle()}"
+			}
+			section("Note") {
+				paragraph "After you tap Done, go to 'Apps', and open the '${app.label}' App to access the dashboard.", required: true
+				paragraph "You can also access the dashboard on any another device by entering ${domain()} in the address bar of your browser.", required: true
+			}
+			section() {
+				paragraph "Now tap Done and enjoy ${handle()}!"
+			}
+		} else {
+			section() {
+				paragraph "Devices updated"
+			}
 		}
 	}
 }
@@ -340,16 +348,22 @@ def pageSettings() {
 			input "pushDevice", "capability.notification", title: "Notification device for pushMessage (HE PhoneApp or pushOver)", multiple: true, required: false, submitOnChange: true
 		}
 	
-		section(sectionTitleStr('enable \$weather via ApiXU.com')) {
-			input "apixuKey", "text", title: "ApiXU key?", description: "ApiXU key", required: false
-			input "zipCode", "text", title: "Override Zip code or set city name or latitude,longitude? (Default: ${location.zipCode})", defaultValue: null, required: false
+		String defaultLoc = weatherType == 'DarkSky' ? "${location.latitude},${location.longitude}" : "${location.zipCode}"
+		String mreq = weatherType
+		String zipDesc = weatherType == 'DarkSky' ? "Override latitude,longitude (Default: ${location.latitude},${location.longitude})?" : "Override zip code (${location.zipCode}), or set city name or latitude,longitude?"
+		section(sectionTitleStr('enable \$weather via external provider')) {
+			input "weatherType", "enum", title: "Weather Type to enable?", defaultValue: '', submitOnChange: true, required: false, options:['apiXU', 'DarkSky', '']
+			if(weatherType) {
+				input "apixuKey", "text", title: "${mreq} key?", required: !!weatherType
+				input "zipCode", "text", title: zipDesc, defaultValue: defaultLoc, required: false
+			}
 		}
 
 		section(sectionTitleStr("Fuel Streams")){
 			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFuelStreams != null) ? settings.localFuelStreams : true , submitOnChange: true
 			if(settings.localFuelStreams){
 				href "pageFuelStreams", title: "Fuel Streams", description: "Tap to manage fuel streams"		
-			}	 	
+			}
 		}
 	
 /*		section("Integrations") {
@@ -486,7 +500,7 @@ def pageIntegrationIFTTTConfirm() {
 			}
 		}
 	} else {
-		return dynamicPage(name: "pageIntegrateIFTTTConfirm",  title: "IFTTT Integration") {
+		return dynamicPage(name: "pageIntegrateIFTTTConfirm", title: "IFTTT Integration") {
 			section(){
 				paragraph "Sorry, the credentials you provided for IFTTT are invalid. Please go back and try again."
 			}
@@ -530,7 +544,7 @@ def pageIntegrationTwilioTest() {
 		m: settings.twilio_test_message
 	]
 	def requestParams = [
-		uri:  "https://api.webcore.co/sms/send/",
+		uri: "https://api.webcore.co/sms/send/",
 		query: null,
 		requestContentType: "application/json",
 		body: data
@@ -572,9 +586,9 @@ def pageRemove() {
 
 
 /******************************************************************************/
-/*** 																		***/
+/***																		***/
 /*** INITIALIZATION ROUTINES												***/
-/*** 																		***/
+/***																		***/
 /******************************************************************************/
 
 
@@ -626,6 +640,7 @@ public Map getChildPstate() {
 	]
 }
 
+/*
 public void updatePistonsW(piston, ch1=true, ch2=true, ch3=true, ch4=true) {
 	if(ch1) piston.settingsToState('disabled', disabled)
 	if(ch2) piston.settingsToState('logPExec', logPistonExecutions)
@@ -638,17 +653,18 @@ public void updatePistonsW(piston, ch1=true, ch2=true, ch3=true, ch4=true) {
 		piston.settingsToState('settings', msettings)
 	}
 }
+*/
 
 private void clearGlobalPistonCache(String meth=null) {
 	String name = handle() + ' Piston'
-	def t0 = getChildApps().findAll{ it.name == name }
+	def t0 = getChildApps().findAll{ (String)it.name == name }
 	def t1 = t0[0]
 	if(t1) t1.clearGlobalCache(meth) // will cause a child to read global Vars
 }
 
 private void clearParentPistonCache(String meth=null) {
 	String name = handle() + ' Piston'
-	def t0 = getChildApps().findAll{ it.name == name }
+	def t0 = getChildApps().findAll{ (String)it.name == name }
 	def t1 = t0[0]
 	if(t1) t1.clearParentCache(meth) // will cause a child to read getChildPstate
 }
@@ -658,21 +674,25 @@ private void initialize() {
 	state.vars = state.vars ?: [:]
 	state.version = version()
 	state.versionHE = HEversion()
+	refreshDevices()
 	registerInstance()
 
-	if(settings.apixuKey || state.storAppOn) {
-		def storageApp = getStorageApp((!!settings.apixuKey))
+	if(settings.weatherType || state.storAppOn) {
+		def storageApp = getStorageApp( (settings.weatherType && settings.apixuKey) )
+		if(storageApp) state.storAppOn = true
+		else state.storAppOn = false
 		if(storageApp) {
-			state.storAppOn = true
+			storageApp.settingsToState("weatherType", settings.weatherType)
 			storageApp.settingsToState("apixuKey", settings.apixuKey)
-			if(settings.apixuKey) {
+			storageApp.settingsToState("zipCode", settings.zipCode)
+			if(settings.weatherType && settings.apixuKey) {
 				storageApp.startWeather()
 			} else {
 				storageApp.stopWeather()
 				//delete it ??
 			}
 		} else {
-			state.storAppOn = false
+			;
 		}
 	}
 
@@ -686,6 +706,7 @@ private void initialize() {
 	if(state.accessToken){
 		updateEndpoint(state.accessToken)
 	}
+	state.lastRecovered = 0
 }
 
 public Map getWCendpoints() {
@@ -749,7 +770,7 @@ private void enableOauth() {
 			//LogTrace("response data: ${resp.data}")
 		}
 	} catch (e) {
-		log.debug "enableOauth something went wrong: ${e}"
+		error "enableOauth something went wrong: ${e}"
 	}
 }
 
@@ -765,18 +786,20 @@ private void subscribeAll() {
 //	subscribe(location, "HubUpdated", hubUpdatedHandler, [filterEvents: false])
 //	subscribe(location, "summary", summaryHandler, [filterEvents: false])
 	subscribe(location, "hsmStatus", hsmHandler, [filterEvents: false])
+	subscribe(location, "hsmAlert", hsmAlertHandler, [filterEvents: false])
 	setPowerSource(getHub()?.isBatteryInUse() ? 'battery' : 'mains')
 }
 
 /******************************************************************************/
-/*** 																		***/
+/***																		***/
 /*** DASHBOARD MAPPINGS														***/
-/*** 																		***/
+/***																		***/
 /******************************************************************************/
 
 mappings {
 	//path("/dashboard") {action: [GET: "api_dashboard"]}
 	path("/intf/dashboard/load") {action: [GET: "api_intf_dashboard_load"]}
+	path("/intf/dashboard/devices") {action: [GET: "api_intf_dashboard_devices"]}
 	path("/intf/dashboard/refresh") {action: [GET: "api_intf_dashboard_refresh"]}
 	path("/intf/dashboard/piston/new") {action: [GET: "api_intf_dashboard_piston_new"]}
 	path("/intf/dashboard/piston/create") {action: [GET: "api_intf_dashboard_piston_create"]}
@@ -812,7 +835,7 @@ mappings {
 	path("/tap/:tapId") {action: [GET: "api_tap"]}
 }
 
-private Map api_get_error_result(error) {
+private Map api_get_error_result(String error) {
 	return [
 		name: location.name + ' \\ ' + (app.label ?: app.name),
 		error: error,
@@ -825,32 +848,47 @@ private Map getHubitatVersion(){
 		return location.getHubs().collectEntries {[it.id, it.getFirmwareVersionString()]}
 	}
 	catch(e){
-	 	return location.getHubs().collectEntries {[it.id, "< 1.1.2.112"]}
+		return location.getHubs().collectEntries {[it.id, "< 1.1.2.112"]}
 	}
 }
 
-private Map api_get_base_result(deviceVersion=0, boolean updateCache = false, boolean dashCall = false) {
+private String normalizeLabel(pis) {
+	String label = pis.label
+	String regex = ' <span style.*$'
+	String t0 = label.replaceAll(regex, "")
+	if(t0) return t0 else return label
+}
+
+private Map api_get_base_result(boolean updateCache = false) {
 	def tz = location.getTimeZone()
 	String currentDeviceVersion = (String)state.deviceVersion
-	Boolean sendDevices = (deviceVersion != currentDeviceVersion) && !dashCall
 	String name = handle() + ' Piston'
-	//long incidentThreshold = now() - 604800000
+	long incidentThreshold = now() - 604800000
+	List alerts = state.hsmAlerts ?: []
 	
 	String instanceId = hashId(app.id, updateCache)
+//log.info "alerts = ${location.hsmAlert}"
 
 //	def t0 = location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}
 //	error "api_get_base_result: hubs ${location.getHubs()} t0: ${t0}"
-//	error "api_get_base_result: locstatus ${location.hsmStatus} statehsm: ${state.hsmStatus}  shm ${transformHsmStatus(location.hsmStatus ?: state.hsmStatus)}"
-	if(sendDevices) { debug "Dashboard: sending updated device list: ${deviceVersion} in server, ${currentDeviceVersion}" }
+//	error "api_get_base_result: locstatus ${location.hsmStatus} statehsm: ${state.hsmStatus} shm ${transformHsmStatus(location.hsmStatus ?: state.hsmStatus)}"
 	return [
-		name: location.name + ' \\ ' + (app.label ?: app.name),
+		name: (String)location.name + ' \\ ' + ((String)app.label ?: (String)app.name),
 		instance: [
 			account: [id: hashId(hubUID ?: app.getAccountId(), updateCache)],
-			pistons: getChildApps().findAll{ it.name == name }.sort{ it.label }.collect{ [ id: hashId(it.id, updateCache), 'name': it.label, 'meta': state[hashId(it.id, updateCache)] ] },
+//ERS
+			pistons: getChildApps().findAll{ (String)it.name == name }.sort{ (String)it.label }.collect{
+				String myId = hashId(it.id, updateCache)
+				[
+					id: myId,
+					name: normalizeLabel(it),
+					meta: state[myId]
+				]
+			},
 			id: instanceId,
 			locationId: hashId(location.id + (isHubitat() ? '-L' : ''), updateCache),
-			name: app.label ?: app.name,
-			uri: state.endpoint,
+			name: (String)app.label ?: (String)app.name,
+			uri: (String)state.endpoint,
 			deviceVersion: currentDeviceVersion,
 			coreVersion: version(),
 			heVersion: HEversion(),
@@ -860,15 +898,16 @@ private Map api_get_base_result(deviceVersion=0, boolean updateCache = false, bo
 			virtualDevices: virtualDevices(updateCache),
 			globalVars: listAvailableVariables(),
 			fuelStreamUrls: getFuelStreamUrls(instanceId),
-		] + (sendDevices ? [contacts: [:], devices: listAvailableDevices(false, updateCache)] : [:]),
+		],
 		location: [
 			//contactBookEnabled: location.getContactBookEnabled(),
-			hubs: location.getHubs().findAll{ !it.name.contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
+			hubs: location.getHubs().findAll{ !((String)it.name).contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: (String)it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
+			incidents: alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold },
 			//incidents: isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold },
-			incidents: [],
+			//incidents: [],
 			id: hashId(location.id + (isHubitat() ? '-L' : ''), updateCache),
 			mode: hashId(location.getCurrentMode().id, updateCache),
-			modes: location.getModes().collect{ [id: hashId(it.id, updateCache), name: it.name ]},
+			modes: location.getModes().collect{ [id: hashId(it.id, updateCache), name: (String)it.name ]},
 			shm: transformHsmStatus(location.hsmStatus),
 			name: location.name,
 			temperatureScale: location.getTemperatureScale(),
@@ -883,6 +922,12 @@ private Map api_get_base_result(deviceVersion=0, boolean updateCache = false, bo
 	]
 }
 
+private api_get_devices_result(int offset = 0, boolean updateCache = false) {
+	return listAvailableDevices(false, updateCache, offset) + [
+		deviceVersion: state.deviceVersion,
+	]
+}
+
 private getFuelStreamUrls(iid){
 	if(!useLocalFuelStreams()){
 		String region = state.endpoint.contains('graph-eu') ? 'eu' : 'us'
@@ -891,7 +936,7 @@ private getFuelStreamUrls(iid){
 
 		return [
 			list : [l: false, m: 'POST', h: headers, u: baseUrl + '/list', d: [i : iid]],
-			get  : [l: false, m: 'POST', h: headers, u: baseUrl + '/get',  d: [ i: iid ], p: 'f']
+			get  : [l: false, m: 'POST', h: headers, u: baseUrl + '/get',  d: [i : iid ], p: 'f']
 		]
 	}	
 	
@@ -906,7 +951,7 @@ private getFuelStreamUrls(iid){
 }
 
 public Boolean useLocalFuelStreams(){
- 	return settings.localFuelStreams != null ? settings.localFuelStreams : true
+	return settings.localFuelStreams != null ? settings.localFuelStreams : true
 }
 
 private String transformHsmStatus(status){
@@ -933,9 +978,9 @@ private api_intf_dashboard_load() {
 //	debug "Dashboard: load ${params}"
 	recoveryHandler()
 	//debug "Dashboard: Request received to initialize instance"
-	if(verifySecurityToken(params.token)) {
-		result = api_get_base_result(params.dev, true /*, true*/)
-		if(params.dashboard == "1") {
+	if(verifySecurityToken((String)params.token)) {
+		result = api_get_base_result(true)
+		if((String)params.dashboard == "1") {
 			startDashboard()
 		} else {
 			if(state.dashboard != 'inactive') stopDashboard()
@@ -943,8 +988,7 @@ private api_intf_dashboard_load() {
 	} else {
 		if(params.pin) {
 			if(settings.PIN && (md5("pin:${settings.PIN}") == params.pin)) {
-				result = api_get_base_result(params.dev, true /*, true*/)
-				//result = api_get_base_result()
+				result = api_get_base_result(true)
 				result.instance.token = createSecurityToken()
 			} else {
 				error "Dashboard: Authentication failed due to an invalid PIN"
@@ -960,11 +1004,24 @@ private api_intf_dashboard_load() {
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
+private api_intf_dashboard_devices() {
+	def result
+	if (verifySecurityToken((String)params.token)) {
+		def offset = "${params.offset}"
+		result = api_get_devices_result(offset.isInteger() ? offset.toInteger() : 0)
+	} else {
+		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}
+	//for accuracy, use the time as close as possible to the render
+	result.now = now()
+	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
+}
+
 private api_intf_dashboard_refresh() {
 	debug "Dashboard: Request received to refresh instance"
 	startDashboard()
 	def result
-	if(verifySecurityToken(params.token)) {
+	if(verifySecurityToken((String)params.token)) {
 		result = getDashboardData()
 	} else {
 		if(!result) result = api_get_error_result("ERR_INVALID_TOKEN")
@@ -982,9 +1039,9 @@ def Map getDashboardData() {
 	if(storageApp) {
 		result = storageApp.getDashboardData()
 	} else {
-		result = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev ->
-			[ (id): dev.getSupportedAttributes().collect{ it.name }.unique().collectEntries {
-				try { value = dev.currentValue(it); } catch (all) { value = null};
+		result = settings.findAll{ ((String)it.key).startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev ->
+			[ (id): dev.getSupportedAttributes().collect{ (String)it.name }.unique().collectEntries {
+				try { value = dev.currentValue(it); } catch (all) { value = null };
 				return [ (it) : value]
 			}]
 		}
@@ -995,7 +1052,7 @@ def Map getDashboardData() {
 private api_intf_dashboard_piston_new() {
 	def result
 	debug "Dashboard: Request received to generate a new piston name"
-	if(verifySecurityToken(params.token)) {
+	if(verifySecurityToken((String)params.token)) {
 		result = [status: "ST_SUCCESS", name: generatePistonName()]
 	} else {
 		result = api_get_error_result("ERR_INVALID_TOKEN")
@@ -1006,13 +1063,10 @@ private api_intf_dashboard_piston_new() {
 private api_intf_dashboard_piston_create() {
 	def result
 	debug "Dashboard: Request received to create a new piston"
-	if(verifySecurityToken(params.token)) {
-		def piston = addChildApp("ady624", "${handle()} Piston", params.name?:generatePistonName())
-		if(params.author || params.bin) {
-			piston.config([bin: params.bin, author: params.author, initialVersion: version()])
-			//updatePistonsW(piston)
-			//def msettings = atomicState.settings
-			//piston.settingsToState('settings', msettings)
+	if(verifySecurityToken((String)params.token)) {
+		def piston = addChildApp("ady624", "${handle()} Piston", (String)params.name ?: generatePistonName())
+		if((String)params.author || (String)params.bin) {
+			piston.config([bin: (String)params.bin, author: (String)params.author, initialVersion: version()])
 		}
 		if(!piston.isInstalled()) piston.installed()
 		result = [status: "ST_SUCCESS", id: hashId(piston.id)]
@@ -1027,39 +1081,43 @@ private api_intf_dashboard_piston_get() {
 	def piston
 	def theDb
 	boolean requireDb
-	debug "Dashboard: Request received to get piston ${params?.id}"
-	if(verifySecurityToken(params.token)) {
-		def pistonId = params.id
-		String serverDbVersion = HEversion()
-		def clientDbVersion = params.db
-		requireDb = serverDbVersion != clientDbVersion
-		if(pistonId) {
+	if(verifySecurityToken((String)params.token)) {
+		String pistonId = (String)params.id
+		if(pistonId) piston = getChildApps().find{ hashId(it.id) == pistonId };
+		if(piston) {
+			debug "Dashboard: Request received to get piston ${params?.id} ${piston.label}"
 //ERS
-			result = api_get_base_result(requireDb ? 0 : params.dev, true) // (may send too much at once)
-			piston = getChildApps().find{ hashId(it.id) == pistonId };
-			if(piston) {
-				Map t0 = piston.get()
-				result.data = t0 ?: [:]
+			String serverDbVersion = HEversion()
+			String clientDbVersion = (String)params.db
+			requireDb = serverDbVersion != clientDbVersion
+			if(requireDb) {
+				refreshDevices()
 			}
+			result = [:] //api_get_base_result(true)
+			//piston = getChildApps().find{ hashId(it.id) == pistonId };
+			Map t0 = piston.get()
+			result.data = t0 ?: [:]
 			if(requireDb) {
 				debug "Dashboard: get piston ${params?.id} needs new db current: ${serverDbVersion} in server ${clientDbVersion}"
 				result.dbVersion = serverDbVersion
 				theDb = [
-					capabilities: capabilities().sort{ it.value.d },
+					capabilities: capabilities().sort{ (String)it.value.d },
 					commands: [
-						physical: commands().sort{ it.value.d ?: it.value.n },
-						virtual: virtualCommands().sort{ it.value.d ?: it.value.n }
+						physical: commands().sort{ (String)it.value.d ?: (String)it.value.n },
+						virtual: virtualCommands().sort{ (String)it.value.d ?: (String)it.value.n }
 					],
-					attributes: attributes().sort{ it.key },
+					attributes: attributes().sort{ (String)it.key },
 					comparisons: comparisons(),
 					functions: functions(),
 					colors: [
-						standard: colorUtil?.ALL ?: getColors()
+						//standard: colorUtil?.ALL ?: getColors()
+						standard: getColors()
 					],
 				]
 				result.dbVersion = serverDbVersion
 				result.db = theDb
 			}
+			checkResultSize(result, requireDb)
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
 		}
@@ -1067,7 +1125,6 @@ private api_intf_dashboard_piston_get() {
 		result = api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	
-	checkResultSize(result, requireDb)
 
 	//for accuracy, use the time as close as possible to the render
 	result.now = now()
@@ -1084,7 +1141,7 @@ private void checkResultSize(Map result, boolean requireDb = false) {
 		//data saver for hubitat ~100K limit	
 		int responseLength = jsonData.getBytes("UTF-8").length
 		if(responseLength > (107 * 1024)){ //these are loaded anyway right after loading the piston
-			log.warn "Trimming ${ (int)(responseLength/1024) }KB response to smaller size (${requireDb})"
+			warn "Trimming ${ (int)(responseLength/1024) }KB response to smaller size (${requireDb})"
 /*
 			//result.instance = null
 			if(piston && result.data) {
@@ -1106,23 +1163,23 @@ private void checkResultSize(Map result, boolean requireDb = false) {
 			int svLength = responseLength
 			jsonData = groovy.json.JsonOutput.toJson(result)
 			responseLength = jsonData.getBytes("UTF-8").length
-			log.debug "First Trimmed response length: ${ (int)(responseLength/1024) }KB"
+			debug "First Trimmed response length: ${ (int)(responseLength/1024) }KB"
 			if(responseLength == svLength || responseLength > (107 * 1024)) {
-				log.warn "First TRIMMING may be un-successful, trying further trimming ${ (int)(responseLength/1024) }KB"
+				warn "First TRIMMING may be un-successful, trying further trimming ${ (int)(responseLength/1024) }KB"
 				if(requireDb) {
-					result.instance.deviceVersion = 0
-					result.instance.devices = [:]
+					//result.instance.deviceVersion = 0
+					//result.instance.devices = [:]
 					result.data?.systemVars = [:]
 					result.data?.globalVars = [:]
 					result.data?.fuelStreamUrls = [:]
 				}
 				jsonData = groovy.json.JsonOutput.toJson(result)
 				responseLength = jsonData.getBytes("UTF-8").length
-				log.debug "Second Trimmed response length: ${ (int)(responseLength/1024) }KB"
+				debug "Second Trimmed response length: ${ (int)(responseLength/1024) }KB"
 				if(responseLength == svLength || responseLength > (107 * 1024)) {
-					log.warn "Final TRIMMING may be un-successful, you should load a smaller piston then reload this piston ${ (int)(responseLength/1024) }KB"
-				} else log.warn "Final TRIMMING successful, you should load a small piston again to complete IDE update ${ (int)(responseLength/1024) }KB"
-			} else log.warn "First TRIMMING successful"
+					warn "Final TRIMMING may be un-successful, you should load a smaller piston then reload this piston ${ (int)(responseLength/1024) }KB"
+				} else warn "Final TRIMMING successful, you should load a small piston again to complete IDE update ${ (int)(responseLength/1024) }KB"
+			} else warn "First TRIMMING successful"
 		}
 	}
 	//log.debug "Trimmed resonse length: ${jsonData.getBytes("UTF-8").length}"
@@ -1133,9 +1190,9 @@ private void checkResultSize(Map result, boolean requireDb = false) {
 private api_intf_dashboard_piston_backup() {
 	def result = [pistons: []]
 	debug "Dashboard: Request received to backup pistons ${params?.ids}"
-	if(verifySecurityToken(params.token)) {
-		def pistonIds = (params.ids ?: '').tokenize(',')
-		for(pistonId in pistonIds) {
+	if(verifySecurityToken((String)params.token)) {
+		def pistonIds = ((String)params.ids ?: '').tokenize(',')
+		for(String pistonId in pistonIds) {
 			if(pistonId) {
 				def piston = getChildApps().find{ hashId(it.id) == pistonId };
 				if(piston) {
@@ -1147,7 +1204,7 @@ private api_intf_dashboard_piston_backup() {
 							String jsonData = groovy.json.JsonOutput.toJson(result)
 							int responseLength = jsonData.getBytes("UTF-8").length
 							if(responseLength > 110 * 1024) {
-								log.warn "Backup too big ${ (int)(responseLength/1024) }KB response"
+								warn "Backup too big ${ (int)(responseLength/1024) }KB response"
 							}
 						}
 					}
@@ -1168,7 +1225,7 @@ private String decodeEmoji(String value) {
 };
 
 
-private api_intf_dashboard_piston_set_save(id, data, chunks) {
+private api_intf_dashboard_piston_set_save(String id, String data, chunks) {
 	def piston = getChildApps().find{ hashId(it.id) == id };
 	if(piston) {
 	/*
@@ -1192,7 +1249,7 @@ private api_intf_dashboard_piston_set_save(id, data, chunks) {
 private api_intf_dashboard_piston_set() {
 	def result
 	debug "Dashboard: Request received to set a piston"
-	if(verifySecurityToken(params.token)) {
+	if(verifySecurityToken((String)params.token)) {
 		def data = params?.data
 		//save the piston
 		def saved = api_intf_dashboard_piston_set_save(params?.id, data, ['chunk:0' : data])
@@ -1214,11 +1271,11 @@ private api_intf_dashboard_piston_set() {
 private api_intf_dashboard_piston_set_start() {
 	def result
 	debug "Dashboard: Request received to set a piston (chunked start)"
-	if(verifySecurityToken(params.token)) {
+	if(verifySecurityToken((String)params.token)) {
 		def chunks = "${params?.chunks}";
 		chunks = chunks.isInteger() ? chunks.toInteger() : 0;
 		if((chunks > 0) && (chunks < 100)) {
-			atomicState.hash = [:]
+			state.hash = [:]
 			atomicState.chunks = [id: params?.id, count: chunks];
 			result = [status: "ST_READY"]
 		} else {
@@ -1235,8 +1292,8 @@ private api_intf_dashboard_piston_set_chunk() {
 	def chunk = "${params?.chunk}"
 	chunk = chunk.isInteger() ? chunk.toInteger() : -1
 	debug "Dashboard: Request received to set a piston chunk (#${1 + chunk}/${state.chunks?.count})"
-	if(verifySecurityToken(params.token)) {
-		def data = params?.data
+	if(verifySecurityToken((String)params.token)) {
+		String data = params?.data
 		def chunks = state.chunks
 		if(chunks && chunks.count && (chunk >= 0) && (chunk < chunks.count)) {
 			chunks["chunk:$chunk"] = data;
@@ -1254,7 +1311,7 @@ private api_intf_dashboard_piston_set_chunk() {
 private api_intf_dashboard_piston_set_end() {
 	def result
 	debug "Dashboard: Request received to set a piston (chunked end)"
-	if(verifySecurityToken(params.token)) {
+	if(verifySecurityToken((String)params.token)) {
 		def chunks = state.chunks
 		if(chunks && chunks.count) {
 			boolean ok = true
@@ -1276,7 +1333,7 @@ private api_intf_dashboard_piston_set_end() {
 			state.remove("chunks")
 			if(ok) {
 				//save the piston
-				def saved = api_intf_dashboard_piston_set_save(chunks.id, data, chunks.findAll{ it.key.startsWith('chunk:') })
+				def saved = api_intf_dashboard_piston_set_save((String)chunks.id, data, chunks.findAll{ it.key.startsWith('chunk:') })
 				if(saved) {
 					if(saved.rtData) {
 						updateRunTimeData(saved.rtData)
@@ -1301,13 +1358,11 @@ private api_intf_dashboard_piston_set_end() {
 private api_intf_dashboard_piston_pause() {
 	def result
 	debug "Dashboard: Request received to pause a piston"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			def rtData = piston.pausePiston()
 			updateRunTimeData(rtData)
-			//update the state because it will overwrite the atomicState
-			//state[piston.id] = state[piston.id]
 			result = [status: "ST_SUCCESS", active: false]
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
@@ -1321,14 +1376,12 @@ private api_intf_dashboard_piston_pause() {
 private api_intf_dashboard_piston_resume() {
 	def result
 	debug "Dashboard: Request received to resume a piston"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			def rtData = piston.resume()
 			result = rtData.result
 			updateRunTimeData(rtData)
-			//update the state because it will overwrite the atomicState
-			//state[piston.id] = state[piston.id]
 			result.status = "ST_SUCCESS"
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
@@ -1342,8 +1395,8 @@ private api_intf_dashboard_piston_resume() {
 private api_intf_dashboard_piston_test() {
 	def result
 	debug "Dashboard: Request received to test a piston"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			result = piston.test()
 			result.status = "ST_SUCCESS"
@@ -1358,7 +1411,7 @@ private api_intf_dashboard_piston_test() {
 
 private api_intf_dashboard_presence_create() {
 	def result
-	if(verifySecurityToken(params.token)) {
+	if(verifySecurityToken((String)params.token)) {
 		def dni = params.dni
 		def sensor = (dni ? getChildDevices().find{ it.getDeviceNetworkId() == dni } : null) ?: addChildDevice("ady624", handle() + " Presence Sensor", dni ?: hashId("${now()}"), null, [label: params.name])
 		if(sensor) {
@@ -1380,8 +1433,8 @@ private api_intf_dashboard_presence_create() {
 private api_intf_dashboard_piston_tile() {
 	def result
 	debug "Dashboard: Clicked a piston tile"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			result = piston.clickTile(params.tile)
 			result.status = "ST_SUCCESS"
@@ -1397,10 +1450,10 @@ private api_intf_dashboard_piston_tile() {
 private api_intf_dashboard_piston_set_bin() {
 	def result
 	debug "Dashboard: Request received to set piston bin"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
-			result = piston.setBin(params.bin)
+			result = piston.setBin((String)params.bin)
 			result.status = "ST_SUCCESS"
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
@@ -1416,14 +1469,14 @@ private api_intf_dashboard_piston_set_bin() {
 private api_intf_dashboard_piston_set_category() {
 	def result
 	debug "Dashboard: Request received to set piston category"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			result = piston.setCategory(params.category)
-			def st = state[params.id]
+			def st = state[(String)params.id]
 			if(st) {
 				st.c = params.category
-				state[params.id] = st
+				state[(String)params.id] = st
 			}
 			result.status = "ST_SUCCESS"
 		} else {
@@ -1438,8 +1491,8 @@ private api_intf_dashboard_piston_set_category() {
 private api_intf_dashboard_piston_logging() {
 	def result
 	debug "Dashboard: Request received to set piston logging level"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			result = piston.setLoggingLevel(params.level)
 			result.status = "ST_SUCCESS"
@@ -1455,8 +1508,8 @@ private api_intf_dashboard_piston_logging() {
 private api_intf_dashboard_piston_clear_logs() {
 	def result
 	debug "Dashboard: Request received to clear piston logs"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			result = piston.clearLogs()
 			result.status = "ST_SUCCESS"
@@ -1472,13 +1525,13 @@ private api_intf_dashboard_piston_clear_logs() {
 private api_intf_dashboard_piston_delete() {
 	def result
 	debug "Dashboard: Request received to delete a piston"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			app.deleteChildApp(piston.id)
 			result = [status: "ST_SUCCESS"]
-			state.remove(params.id)
-			state.remove('sph${params.id}')
+			state.remove((String)params.id)
+			state.remove('sph${(String)params.id}')
 			broadcastPistonList()
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
@@ -1493,14 +1546,14 @@ private api_intf_location_entered() {
 	def deviceId = params.device
 	def dni = params.dni
 	def device = getChildDevices().find{ (it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
-   	if(device && params.place) device.processEvent([name: 'entered', place: params.place, places: state.settings.places])
+	if(device && params.place) device.processEvent([name: 'entered', place: params.place, places: state.settings.places])
 }
 
 private api_intf_location_exited() {
 	def deviceId = params.device
 	def dni = params.dni
 	def device = getChildDevices().find{ (it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
-   	if(device && params.place) device.processEvent([name: 'exited', place: params.place, places: state.settings.places])
+	if(device && params.place) device.processEvent([name: 'exited', place: params.place, places: state.settings.places])
 }
 
 private api_intf_location_updated() {
@@ -1514,30 +1567,36 @@ private api_intf_location_updated() {
 private api_intf_variable_set() {
 	def result
 	debug "Dashboard: Request received to set a variable"
-	if(verifySecurityToken(params.token)) {
-		def pid = params.id;
-		def name = params.name;
+	if(verifySecurityToken((String)params.token)) {
+		String pid = (String)params.id;
+		String name = (String)params.name;
 		def value = params.value ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.value.decodeBase64(), "UTF-8")) : null
 		Map globalVars
 		Map localVars
 		if(!pid) {
+			boolean chgd = false
 			globalVars = atomicState.vars ?: [:]
 			if(name && !value) {
 				//deleting a variable
 				globalVars.remove(name);
+				chgd = true
 			} else if(value && value.n) {
-				if(!name || (name != value.n)) {
+				if(!name || (name != (String)value.n)) {
 					//add a new variable
 					if(name) globalVars.remove(name);
-					globalVars[value.n] = [t: value.t, v: value.v]
+					globalVars[(String)value.n] = [t: (String)value.t, v: value.v]
+					chgd = true
 				} else {
 					//update a variable
-					globalVars[name] = [t: value.t, v: value.v]
+					globalVars[name] = [t: (String)value.t, v: value.v]
+					chgd = true
 				}
-				sendVariableEvent([name: value.n, value: value.v, type: value.t])
 			}
-			atomicState.vars = globalVars
-			clearGlobalPistonCache("dashboard set")
+			if(chgd) {
+				atomicState.vars = globalVars
+				clearGlobalPistonCache("dashboard set")
+				sendVariableEvent([name: (String)value.n, value: value.v, type: (String)value.t])
+			}
 			result = [status: "ST_SUCCESS"] + [globalVars: globalVars]
 		} else {
 			def piston = getChildApps().find{ hashId(it.id) == pid };
@@ -1566,7 +1625,7 @@ public void writeToFuelStream(req){
 	String name = "${handle()} Fuel Stream"
 	String streamName = "${(req.c ?: "")}||${req.n}"
 	
-	def result = getChildApps().find{ it.name == name && it.label.contains(streamName)}
+	def result = getChildApps().find{ (String)it.name == name && ((String)it.label).contains(streamName)}
 //	def fuelStreams = isHubitat() ? [] : atomicState.fuelStreams ?: []
 	
 	if(!result){
@@ -1576,8 +1635,8 @@ public void writeToFuelStream(req){
 			return
 		}
 */
-		def t0 =  getChildApps().findAll{ it.name == name }.collect{ it.label.split(' - ')[0].toInteger()}.max()
-		def id =  (t0 ?: 0) + 1
+		def t0 = getChildApps().findAll{ (String)it.name == name }.collect{ ((String)it.label).split(' - ')[0].toInteger()}.max()
+		def id = (t0 ?: 0) + 1
 		try {
 			result = addChildApp('ady624', name, "$id - $streamName")
 /*
@@ -1587,12 +1646,12 @@ public void writeToFuelStream(req){
 				atomicState.fuelStreams = fuelStreams
 			}		
 */
-	   		result.createStream([id: id, name: req.n, canister: req.c ?: ""])
+			result.createStream([id: id, name: req.n, canister: req.c ?: ""])
 		}
 		catch(e){
 			error "Please install the webCoRE Fuel Streams app for local Fuel Streams"
 			return
-		}	 	
+		}
 	}
 	result.updateFuelStream(req)
 }
@@ -1600,28 +1659,30 @@ public void writeToFuelStream(req){
 private api_intf_fuelstreams_list() {
 	def result = []
 	debug "Dashboard: Request received to list fuelstreams"
+	//if(verifySecurityToken((String)params.token)) {
 	String name = "${handle()} Fuel Stream"
-	result = getChildApps().findAll{ it.name == name }*.getFuelStream()
+	result = getChildApps().findAll{ (String)it.name == name }*.getFuelStream()
 	
-   	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(["fuelStreams" : result])})"
+	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(["fuelStreams" : result])})"
 }
 
 private api_intf_fuelstreams_get() {
 	def result = []
-	def id = params.id
+	String id = (String)params.id
 	debug "Dashboard: Request received to get fuelstream data $id"
 	
+	//if(verifySecurityToken((String)params.token)) {
 	String name = "${handle()} Fuel Stream"
-	def stream = getChildApps().find { it.name == name && it.label.startsWith("$id -")}
+	def stream = getChildApps().find { (String)it.name == name && ((String)it.label).startsWith("$id -")}
 	result = stream.listFuelStreamData()
 	
-   	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(["points" : result])})"
+	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(["points" : result])})"
 }
 
 private api_intf_settings_set() {
 	def result
 	debug "Dashboard: Request received to set settings"
-	if(verifySecurityToken(params.token)) {
+	if(verifySecurityToken((String)params.token)) {
 		def msettings = params.settings ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.settings.decodeBase64(), "UTF-8")) : null
 		atomicState.settings = msettings
 
@@ -1638,8 +1699,8 @@ private api_intf_settings_set() {
 private api_intf_dashboard_piston_evaluate() {
 	def result
 	debug "Dashboard: Request received to evaluate an expression"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId(it.id) == (String)params.id };
 		if(piston) {
 			def expression = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.expression.decodeBase64(), "UTF-8"))
 			def msg = timer "Evaluating expression"
@@ -1657,8 +1718,8 @@ private api_intf_dashboard_piston_evaluate() {
 private api_intf_dashboard_piston_activity() {
 	def result
 	//debug "Dashboard: Activity request received $params"
-	if(verifySecurityToken(params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == params.id };
+	if(verifySecurityToken((String)params.token)) {
+		def piston = getChildApps().find{ hashId((String)it.id) == (String)params.id };
 		if(piston) {
 			def t0 = piston.activity(params.log)
 			result = [status: "ST_SUCCESS", activity: (t0 ?: [:]) + [globalVars: listAvailableVariables()/*, mode: hashId(location.getCurrentMode().id), shm: location.currentState("alarmSystemStatus")?.value, hubs: location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}*/]]
@@ -1686,7 +1747,7 @@ def api_ifttt() {
 	}
 	data = data + (request?.JSON ?: [:])
 	data.remoteAddr = remoteAddr
-	def eventName = params?.eventName
+	String eventName = (String)params?.eventName
 	if(eventName) {
 		sendLocationEvent([name: "ifttt.${eventName}", value: eventName, isStateChange: true, linkText: "IFTTT event", descriptionText: "${handle()} has received an IFTTT event: $eventName", data: data])
 	}
@@ -1708,20 +1769,20 @@ private api_execute() {
 	def result = [:]
 	def data = [:]
 	def remoteAddr = isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
-	debug "Dashboard or web request received to execute a piston from IP $remoteAddr"
-//log.debug "params ${params}"
+	debug "Dashboard or web request received to execute a piston from IP $remoteAddr  ${request.requestSource}  ${request.HOST}"
+//log.debug "params ${params} request: ${request}"
 	if(params) {
 		data = [:]
 		for(param in params) {
-			if(!(param.key in ['theAccessToken', 'appId', 'action', 'controller', 'pistonIdOrName'])) {
-				data[param.key] = param.value
+			if(!((String)param.key in ['theAccessToken', 'appId', 'action', 'controller', 'pistonIdOrName'])) {
+				data[(String)param.key] = param.value
 			}
 		}
 	}
 	data = data + (request?.JSON ?: [:])
 	data.remoteAddr = remoteAddr
-	def pistonIdOrName = params?.pistonIdOrName
-	def piston = getChildApps().find{ (it.label == pistonIdOrName) || (hashId(it.id) == pistonIdOrName) };
+	String pistonIdOrName = (String)params?.pistonIdOrName
+	def piston = getChildApps().find{ ((String)it.label == pistonIdOrName) || (hashId(it.id) == pistonIdOrName) };
 	if(piston) {
 		sendLocationEvent(name: hashId(piston.id), value: remoteAddr, isStateChange: true, displayed: false, linkText: "Execute event", descriptionText: "External piston execute request from IP $remoteAddr", data: data)
 		result.result = 'OK'
@@ -1739,7 +1800,7 @@ void recoveryHandler() {
 		atomicState.version = version()
 		atomicState.versionHE = HEversion()
 		updated()
-		state.lastRecovered = 0
+		//state.lastRecovered = 0
 	} else {
 		registerInstance(false)
 	}
@@ -1748,7 +1809,7 @@ void recoveryHandler() {
 	long recTime = 900000L  // 15 min in ms
 	if(lastRecovered && (t - lastRecovered < recTime)) return
 
-	atomicState.lastRecovered = t
+	//atomicState.lastRecovered = t
 	state.lastRecovered = t
 	int delay = (int) Math.round(200 * Math.random()) // seconds
 	runIn(delay, finishRecovery)
@@ -1759,12 +1820,15 @@ void finishRecovery() {
 	String name = handle() + ' Piston'
 	long threshold = now() - recTime
 	boolean updateCache = true
-	def failedPistons = getChildApps().findAll{ it.name == name }.collect{ [ id: hashId(it.id, updateCache), 'name': it.label, 'meta': state[hashId(it.id, !updateCache)] ] }.findAll{ it.meta && it.meta.a && it.meta.n && (it.meta.n < threshold) }
+//ERS
+	def failedPistons = getChildApps().findAll{ (String)it.name == name }.collect {
+		String myId = hashId(it.id, updateCache)
+		[ id: myId, 'name': (String)it.label, 'meta': state[myId] ] }.findAll{ it.meta && it.meta.a && it.meta.n && ((long)it.meta.n < threshold) }
 	if(failedPistons.size()) {
 		for (piston in failedPistons) {
 			warn "Piston $piston.name was sent a recovery signal because it was ${now() - piston.meta.n}ms late"
 			int delay = (int) Math.round(5000 * Math.random()) // 5 sec in ms
-			sendLocationEvent(name: piston.id, value: 'recovery', isStateChange: true, displayed: false, linkText: "Recovery event", descriptionText: "Recovery event for piston $piston.name")
+			sendLocationEvent(name: (String)piston.id, value: 'recovery', isStateChange: true, displayed: false, linkText: "Recovery event", descriptionText: "Recovery event for piston $piston.name")
 			pause(delay)
 		}
 	}
@@ -1793,14 +1857,14 @@ private void cleanUp() {
 	state.remove('globalVars')
 	state.remove('devices')
 	state.remove('migratedStorage')
-	def a = api_get_base_result(1, true, true)
+	def a = api_get_base_result(true)
 	} catch (all) {
 	}
 }
 
 private getStorageApp(install = false) {
 	String name = handle() + ' Storage'
-	def storageApp = getChildApps().find{ it.name == name }
+	def storageApp = getChildApps().find{ (String)it.name == name }
 
 	if(storageApp) {
 
@@ -1850,11 +1914,11 @@ private getStorageApp(install = false) {
 	return storageApp
 }
 
-private getDashboardApp(install = false) {
+private getDashboardApp(boolean install = false) {
 	if(!enableDashNotifications) return null
 	String name = handle() + ' Dashboard'
 	String label = app.label + ' (dashboard)'
-	def dashboardApp = getChildApps().find{ it.name == name }
+	def dashboardApp = getChildApps().find{ (String)it.name == name }
 	if(dashboardApp) {
 		if(!enableDashNotifications) {
 			app.deleteChildApp(dashboardApp.id)
@@ -1873,14 +1937,14 @@ private getDashboardApp(install = false) {
 	return dashboardApp
 }
 
-private String customServerUrl(path){
+private String customServerUrl(String path){
 	path ?: ""
 	if(!path.startsWith("/")){
 		path = "/" + path
 	}
 	
 	if(customHubUrl.contains(hubUID)){
-	 	return customHubUrl + "/" + app.id + path
+		return customHubUrl + "/" + app.id + path
 	}
 	return customHubUrl + "/apps/api/" + app.id + path
 }
@@ -1892,14 +1956,14 @@ private String getDashboardInitUrl(register = false) {
 	String t0
 	if(isCustomEndpoint()){
 		//return url + (register ? "register/" : "init/") +	(
-		t0 =  url + (register ? "register/" : "init/") +	(
-			customServerUrl('/?access_token=' + state.accessToken)    ).bytes.encodeBase64()
+		t0 = url + (register ? "register/" : "init/") +	(
+			customServerUrl('/?access_token=' + state.accessToken) ).bytes.encodeBase64()
 	}
 	else {
 		//return url + (register ? "register/" : "init/") +
 		t0 = url + (register ? "register/" : "init/") +
-			 (apiServerUrl("").replace("https://", '').replace(".api.smartthings.com", "").replace(":443", "").replace("/", "") +
-	  		((hubUID ?: state.accessToken) + app.id).replace("-", "") + (isHubitat() ? '/?access_token=' + state.accessToken : '')).bytes.encodeBase64()
+			(apiServerUrl("").replace("https://", '').replace(".api.smartthings.com", "").replace(":443", "").replace("/", "") +
+			((hubUID ?: state.accessToken) + app.id).replace("-", "") + (isHubitat() ? '/?access_token=' + state.accessToken : '')).bytes.encodeBase64()
 	}
 	//log.debug "Url: $t0"
 	return t0
@@ -1910,27 +1974,63 @@ private String getDashboardRegistrationUrl() {
 	return "https://api.${domain()}/dashboard/"
 }
 
-public Map listAvailableDevices(boolean raw = false, boolean updateCache = false) {
+public Map listAvailableDevices(boolean raw = false, boolean updateCache = false, int offset = 0) {
+	long time = now()
 	def storageApp // = getStorageApp()
 	Map result = [:]
 	if(storageApp) {
-		result = storageApp.listAvailableDevices(raw)
+		result = storageApp.listAvailableDevices(raw, offset)
 	} else {
-		def overrides = commandOverrides()
+		def devices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
 		if(raw) {
-			result = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
+			result = devices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
 		} else {
-			result = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}.collectEntries{ id, dev -> [ (id): [ n: dev.getDisplayName(), cn: dev.getCapabilities()*.name, a: dev.getSupportedAttributes().unique{ it.name }.collect{def x = [n: it.name, t: it.getDataType(), o: it.getValues()]; try {x.v = dev.currentValue(x.n);} catch(all) {}; x}, c: dev.getSupportedCommands().unique{ transformCommand(it, overrides) }.collect{[n: transformCommand(it, overrides), p: it.getArguments()]} ]]}
+			def overrides = commandOverrides()
+			int deviceCount = devices.size()
+			devices = devices[offset..-1]
+			result.devices = [:]
+			result.complete = !devices.indexed().find{ idx, dev ->
+//				log.debug "Loaded device at ${idx} after ${now() - time}ms. Data size is ${result.toString().size()}"
+				result.devices[hashId(dev.id)] = [
+					n: dev.getDisplayName(),
+					cn: dev.getCapabilities()*.name,
+					a: dev.getSupportedAttributes().unique{ (String)it.name }.collect{[
+						n: (String)it.name,
+						t: it.getDataType(),
+						o: it.getValues()
+					]},
+					c: dev.getSupportedCommands().unique{ transformCommand(it, overrides) }.collect{[
+						n: transformCommand(it, overrides),
+						p: it.getArguments()
+					]}
+				]
+				boolean stop = false
+				def jsonData = groovy.json.JsonOutput.toJson(result)
+				int responseLength = jsonData.getBytes("UTF-8").length
+				if(responseLength > (70 * 1024)){
+					stop = true // Stop if large
+				}
+				if (idx < devices.size() - 1 && stop) {
+					result.nextOffset = offset + idx + 1
+					return true
+				}
+				false
+			}
+			debug "Generated list of ${offset}-${offset + devices.size()} of ${deviceCount} devices in ${now() - time}ms. Data size is ${result.toString().size()}"
 		}
 	}
-	List presenceDevices = getChildDevices()
-	if(presenceDevices && presenceDevices.size()) {
-		if(raw) {
-			result << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
-		} else {
-			result << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}.collectEntries{ id, dev -> [ (id): [ n: dev.getDisplayName(), cn: dev.getCapabilities()*.name, a: dev.getSupportedAttributes().unique{ it.name }.collect{def x = [n: it.name, t: it.getDataType(), o: it.getValues()]; try {x.v = dev.currentValue(x.n);} catch(all) {}; x}, c: dev.getSupportedCommands().unique{ it.getName() }.collect{[n: it.getName(), p: it.getArguments()]} ]]}
+	if(raw || result.complete) {
+		List presenceDevices = getChildDevices()
+		if(presenceDevices && presenceDevices.size()) {
+			if(raw) {
+				result << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
+			} else {
+				result.devices << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}.collectEntries{ id, dev -> [ (id): [ n: dev.getDisplayName(), cn: dev.getCapabilities()*.name, a: dev.getSupportedAttributes().unique{ (String)it.name }.collect{def x = [n: (String)it.name, t: it.getDataType(), o: it.getValues()]; x}, c: dev.getSupportedCommands().unique{ it.getName() }.collect{[n: it.getName(), p: it.getArguments()]} ]]}
+			}
 		}
 	}
+	return result
+}
 
 //To add devices to the poll list:
 //sendLocationEvent(name: "startZwavePoll", value: devList)
@@ -1943,10 +2043,6 @@ public Map listAvailableDevices(boolean raw = false, boolean updateCache = false
 //You can determine if Z-Wave Poller is installed with this:
 //isAppInstalled("hubitat", "Z-Wave Poller", "SYSTEM")
 
-
-	return result
-}
-
 private def transformCommand(command, overrides){
 	def override = overrides[command.getName()]
 	if(override && override.s == command.getArguments()?.toString()){
@@ -1956,7 +2052,7 @@ private def transformCommand(command, overrides){
 }
 
 
-private setPowerSource(powerSource, atomic = true) {
+private void setPowerSource(String powerSource, atomic = true) {
 	if(state.powerSource == powerSource) return
 	if(atomic) {
 		atomicState.powerSource = powerSource
@@ -1967,11 +2063,11 @@ private setPowerSource(powerSource, atomic = true) {
 }
 
 public Map listAvailableVariables() {
-	return (state.vars ?: [:]).sort{ it.key }
+	return (state.vars ?: [:]).sort{ (String)it.key }
 }
 
 public Map getGStore() {
-	return (state.store ?: [:]).sort{it.key }
+	return (state.store ?: [:]).sort{ (String)it.key }
 }
 
 public getPushDev() {
@@ -1983,19 +2079,19 @@ private void initTokens() {
 	state.securityTokens = [:]
 }
 
-private Boolean verifySecurityToken(tokenId) {
+private Boolean verifySecurityToken(String tokenId) {
 	//trace "verifySecurityToken ${tokenId}"
 	def tokens = state.securityTokens
 	if(!tokens || !tokenId) return false
 	long threshold = now()
 	boolean modified = false
 	//remove all expired tokens
-	for (token in tokens.findAll{ it.value < threshold }) {
-		tokens.remove(token.key)
+	for (token in tokens.findAll{ (long)it.value < threshold }) {
+		tokens.remove((String)token.key)
 		modified = true
 	}
 	if(modified) {
-		atomicState.securityTokens = tokens
+		state.securityTokens = tokens
 	}
 	def token = tokens[tokenId]
 	if(!token || token < now()) {
@@ -2021,11 +2117,10 @@ private String createSecurityToken() {
 	}
 	tokens[token] = now() + (mexpiry * 1000)
 	state.securityTokens = tokens
-	//state.securityTokens = tokens
 	return token
 }
 
-private ping() {
+private void ping() {
 	sendLocationEvent( [name: handle(), value: 'ping', isStateChange: true, displayed: false, linkText: "${handle()} ping reply", descriptionText: "${handle()} has received a ping reply and is replying with a pong", data: [id: hashId(app.id), name: app.label]] )
 }
 
@@ -2057,7 +2152,8 @@ private boolean stopDashboard() {
 	if(state.dashboard != 'inactive') atomicState.dashboard = 'inactive'
 }
 
-private testIFTTT() {
+/*
+private boolean testIFTTT() {
 	//setup our security descriptor
 	state.modules = state.modules ?: [:]
 	state.modules["IFTTT"] = [
@@ -2077,6 +2173,7 @@ private testIFTTT() {
 	}
 	return false
 }
+*/
 
 /*
 private testLifx() {
@@ -2098,20 +2195,20 @@ private testLifx() {
 }
 */
 
-private registerInstance(boolean force=true) {
-	if(state.installed && settings.agreement) {
+private void registerInstance(boolean force=true) {
+	if(state.installed && settings.agreement && !isCustomEndpoint()) {
 		long lastReg = state.lastReg ? (long) state.lastReg : 0L
 		if(!force && lastReg && (now() - lastReg < 129600000)) return // 36 hr in ms
 		long lastRegTry = state.lastRegTry ? (long) state.lastRegTry : 0L
-		if(!force && lastRegTry && (now() - lastRegTry < 1800000))  return // 30 min in ms
+		if(!force && lastRegTry && (now() - lastRegTry < 1800000)) return // 30 min in ms
 		state.lastRegTry = now()
 		String accountId = hashId(hubUID ?: app.getAccountId())
 		String locationId = hashId(location.id + (isHubitat() ? '-L' : ''))
 		String instanceId = hashId(app.id)
 		String endpoint = state.endpoint
-		def region = endpoint.contains('graph-eu') ? 'eu' : 'us';
+		String region = endpoint.contains('graph-eu') ? 'eu' : 'us';
 		String name = handle() + ' Piston'
-		def pistons = getChildApps().findAll{ it.name == name }.collect{ String t0 = hashId(it.id, true); [ id: t0, a: state[t0]?.a ] }
+		def pistons = getChildApps().findAll{ (String)it.name == name }.collect{ String t0 = hashId(it.id, true); [ id: t0, a: state[t0]?.a ] }
 //log.debug "pistons: ${pistons}"
 		List lpa = pistons.findAll{ it.a }.collect{ it.id }
 		def pa = lpa.size()
@@ -2142,14 +2239,17 @@ private registerInstance(boolean force=true) {
 	}
 }
 
-def myDone(resp, data) {
-	debug "register resp: ${resp?.status}"
+public void myDone(resp, data) {
+	String endpoint = state.endpoint
+	String region = endpoint.contains('graph-eu') ? 'eu' : 'us';
+	String instanceId = hashId(app.id)
+	debug "register resp: ${resp?.status} using api-${region}-${instanceId[32]}.webcore.co:9247"
 	if(resp?.status == 200) {
 		state.lastReg = now()
 	}
 }
 
-private initSunriseAndSunset() {
+private Map initSunriseAndSunset() {
 	def sunTimes = app.getSunriseAndSunset()
 	if(!sunTimes.sunrise) {
 		warn "Actual sunrise and sunset times are unavailable; please reset the location for your hub", rtData
@@ -2164,22 +2264,21 @@ private initSunriseAndSunset() {
 	return state.sunTimes
 }
 
-private getSunTimes() {
+private Map getSunTimes() {
 	def updated = state.sunTimes?.updated ?: 0
 	//we require an update every 8 hours
 	if(!updated || (now() - updated < 28800000)) return state.sunTimes
 	return initSunriseAndSunset()
 }
 
-private getMidnightTime(rtData) {
-	def rightNow = localTime()
-	return localToUtcTime(rightNow - rightNow.mod(86400000))
+private long getMidnightTime(rtData) {
+	return timeToday("00:00", location.timeZone).getTime()
 }
 
 /******************************************************************************/
-/*** 																		***/
+/***																		***/
 /*** PUBLIC METHODS															***/
-/*** 																		***/
+/***																		***/
 /******************************************************************************/
 public Boolean isInstalled() {
 	return !!state.installed
@@ -2291,6 +2390,7 @@ public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
 
 public void updateRunTimeData(data) {
 	if(!data || !data.id) return
+	boolean superGlobal = false
 	List variableEvents = []
 	if(data && data.gvCache) {
 		Map vars = atomicState.vars ?: [:]
@@ -2300,10 +2400,16 @@ public void updateRunTimeData(data) {
 				variableEvents.push([name: var.key, oldValue: vars[var.key].v, value: var.value.v, type: var.value.t])
 				vars[var.key].v = var.value.v
 				modified = true
+				if(var.key.startsWith('@@')) {
+					superGlobal = true
+				}
 			}
 		}
 		if(modified) {
 			atomicState.vars = vars
+		}
+		if(superGlobal) {
+			//clearGlobalPistonCache("superGlobal updated")
 		}
 	}
 	if(data && data.gvStoreCache) {
@@ -2336,7 +2442,7 @@ public void updateRunTimeData(data) {
 	//atomicState[id] = piston
 	state[id] = piston
 	//broadcast variable change events
-	for (variable in variableEvents) {
+	for (variable in variableEvents) { // this notifies the other webCoRE master instances
 		sendVariableEvent(variable)
 		//int delay = (int) Math.round(2000 * Math.random())
 		//pause(delay)
@@ -2395,27 +2501,56 @@ public Map getWData() {
 	return t0
 }
 
-private sendVariableEvent(variable) {
-	sendLocationEvent([name: (variable.name.startsWith('@@') ? '@@' + handle() : hashId(app.id)) + ".${variable.name}", value: variable.name, isStateChange: true, displayed: false, linkText: "${handle()} global variable ${variable.name} changed", descriptionText: "${handle()} global variable ${variable.name} changed", data: [id: hashId(app.id), name: app.label, event: 'variable', variable: variable]])
+private void sendVariableEvent(variable, boolean onlyChildren=false) {
+// This notifies other webCoRE master instances of super change
+	if( !onlyChildren && variable.name.startsWith('@@') ) {
+		String str = "${handle()} Super global variable ${variable.name} changed"
+		sendLocationEvent([name: ('@@' + handle() + ".${variable.name}"), value: variable.name, isStateChange: true, displayed: false, linkText: str, descriptionText: str, data: [id: hashId(app.id), name: app.label, event: 'variable', variable: variable]])
+	}
+	//sendLocationEvent([name: (variable.name.startsWith('@@') ? '@@' + handle() : hashId(app.id)) + ".${variable.name}", value: variable.name, isStateChange: true, displayed: false, linkText: "${handle()} global variable ${variable.name} changed", descriptionText: "${handle()} global variable ${variable.name} changed", data: [id: hashId(app.id), name: app.label, event: 'variable', variable: variable]])
+
+// this notifies my children
+	String str = "${handle()} global variable ${variable.name} changed"
+	sendLocationEvent([name: (hashId(app.id)) + ".${variable.name}", value: variable.name, isStateChange: true, displayed: false, linkText: str, descriptionText: str, data: [id: hashId(app.id), name: app.label, event: 'variable', variable: variable]])
 }
 
 private broadcastPistonList() {
-//public getWCendpoints()  need to share endpoints if someone is going to execute (or do they only send event to piston??)  arguments?
-	sendLocationEvent([name: handle(), value: 'pistonList', isStateChange: true, displayed: false, data: [id: hashId(app.id), name: app.label, pistons: getChildApps().findAll{ it.name == "${handle()} Piston" }.collect{[id: hashId(it.id), name: it.label]}]])
+//public getWCendpoints() need to share endpoints if someone is going to execute (or do they only send event to piston??) arguments?
+//ERS
+	sendLocationEvent(
+		[
+			name: handle(),
+			value: 'pistonList',
+			isStateChange: true,
+			displayed: false,
+			data: [
+				id: hashId(app.id),
+				name: app.label,
+				pistons: getChildApps().findAll{ (String)it.name == "${handle()} Piston" }.collect{
+					[
+						id: hashId(it.id),
+						name: normalizeLabel(it)
+					]}
+			]
+		])
 }
 
 def webCoREHandler(event) {
+// receive notification of super Global change
 	if(!event || (!event.name.endsWith(handle()))) return;
 	def data = event.jsonData ?: null
 //log.error "GOT EVENT WITH DATA $data"
-	if(data && data.variable && (data.event == 'variable') && event.value && event.value.startsWith('@')) {
+	if(data && data.variable && ((String)data.event == 'variable') && event.value && event.value.startsWith('@')) {
 		Map vars = atomicState.vars ?: [:]
 		Map variable = data.variable
-		def oldVar = vars[variable.name] ?: [t:'', v:'']
-		if((oldVar.t != variable.type) || (oldVar.v != variable.value)) {
-			vars[variable.name] = [t: variable.type ? variable.type : 'dynamic', v: variable.value]
+		def oldVar = vars[(String)variable.name] ?: [t:'', v:'']
+		String vType = (String)variable.type ?: 'dynamic'
+		if(((String)oldVar.t != vType) || (oldVar.v != variable.value)) {
+			vars[(String)variable.name] = [t: vType, v: variable.value]
 			atomicState.vars = vars
 			clearGlobalPistonCache("variable event")
+// notify my child instances
+			sendVariableEvent([name: (String)variable.name, value: variable.value, type: vType], true)
 		}
 		return;
 	}
@@ -2498,8 +2633,55 @@ def hsmHandler(evt){
 	state.hsmStatus = evt.value
 }
 
+def hsmAlertHandler(evt){
+//push incidents
+	String title = "HSM Alert: $evt.value" + (evt.value == "rule" ? ",  $evt.descriptionText" : "")
+
+	Map alert = [
+		date:evt.date.getTime(),
+		title: title,
+		message: "",
+		args: evt.data,
+		sourceType: "",
+		v:evt.value,
+		des:evt.descriptionText,
+		//d: evt.data
+	]
+
+	String locStat = (String)location.hsmStatus
+	String evV = evt.value
+
+	List alerts = atomicState.hsmAlerts
+	alerts = alerts ?: []
+	alerts.push(alert)
+	if(locStat == 'allDisarmed' || evV == 'cancel') alerts = []
+	atomicState.hsmAlerts = alerts
+	atomicState.hsmAlert = alert
+
+	def a = getIncidents()
+
+//	long incidentThreshold = now() - 604800000 // 1 week
+//	List newAlerts = alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold }
+//	List new2Alerts = newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }
+//	atomicState.hsmAlerts = new2Alerts
+
+	info "HSM Alert: $evt.value" + (evV == "rule" ? ",  $evt.descriptionText" : "")
+}
+
+public List getIncidents() {
+	long incidentThreshold = now() - 604800000
+	String locStat = (String)location.hsmStatus
+	List alerts = atomicState.hsmAlerts
+	alerts = alerts ?: []
+	if(locStat == 'allDisarmed') alerts = []
+	List newAlerts = alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold }
+	List new2Alerts = newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }
+	atomicState.hsmAlerts = new2Alerts
+	return new2Alerts
+}
+
 def startHandler(evt){
-	log.debug "startHandler called"
+	debug "startHandler called"
 	state.lastRecovered = 0
 	state.lastReg = 0
 	runIn(20, startWork)
@@ -2545,7 +2727,7 @@ private String md5(String md5) {
 	String result = ""
 	for (int i = 0; i < array.length; ++i) {
 		result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
-   	}
+	}
 	return result
 	} catch (java.security.NoSuchAlgorithmException e) {
 	}
@@ -2559,7 +2741,7 @@ private String hashId(id, updateCache = true) {
 	def hash = [:]
 	if(state.hash) {
 		hash = state.hash
-		result = (String) hash."${myId}"
+		result = (String)hash."${myId}"
 	}
 	if(!result) {
 		result = ":${md5("core." + id)}:"
@@ -2578,16 +2760,16 @@ private String temperatureUnit() {
 /******************************************************************************/
 /*** DEBUG FUNCTIONS														***/
 /******************************************************************************/
-private debug(message, shift = null, err = null, String cmd = null) {
+private Map log(message, shift = null, err = null, String cmd = (String)null) {
 	if(cmd == "timer") {
 		return [m: message, t: now(), s: shift, e: err]
 	}
 	if(message instanceof Map) {
 		shift = message.s
 		err = message.e
-		message = message.m + " (${now() - message.t}ms)"
+		message = (String)message.m + " (${now() - (long)message.t}ms)"
 	}
-	String myMsg = message
+	String myMsg = (String)message
 	if(!settings.logging && (cmd != "error")) {
 		return
 	}
@@ -2638,11 +2820,12 @@ private debug(message, shift = null, err = null, String cmd = null) {
 	}
 }
 
-private void info  (message, shift=null, err=null)	{ debug message, shift, err, 'info' }
-private void trace (message, shift=null, err=null)	{ debug message, shift, err, 'trace' }
-private void warn  (message, shift=null, err=null)	{ debug message, shift, err, 'warn' }
-private void error (message, shift=null, err=null)	{ debug message, shift, err, 'error' }
-private timer (message, shift=null, err=null)	{ debug message, shift, err, 'timer' }
+private void info(message, shift=null, err=null)	{ def a = log message, shift, err, 'info' }
+private void debug(message, shift=null, err=null)	{ def a = log message, shift, err, 'debug' }
+private void trace(message, shift=null, err=null)	{ def a = log message, shift, err, 'trace' }
+private void warn(message, shift=null, err=null)	{ def a = log message, shift, err, 'warn' }
+private void error(message, shift=null, err=null)	{ def a = log message, shift, err, 'error' }
+private Map timer(message, shift=null, err=null)	{ log message, shift, err, 'timer' }
 
 private boolean isCustomEndpoint(){
 	customEndpoints && (customHubUrl ?: "") != ""
@@ -2662,7 +2845,7 @@ private boolean isCustomEndpoint(){
 private static Map capabilities() {
 	return [
 		accelerationSensor		: [ n: "Acceleration Sensor",		d: "acceleration sensors",		a: "acceleration",								],
-		actuator			: [ n: "Actuator", 			d: "actuators",														],
+		actuator			: [ n: "Actuator",			d: "actuators",														],
 		alarm				: [ n: "Alarm",				d: "alarms and sirens",			a: "alarm",		c: ["off", "strobe", "siren", "both"],			],
 		audioNotification		: [ n: "Audio Notification",		d: "audio notification devices",				c: ["playText", "playTextAndResume", "playTextAndRestore", "playTrack", "playTrackAndResume", "playTrackAndRestore"],			],
 		audioVolume			: [ n: "Audio Volume",			d: "audio volume devices",		a: "volume",		c: ["mute", "setVolume", "unmute", "volumeDown", "volumeUp"],			],
@@ -2681,15 +2864,15 @@ private static Map capabilities() {
 		contactSensor			: [ n: "Contact Sensor",		d: "contact sensors",			a: "contact",									],
 		doorControl			: [ n: "Door Control",			d: "automatic doors",			a: "door",		c: ["close", "open"],					],
 		energyMeter			: [ n: "Energy Meter",			d: "energy meters",			a: "energy",									],
-		estimatedTimeOfArrival		: [ n: "Estimated Time of Arrival", 	d: "moving devices (ETA)",		a: "eta",									],
-		fanControl			: [ n: "Fan Control", 			d: "fan devices",			a: "speed",		c: ["setSpeed"],					],
+		estimatedTimeOfArrival		: [ n: "Estimated Time of Arrival",	d: "moving devices (ETA)",		a: "eta",									],
+		fanControl			: [ n: "Fan Control",			d: "fan devices",			a: "speed",		c: ["setSpeed"],					],
 		garageDoorControl		: [ n: "Garage Door Control",		d: "automatic garage doors",		a: "door",		c: ["close", "open"],					],
 		illuminanceMeasurement		: [ n: "Illuminance Measurement",	d: "illuminance sensors",		a: "illuminance",										],
 		imageCapture			: [ n: "Image Capture",			d: "cameras, imaging devices",		a: "image",		c: ["take"],						],
 		indicator			: [ n: "Indicator",			d: "indicator devices",			a: "indicatorStatus",	c: ["indicatorNever", "indicatorWhenOn", "indicatorWhenOff"],		],
 		infraredLevel			: [ n: "Infrared Level",		d: "adjustable infrared lights",	a: "infraredLevel",	c: ["setInfraredLevel"],						],
 		light				: [ n: "Light",				d: "lights",				a: "switch",		c: ["off", "on"],							],
-		lock				: [ n: "Lock",				d: "electronic locks",			a: "lock",		c: ["lock", "unlock"],	s:"numberOfCodes,numCodes", i: "usedCode", 	],
+		lock				: [ n: "Lock",				d: "electronic locks",			a: "lock",		c: ["lock", "unlock"],	s:"numberOfCodes,numCodes", i: "usedCode",	],
 		lockCodes			: [ n: "Lock Codes",			d: "locks lock codes",			a: "codeChanged",	c: ["deleteCode", "getCodes", "setCode", "setCodeLength"],		],
 		lockOnly			: [ n: "Lock Only",			d: "electronic locks (lock only)",	a: "lock",		c: ["lock"],								],
 		mediaController			: [ n: "Media Controller",		d: "media controllers",			a: "currentActivity",	c: ["startActivity", "getAllActivities", "getCurrentActivity"],		],
@@ -2706,7 +2889,7 @@ private static Map capabilities() {
 		refresh				: [ n: "Refresh",			d: "refreshable devices",					c: ["refresh"],								],
 		relativeHumidityMeasurement	: [ n: "Relative Humidity Measurement",	d: "humidity sensors",			a: "humidity",											],
 		relaySwitch			: [ n: "Relay Switch",			d: "relay switches",			a: "switch",		c: ["off", "on"],							],
-		securityKeypad			: [ n: "Security Keypad",		d: "security keypads",			a: "securityKeypad",	c: ["armAway", "armHome", "deleteCode", "disarm", "getCodes", "setCode", "setCodeLength", "setEntryDelay", "setExitDelay"], 										],
+		securityKeypad			: [ n: "Security Keypad",		d: "security keypads",			a: "securityKeypad",	c: ["armAway", "armHome", "deleteCode", "disarm", "getCodes", "setCode", "setCodeLength", "setEntryDelay", "setExitDelay"],										],
 		sensor				: [ n: "Sensor",			d: "sensors",				a: "sensor",											],
 		shockSensor			: [ n: "Shock Sensor",			d: "shock sensors",			a: "shock",											],
 		signalStrength			: [ n: "Signal Strength",		d: "wireless devices",			a: "rssi",											],
@@ -2738,12 +2921,12 @@ private static Map capabilities() {
 		voltageMeasurement		: [ n: "Voltage Measurement",		d: "voltmeters",			a: "voltage",											],
 		waterSensor			: [ n: "Water Sensor",			d: "water and leak sensors",		a: "water",											],
 		windowShade			: [ n: "Window Shade",			d: "automatic window shades",		a: "windowShade",	c: ["close", "open", "setPosition"],					],
-		momentary			: [ n: "Momentary",			d: "momentary switches",		a: "momentary",		m: true, 	c: ["pushMomentary"],					],
-		doubleTapableButton		: [ n: "Double Tapable Button",		d: "double tapable buttons",		a: "doubleTapped",	m: true, /*c: ["doubleTap"],  s: "numberOfButtons,numButtons", i: "buttonNumber",*/	],
+		momentary			: [ n: "Momentary",			d: "momentary switches",		a: "momentary",		m: true,	c: ["pushMomentary"],					],
+		doubleTapableButton		: [ n: "Double Tapable Button",		d: "double tapable buttons",		a: "doubleTapped",	m: true, /*c: ["doubleTap"], s: "numberOfButtons,numButtons", i: "buttonNumber",*/	],
 //		holdableButton			: [ n: "Holdable Button",		d: "holdable buttons",			a: "button",		m: true,	s: "numberOfButtons,numButtons", i: "buttonNumber",			],
 		holdableButton			: [ n: "Holdable Button",		d: "holdable buttons",			a: "held",		m: true, /*c: ["hold"], s: "numberOfButtons,numButtons", i: "buttonNumber",*/		],
 		pushableButton			: [ n: "Pushable Button",		d: "pushable buttons",			a: "pushed",		m: true, /*c: ["push"], s: "numberOfButtons,numButtons", i: "buttonNumber",*/		],
-		releasableButton		: [ n: "Releasable Button",		d: "releaseable buttons",		a: "released",	 	m: true, /*s: "numberOfButtons,numButtons", i: "buttonNumber",*/			]
+		releasableButton		: [ n: "Releasable Button",		d: "releaseable buttons",		a: "released",		m: true, /*s: "numberOfButtons,numButtons", i: "buttonNumber",*/			]
 	]
 }
 
@@ -2769,12 +2952,12 @@ public Map getChildAttributes() {
 private static Map attributes() {
 	return [
 		acceleration			: [ n: "acceleration",			t: "enum",		o: ["active", "inactive"],						],
-		activities			: [ n: "activities", 			t: "object",											],
-		alarm				: [ n: "alarm", 			t: "enum",		o: ["both", "off", "siren", "strobe"],					],
+		activities			: [ n: "activities",			t: "object",											],
+		alarm				: [ n: "alarm",			t: "enum",		o: ["both", "off", "siren", "strobe"],					],
 		axisX				: [ n: "X axis",			t: "integer",	r: [-1024, 1024],	s: "threeAxis",						],
 		axisY				: [ n: "Y axis",			t: "integer",	r: [-1024, 1024],	s: "threeAxis",						],
 		axisZ				: [ n: "Z axis",			t: "integer",	r: [-1024, 1024],	s: "threeAxis",						],
-		battery				: [ n: "battery", 			t: "integer",	r: [0, 100],		u: "%",							],
+		battery				: [ n: "battery",			t: "integer",	r: [0, 100],		u: "%",							],
 		carbonDioxide			: [ n: "carbon dioxide",		t: "decimal",	r: [0, null],									],
 		carbonMonoxide			: [ n: "carbon monoxide",		t: "enum",		o: ["clear", "detected", "tested"],					],
 		codeChanged			: [ n: "lock code",			t: "enum",		o: ["added", "changed", "deleted", "failed"],				],
@@ -2870,17 +3053,17 @@ private static Map attributes() {
 //		speed				: [ n: "speed",				t: "decimal",	r: [null, null],	u: "ft/s",						],
 		speedMetric			: [ n: "speed (metric)",		t: "decimal",	r: [null, null],	u: "m/s",						],
 		bearing				: [ n: "bearing",			t: "decimal",	r: [0, 360],		u: "°",							],
-		doubleTapped			: [ n: "double tapped button", 		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
-		held				: [ n: "held button", 			t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
+		doubleTapped			: [ n: "double tapped button",		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
+		held				: [ n: "held button",			t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
 		released			: [ n: "released button",		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
-		pushed				: [ n: "pushed button", 		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			]
+		pushed				: [ n: "pushed button",		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			]
 	]
 }
 
 /* Push command has multiple overloads in hubitat */
 private Map commandOverrides(){
 	return ( [ //s: command signature
-//	 	push	: [c: "push",	s: null , r: "pushMomentary"],
+//		push	: [c: "push",	s: null , r: "pushMomentary"],
 		flash	: [c: "flash",	s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
 	] )
 }
@@ -2911,10 +3094,10 @@ private static Map commands() {
 		close				: [ n: "Close",					a: "door",					v: "close",						],
 		configure			: [ n: "Configure",		i: 'cog',														],
 		cool				: [ n: "Set to Cool",		i: 'snowflake', is: 'l',	a: "thermostatMode",		v: "cool",						],
-		deleteCode			: [ n: "Delete Code...",		d: "Delete code {0}",			p: [[n:"Code position",t:"integer"]], 		 			],
-		deviceNotification		: [ n: "Send device notification...",	d: "Send device notification \"{0}\"",			p: [[n:"Message",t:"string"]],  			],
+		deleteCode			: [ n: "Delete Code...",		d: "Delete code {0}",			p: [[n:"Code position",t:"integer"]],					],
+		deviceNotification		: [ n: "Send device notification...",	d: "Send device notification \"{0}\"",			p: [[n:"Message",t:"string"]],			],
 		disarm				: [ n: "Disarm",				a: "securityKeypad",				v: "disarmed",						],
-		eco				: [ n: "Set to Eco",		i: 'leaf', 	a: "thermostatMode",				v: "eco",						],
+		eco				: [ n: "Set to Eco",		i: 'leaf',	a: "thermostatMode",				v: "eco",						],
 		emergencyHeat			: [ n: "Set to Emergency Heat",			a: "thermostatMode",				v: "emergency heat",					],
 		fanAuto				: [ n: "Set fan to Auto",			a: "thermostatFanMode",				v: "auto",						],
 		fanCirculate			: [ n: "Set fan to Circulate",			a: "thermostatFanMode",				v: "circulate",						],
@@ -2936,30 +3119,30 @@ private static Map commands() {
 		play				: [ n: "Play",																		],
 		playSound			: [ n: "Play Sound",				d: "Play Sound {0}",		p: [[n:"Sound Number", t:"integer"]],					],
 		playText			: [ n: "Speak text...",				d: "Speak text \"{0}\"",	p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]]	],
-		playTextAndRestore		: [ n: "Speak text and restore...",		d: "Speak text \"{0}\" and restore",	p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],  													],
-		playTextAndResume		: [ n: "Speak text and resume...",		d: "Speak text \"{0}\" and resume",	p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],  													],
-		playTrack			: [ n: "Play track...",					d: "Play track {0}{1}",		p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],  												],
-		playTrackAndRestore		: [ n: "Play track and restore...",		d: "Play track {0}{1} and restore",	p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],  	],
-		playTrackAndResume		: [ n: "Play track and resume...",		d: "Play track {0}{1} and resume",	p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],  	],
+		playTextAndRestore		: [ n: "Speak text and restore...",		d: "Speak text \"{0}\" and restore",	p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],													],
+		playTextAndResume		: [ n: "Speak text and resume...",		d: "Speak text \"{0}\" and resume",	p: [[n:"Text",t:"string"], [n:"Volume", t:"level", d:" at volume {v}"]],													],
+		playTrack			: [ n: "Play track...",					d: "Play track {0}{1}",		p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],												],
+		playTrackAndRestore		: [ n: "Play track and restore...",		d: "Play track {0}{1} and restore",	p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
+		playTrackAndResume		: [ n: "Play track and resume...",		d: "Play track {0}{1} and resume",	p: [[n:"Track URL",t:"uri"], [n:"Volume", t:"level", d:" at volume {v}"]],	],
 		poll				: [ n: "Poll",						i: 'question',											],
 //		presetPosition			: [ n: "Move to preset position",		a: "windowShade",		v: "partially open",	],
 		previousTrack			: [ n: "Previous track",										],
 		push				: [ n: "Push",																		],
 		refresh				: [ n: "Refresh",					i: 'sync',											],
-		restoreTrack			: [ n: "Restore track...",				d: "Restore track <uri>{0}</uri>",							p: [[n:"Track URL",t:"url"]],  			],
-		resumeTrack			: [ n: "Resume track...",				d: "Resume track <uri>{0}</uri>",							p: [[n:"Track URL",t:"url"]],  			],
-		setCode				: [ n: "Set Code...",				d: "Set code {0} to {1} {2}",						p: [[n:"Code Position",t:"integer"], [n:"Pin", t:"string"], [n:"Name", t:"string"]],  							],
-		setCodeLength			: [ n: "Set Code Max Length...",		d: "Set code length to {0}",						p: [[n:"Code Length",t:"integer"]],  						],
-		setColor			: [ n: "Set color...",		i: 'palette', is: "l",	d: "Set color to {0}{1}",			a: "color",				p: [[n:"Color",t:"color"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],  							],
+		restoreTrack			: [ n: "Restore track...",				d: "Restore track <uri>{0}</uri>",							p: [[n:"Track URL",t:"url"]],			],
+		resumeTrack			: [ n: "Resume track...",				d: "Resume track <uri>{0}</uri>",							p: [[n:"Track URL",t:"url"]],			],
+		setCode				: [ n: "Set Code...",				d: "Set code {0} to {1} {2}",						p: [[n:"Code Position",t:"integer"], [n:"Pin", t:"string"], [n:"Name", t:"string"]],							],
+		setCodeLength			: [ n: "Set Code Max Length...",		d: "Set code length to {0}",						p: [[n:"Code Length",t:"integer"]],						],
+		setColor			: [ n: "Set color...",		i: 'palette', is: "l",	d: "Set color to {0}{1}",			a: "color",				p: [[n:"Color",t:"color"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],							],
 		setColorTemperature		: [ n: "Set color temperature...",		d: "Set color temperature to {0}°K{1}",			a: "colorTemperature",			p: [[n:"Color Temperature", t:"colorTemperature"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
 		setConsumableStatus		: [ n: "Set consumable status...",		d: "Set consumable status to {0}",								p: [[n:"Status", t:"consumable"]],		],
-		setCoolingSetpoint		: [ n: "Set cooling point...",			d: "Set cooling point at {0}{T}",			a: "thermostatCoolingSetpoint",		p: [[n:"Desired temperature", t:"thermostatSetpoint"]], 	],
-		setEntryDelay			: [ n: "Set Entry Delay...",			d: "Set entry delay to {0}",									p: [[n:"Entry Delay",t:"integer"]],  				],
-		setExitDelay			: [ n: "Set Exit Delay...",			d: "Set exit delay to {0}",									p: [[n:"Exit Delay",t:"integer"]],  				],
-		setHeatingSetpoint		: [ n: "Set heating point...",			d: "Set heating point at {0}{T}",			a: "thermostatHeatingSetpoint",		p: [[n:"Desired temperature", t:"thermostatSetpoint"]], 																	],
-		setHue				: [ n: "Set hue...",		i: 'palette', is: "l",	d: "Set hue to {0}°{1}",			a: "hue",				p: [[n:"Hue", t:"hue"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 								],
-		setInfraredLevel		: [ n: "Set infrared level...",	i: 'signal',	d: "Set infrared level to {0}%{1}",			a: "infraredLevel",			p: [[n:"Level",t:"infraredLevel"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 					],
-		setLevel			: [ n: "Set level...",		i: 'signal',	d: "Set level to {0}%{1}",				a: "level",				p: [[n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]], 							],
+		setCoolingSetpoint		: [ n: "Set cooling point...",			d: "Set cooling point at {0}{T}",			a: "thermostatCoolingSetpoint",		p: [[n:"Desired temperature", t:"thermostatSetpoint"]],	],
+		setEntryDelay			: [ n: "Set Entry Delay...",			d: "Set entry delay to {0}",									p: [[n:"Entry Delay",t:"integer"]],				],
+		setExitDelay			: [ n: "Set Exit Delay...",			d: "Set exit delay to {0}",									p: [[n:"Exit Delay",t:"integer"]],				],
+		setHeatingSetpoint		: [ n: "Set heating point...",			d: "Set heating point at {0}{T}",			a: "thermostatHeatingSetpoint",		p: [[n:"Desired temperature", t:"thermostatSetpoint"]],																	],
+		setHue				: [ n: "Set hue...",		i: 'palette', is: "l",	d: "Set hue to {0}°{1}",			a: "hue",				p: [[n:"Hue", t:"hue"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],								],
+		setInfraredLevel		: [ n: "Set infrared level...",	i: 'signal',	d: "Set infrared level to {0}%{1}",			a: "infraredLevel",			p: [[n:"Level",t:"infraredLevel"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],					],
+		setLevel			: [ n: "Set level...",		i: 'signal',	d: "Set level to {0}%{1}",				a: "level",				p: [[n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],							],
 		setPosition			: [ n: "Move to position",										a: "position",				p: [[n:"Position", t:"position"]],		],
 		setSaturation			: [ n: "Set saturation...",			d: "Set saturation to {0}{1}",				a: "saturation",			p: [[n:"Saturation", t:"saturation"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],					],
 		setSchedule			: [ n: "Set thermostat schedule...",		d: "Set schedule to {0}",				a: "schedule",				p: [[n:"Schedule", t:"object"]],			],
@@ -2967,7 +3150,7 @@ private static Map commands() {
 		setThermostatFanMode		: [ n: "Set fan mode...",			d: "Set fan mode to {0}",				a: "thermostatFanMode",			p: [[n:"Fan mode", t:"thermostatFanMode"]],	],
 		setThermostatMode		: [ n: "Set thermostat mode...",		d: "Set thermostat mode to {0}",			a: "thermostatMode",			p: [[n:"Thermostat mode",t:"thermostatMode"]],	],
 		setTimeRemaining		: [ n: "Set remaining time...",			d: "Set remaining time to {0}s",			a: "timeRemaining",			p: [[n:"Remaining time [seconds]", t:"number"]],	],
-		setTrack			: [ n: "Set track...",				d: "Set track to <uri>{0}</uri>",								p: [[n:"Track URL",t:"url"]], 			],
+		setTrack			: [ n: "Set track...",				d: "Set track to <uri>{0}</uri>",								p: [[n:"Track URL",t:"url"]],			],
 		setVolume			: [ n: "Set Volume...",				d: "Set Volume to {0}",					a: "volume",				p:[[n:"Level",t:"volume"]],			],
 		siren				: [ n: "Siren",												a: "alarm",				v: "siren",					],
 		speak				: [ n: "Speak...",				d: "Speak \"{0}\"",										p: [[n:"Message", t:"string"]],			],
@@ -2993,7 +3176,7 @@ private static Map commands() {
 		stopLoop			: [ n: "Stop color loop",																					],
 		setLoopTime			: [ n: "Set loop duration...",			d: "Set loop duration to {0}",				p: [[n:"Duration", t:"duration"]]							],
 		setDirection			: [ n: "Switch loop direction",																					],
-		alert				: [ n: "Alert with lights...",			d: "Alert \"{0}\" with lights",				p: [[n:"Alert type", t:"enum", o:["Blink","Breathe","Okay","Stop"]]], 			],
+		alert				: [ n: "Alert with lights...",			d: "Alert \"{0}\" with lights",				p: [[n:"Alert type", t:"enum", o:["Blink","Breathe","Okay","Stop"]]],			],
 		setAdjustedColor		: [ n: "Transition to color...",		d: "Transition to color {0} in {1}{2}",			p: [[n:"Color", t:"color"], [n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																	],
 		setAdjustedHSLColor		: [ n: "Transition to HSL color...",		d: "Transition to color H:{0}° / S:{1}% / L:{2}% in {3}{4}",			p: [[n:"Hue", t:"hue"],[n:"Saturation", t:"saturation"],[n:"Level", t:"level"],[n:"Duration",t:"duration"],[n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																	],
 		//harmony
@@ -3009,7 +3192,7 @@ private static Map commands() {
 		ledOn				: [ n: "Turn LED on",																						],
 		ledOff				: [ n: "Turn LED off",																						],
 		ledAuto				: [ n: "Set LED to Auto",																					],
-		setVideoLength			: [ n: "Set video length...",			d: "Set video length to {0}", 				p: [[n:"Duration", t:"duration"]], 							],
+		setVideoLength			: [ n: "Set video length...",			d: "Set video length to {0}",				p: [[n:"Duration", t:"duration"]],							],
 		//dlink camera
 		pirOn				: [ n: "Enable PIR motion detection",																																																											],
 		pirOff				: [ n: "Disable PIR motion detection",																																																											],
@@ -3031,13 +3214,13 @@ private static Map commands() {
 		presetSix			: [ n: "Pan camera to preset #6",																																																												],
 		presetSeven			: [ n: "Pan camera to preset #7",																																																												],
 		presetEight			: [ n: "Pan camera to preset #8",																																																												],
-		presetCommand			: [ n: "Pan camera to preset...",		d: "Pan camera to preset #{0}",																				p: [[n:"Preset #", t:"integer",r:[1,99]]], 																					],
+		presetCommand			: [ n: "Pan camera to preset...",		d: "Pan camera to preset #{0}",																				p: [[n:"Preset #", t:"integer",r:[1,99]]],																					],
 		//zwave fan speed control by @pmjoen
 //		low				: [ n: "Set to Low",						a: "speed",	v: "low",																																																									],
 //		med				: [ n: "Set to Medium",						a: "speed",	v: "medium",																																																									],
 //		high				: [ n: "Set to High",						a: "speed",	v: "high",																																																									],
 
-		flashNative			: [ n: "Flash",																		   				]
+		flashNative			: [ n: "Flash",																						]
 //		doubleTap			: [ n: "Double Tap",				d: "Double tap button {0}",			a: "doubleTapped",			p:[[n: "Button #", t: "integer"]]	],
 //		hold				: [ n: "Hold",					d: "Hold Button {0}",				a: "held",				p: [[n:"Button #", t: "integer"]]	],
 //		push				: [ n: "Push",					d: "Push button {0}",				a: "pushed",				p:[[n: "Button #", t: "integer"]]	],
@@ -3070,7 +3253,7 @@ private static Map virtualCommands() {
 	List tileIndexes = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16']
 	return [
 		noop				: [ n: "No operation",			a: true,	i: "circle",				d: "No operation",						],
-		wait				: [ n: "Wait...", 			a: true,	i: "clock", is: "r",				d: "Wait {0}",						p: [[n:"Duration", t:"duration"]],				],
+		wait				: [ n: "Wait...",			a: true,	i: "clock", is: "r",				d: "Wait {0}",						p: [[n:"Duration", t:"duration"]],				],
 		waitRandom			: [ n: "Wait randomly...",		a: true,	i: "clock", is: "r",				d: "Wait randomly between {0} and {1}",									p: [[n:"At least", t:"duration"],[n:"At most", t:"duration"]],	],
 		waitForTime			: [ n: "Wait for time...",		a: true,	i: "clock", is: "r",				d: "Wait until {0}",													p: [[n:"Time", t:"time"]],	],
 		waitForDateTime			: [ n: "Wait for date & time...",	a: true,	i: "clock", is: "r",				d: "Wait until {0}",													p: [[n:"Date & Time", t:"datetime"]],	],
@@ -3078,16 +3261,16 @@ private static Map virtualCommands() {
 		pausePiston			: [ n: "Pause piston...",		a: true,	i: "clock", is: "r",				d: "Pause piston \"{0}\"",												p: [[n:"Piston", t:"piston"]],	],
 		resumePiston			: [ n: "Resume piston...",		a: true,	i: "clock", is: "r",				d: "Resume piston \"{0}\"",												p: [[n:"Piston", t:"piston"]],	],
 		executeRule			: [ n: "Execute Rule...",		a: true,	i: "clock", is: "r",				d: "Execute Rule \"{0}\" with action {1}",											p: [[n:"Rule", t:"rule"], [n:"Argument", t:"enum", o:['Run','Stop','Pause','Resume','Evaluate','Set Boolean True','Set Boolean False']] ]	],
-		toggle				: [ n: "Toggle", r: ["on", "off"], 			i: "toggle-on"																				],
-		toggleRandom			: [ n: "Random toggle", r: ["on", "off"], 		i: "toggle-on",				d: "Random toggle{0}",													p: [[n:"Probability for on", t:"level", d:" with a {v}% probability for on"]],	],
+		toggle				: [ n: "Toggle", r: ["on", "off"],			i: "toggle-on"																				],
+		toggleRandom			: [ n: "Random toggle", r: ["on", "off"],		i: "toggle-on",				d: "Random toggle{0}",													p: [[n:"Probability for on", t:"level", d:" with a {v}% probability for on"]],	],
 		setSwitch			: [ n: "Set switch...", r: ["on", "off"],		i: "toggle-on",			d: "Set switch to {0}",													p: [[n:"Switch value", t:"switch"]],																],
-		setHSLColor			: [ n: "Set color... (hsl)", 				i: "palette", is: "l",				d: "Set color to H:{0}° / S:{1}% / L%:{2}{3}",				r: ["setColor"],				p: [[n:"Hue",t:"hue"], [n:"Saturation",t:"saturation"], [n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],  							],
-		toggleLevel			: [ n: "Toggle level...", 				i: "toggle-off",			d: "Toggle level between 0% and {0}%",	r: ["on", "off", "setLevel"],	p: [[n:"Level", t:"level"]],																																	],
+		setHSLColor			: [ n: "Set color... (hsl)",				i: "palette", is: "l",				d: "Set color to H:{0}° / S:{1}% / L%:{2}{3}",				r: ["setColor"],				p: [[n:"Hue",t:"hue"], [n:"Saturation",t:"saturation"], [n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],							],
+		toggleLevel			: [ n: "Toggle level...",				i: "toggle-off",			d: "Toggle level between 0% and {0}%",	r: ["on", "off", "setLevel"],	p: [[n:"Level", t:"level"]],																																	],
 		sendNotification		: [ n: "Send notification...",		a: true,	i: "comment-alt", is: "r",			d: "Send notification \"{0}\"",											p: [[n:"Message", t:"string"]],												],
 		sendPushNotification		: [ n: "Send PUSH notification...",	a: true,	i: "comment-alt", is: "r",			d: "Send PUSH notification \"{0}\"{1}",									p: [[n:"Message", t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 		sendSMSNotification		: [ n: "Send SMS notification...",	a: true,	i: "comment-alt", is: "r",			d: "Send SMS notification \"{0}\" to {1}{2}",							p: [[n:"Message", t:"string"],[n:"Phone number",t:"phone",w:"HE requires +countrycode in phone number."],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
 		log				: [ n: "Log to console...",		a: true,	i: "bug",					d: "Log {0} \"{1}\"{2}",												p: [[n:"Log type", t:"enum", o:["info","trace","debug","warn","error"]],[n:"Message",t:"string"],[n:"Store in Messages", t:"boolean", d:" and store in Messages", s:1]],	],
-		httpRequest			: [ n: "Make a web request",		a: true, 	i: "anchor", is: "r",				d: "Make a {1} request to {0}",					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
+		httpRequest			: [ n: "Make a web request",		a: true,	i: "anchor", is: "r",				d: "Make a {1} request to {0}",					p: [[n:"URL", t:"uri"],[n:"Method", t:"enum", o:["GET","POST","PUT","DELETE","HEAD"]],[n:"Request body type", t:"enum", o:["JSON","FORM","CUSTOM"]],[n:"Send variables", t:"variables", d:"data {v}"],[n:"Request body", t:"string", d:"data {v}"],[n:"Request content type", t:"enum", o:["text/plain","text/html","application/json","application/x-www-form-urlencoded","application/xml"]],[n:"Authorization header", t:"string", d:"{v}"]],	],
 		setVariable			: [ n: "Set variable...",		a: true,	i: "superscript", is:"r",			d: "Set variable {0} = {1}",											p: [[n:"Variable",t:"variable"],[n:"Value", t:"dynamic"]],	],
 		setState			: [ n: "Set piston state...",		a: true,	i: "align-left", is:"l",			d: "Set piston state to \"{0}\"",										p: [[n:"State",t:"string"]],	],
 		setTileColor			: [ n: "Set piston tile colors...",	a: true,	i: "info-square", is:"l",			d: "Set piston tile #{0} colors to {1} over {2}{3}",					p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
@@ -3095,37 +3278,37 @@ private static Map virtualCommands() {
 		setTileOTitle			: [ n: "Set piston tile mouseover title...",	a: true,	i: "info-square", is:"l",		d: "Set piston tile #{0} mouseover title to \"{1}\"",								p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"]],	],
 		setTileText			: [ n: "Set piston tile text...",	a: true,	i: "info-square", is:"l",			d: "Set piston tile #{0} text to \"{1}\"",								p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Text",t:"string"]],	],
 		setTileFooter			: [ n: "Set piston tile footer...",	a: true,	i: "info-square", is:"l",			d: "Set piston tile #{0} footer to \"{1}\"",							p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Footer",t:"string"]],	],
-		setTile				: [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",			d: "Set piston tile #{0} title  to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
+		setTile				: [ n: "Set piston tile...",		a: true,	i: "info-square", is:"l",			d: "Set piston tile #{0} title to \"{1}\", text to \"{2}\", footer to \"{3}\", and colors to {4} over {5}{6}",		p: [[n:"Tile Index",t:"enum",o:tileIndexes],[n:"Title",t:"string"],[n:"Text",t:"string"],[n:"Footer",t:"string"],[n:"Text Color",t:"color"],[n:"Background Color",t:"color"],[n:"Flash mode",t:"boolean",d:" (flashing)"]],	],
 		clearTile			: [ n: "Clear piston tile...",		a: true,	i: "info-square", is:"l",			d: "Clear piston tile #{0}",											p: [[n:"Tile Index",t:"enum",o:tileIndexes]],	],
-		setLocationMode			: [ n: "Set location mode...",		a: true,	i: "", 						d: "Set location mode to {0}", 											p: [[n:"Mode",t:"mode"]],																														],
-		sendEmail			: [ n: "Send email...",			a: true,	i: "envelope", 				d: "Send email with subject \"{1}\" to {0}", 							p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],																							],
-		wolRequest			: [ n: "Wake a LAN device", 		a: true,	i: "", 						d: "Wake LAN device at address {0}{1}",									p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
-		adjustLevel			: [ n: "Adjust level...",	 r: ["setLevel"], 	i: "toggle-on",				d: "Adjust level by {0}%{1}",											p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		adjustInfraredLevel		: [ n: "Adjust infrared level...",	 r: ["setInfraredLevel"], 	i: "toggle-on",	d: "Adjust infrared level by {0}%{1}",								p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		adjustSaturation		: [ n: "Adjust saturation...",	 r: ["setSaturation"], 	i: "toggle-on",		d: "Adjust saturation by {0}%{1}",										p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		adjustHue			: [ n: "Adjust hue...",	 r: ["setHue"], 		i: "toggle-on",					d: "Adjust hue by {0}°{1}",												p: [[n:"Adjustment",t:"integer",r:[-360,360]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		adjustColorTemperature		: [ n: "Adjust color temperature...",	 r: ["setColorTemperature"], 	i: "toggle-on",				d: "Adjust color temperature by {0}°K%{1}",		p: [[n:"Adjustment",t:"integer",r:[-29000,29000]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		fadeLevel			: [ n: "Fade level...",	 r: ["setLevel"], 		i: "toggle-on",				d: "Fade level{0} to {1}% in {2}{3}",									p: [[n:"Starting level",t:"level",d:" from {v}%"],[n:"Final level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		fadeInfraredLevel		: [ n: "Fade infrared level...",	 r: ["setInfraredLevel"], 		i: "toggle-on",				d: "Fade infrared level{0} to {1}% in {2}{3}",		p: [[n:"Starting infrared level",t:"level",d:" from {v}%"],[n:"Final infrared level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		fadeSaturation			: [ n: "Fade saturation...",	 r: ["setSaturation"], 		i: "toggle-on",				d: "Fade saturation{0} to {1}% in {2}{3}",					p: [[n:"Starting saturation",t:"level",d:" from {v}%"],[n:"Final saturation",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		fadeHue				: [ n: "Fade hue...",			 r: ["setHue"], 		i: "toggle-on",				d: "Fade hue{0} to {1}° in {2}{3}",								p: [[n:"Starting hue",t:"hue",d:" from {v}°"],[n:"Final hue",t:"hue"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		fadeColorTemperature		: [ n: "Fade color temperature...",		 r: ["setColorTemperature"], 		i: "toggle-on",				d: "Fade color temperature{0} to {1}°K in {2}{3}",									p: [[n:"Starting color temperature",t:"colorTemperature",d:" from {v}°K"],[n:"Final color temperature",t:"colorTemperature"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		flash				: [ n: "Flash...",	 r: ["on", "off"], 		i: "toggle-on",				d: "Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		flashLevel			: [ n: "Flash (level)...",	 r: ["setLevel"],	i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",						p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		flashColor			: [ n: "Flash (color)...",	 r: ["setColor"], 	i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",							p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
-		writeToFuelStream		: [ n: "Write to fuel stream...",  		a: true, 							d: "Write data point '{2}' to fuel stream {0}{1}{3}", 					p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],					],
+		setLocationMode			: [ n: "Set location mode...",		a: true,	i: "",						d: "Set location mode to {0}",											p: [[n:"Mode",t:"mode"]],																														],
+		sendEmail			: [ n: "Send email...",			a: true,	i: "envelope",				d: "Send email with subject \"{1}\" to {0}",							p: [[n:"Recipient",t:"email"],[n:"Subject",t:"string"],[n:"Message body",t:"string"]],																							],
+		wolRequest			: [ n: "Wake a LAN device",		a: true,	i: "",						d: "Wake LAN device at address {0}{1}",									p: [[n:"MAC address",t:"string"],[n:"Secure code",t:"string",d:" with secure code {v}"]],	],
+		adjustLevel			: [ n: "Adjust level...",	r: ["setLevel"],	i: "toggle-on",				d: "Adjust level by {0}%{1}",											p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		adjustInfraredLevel		: [ n: "Adjust infrared level...",	r: ["setInfraredLevel"],	i: "toggle-on",	d: "Adjust infrared level by {0}%{1}",								p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		adjustSaturation		: [ n: "Adjust saturation...",	r: ["setSaturation"],	i: "toggle-on",		d: "Adjust saturation by {0}%{1}",										p: [[n:"Adjustment",t:"integer",r:[-100,100]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		adjustHue			: [ n: "Adjust hue...",	r: ["setHue"],		i: "toggle-on",					d: "Adjust hue by {0}°{1}",												p: [[n:"Adjustment",t:"integer",r:[-360,360]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		adjustColorTemperature		: [ n: "Adjust color temperature...",	r: ["setColorTemperature"],	i: "toggle-on",				d: "Adjust color temperature by {0}°K%{1}",		p: [[n:"Adjustment",t:"integer",r:[-29000,29000]], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		fadeLevel			: [ n: "Fade level...",	r: ["setLevel"],		i: "toggle-on",				d: "Fade level{0} to {1}% in {2}{3}",									p: [[n:"Starting level",t:"level",d:" from {v}%"],[n:"Final level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		fadeInfraredLevel		: [ n: "Fade infrared level...",	r: ["setInfraredLevel"],		i: "toggle-on",				d: "Fade infrared level{0} to {1}% in {2}{3}",		p: [[n:"Starting infrared level",t:"level",d:" from {v}%"],[n:"Final infrared level",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		fadeSaturation			: [ n: "Fade saturation...",	r: ["setSaturation"],		i: "toggle-on",				d: "Fade saturation{0} to {1}% in {2}{3}",					p: [[n:"Starting saturation",t:"level",d:" from {v}%"],[n:"Final saturation",t:"level"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		fadeHue				: [ n: "Fade hue...",			r: ["setHue"],		i: "toggle-on",				d: "Fade hue{0} to {1}° in {2}{3}",								p: [[n:"Starting hue",t:"hue",d:" from {v}°"],[n:"Final hue",t:"hue"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		fadeColorTemperature		: [ n: "Fade color temperature...",		r: ["setColorTemperature"],		i: "toggle-on",				d: "Fade color temperature{0} to {1}°K in {2}{3}",									p: [[n:"Starting color temperature",t:"colorTemperature",d:" from {v}°K"],[n:"Final color temperature",t:"colorTemperature"],[n:"Duration",t:"duration"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		flash				: [ n: "Flash...",	r: ["on", "off"],		i: "toggle-on",				d: "Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		flashLevel			: [ n: "Flash (level)...",	r: ["setLevel"],	i: "toggle-on",		d: "Flash {0}% {1} / {2}% {3} for {4} times{5}",						p: [[n:"Level 1", t:"level"],[n:"Duration 1",t:"duration"],[n:"Level 2", t:"level"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		flashColor			: [ n: "Flash (color)...",	r: ["setColor"],	i: "toggle-on",		d: "Flash {0} {1} / {2} {3} for {4} times{5}",							p: [[n:"Color 1", t:"color"],[n:"Duration 1",t:"duration"],[n:"Color 2", t:"color"],[n:"Duration 2",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																],
+		writeToFuelStream		: [ n: "Write to fuel stream...",		a: true,							d: "Write data point '{2}' to fuel stream {0}{1}{3}",					p: [[n: "Canister", t:"text", d:"{v} \\ "], [n:"Fuel stream name", t:"text"], [n: "Data", t:"dynamic"], [n: "Data source", t:"text", d:" from source '{v}'"]],					],
 		iftttMaker			: [ n: "Send an IFTTT Maker event...",	a: true,							d: "Send the {0} IFTTT Maker event{1}{2}{3}",							p: [[n:"Event", t:"text"], [n:"Value 1", t:"string", d:", passing value1 = '{v}'"], [n:"Value 2", t:"string", d:", passing value2 = '{v}'"], [n:"Value 3", t:"string", d:", passing value3 = '{v}'"]],				],
-		storeMedia			: [ n: "Store media...",		 		a: true, 							d: "Store media", 														p: [],					],
-		saveStateLocally		: [ n: "Capture attributes to local store...", 								d: "Capture attributes {0} to local state{1}{2}",						p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'], d:' only if store is empty']], ],
-		loadStateLocally		: [ n: "Restore attributes from local store...", 							d: "Restore attributes {0} from local state{1}{2}",						p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
+		storeMedia			: [ n: "Store media...",				a: true,							d: "Store media",														p: [],					],
+		saveStateLocally		: [ n: "Capture attributes to local store...",								d: "Capture attributes {0} to local state{1}{2}",						p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Prevent overwriting existing state', t:'enum', o:['true','false'], d:' only if store is empty']], ],
+		loadStateLocally		: [ n: "Restore attributes from local store...",							d: "Restore attributes {0} from local state{1}{2}",						p: [[n: "Attributes", t:"attributes"],[n:'State container name',t:'string',d:' "{v}"'],[n:'Empty state after restore', t:'enum', o:['true','false'], d:' and empty the store']], ],
 		parseJson			: [ n: "Parse JSON data...",			a: true,							d: "Parse JSON data {0}",												p: [[n: "JSON string", t:"string"]],																											],
 		cancelTasks			: [ n: "Cancel all pending tasks",		a: true,							d: "Cancel all pending tasks",											p: [],																											],
 
 	
 		setAlarmSystemStatus		: [ n: "Set Hubitat Safety Monitor status...",	a: true, i: "",				d: "Set Hubitat Safety Monitor status to {0}",							p: [[n:"Status", t:"enum", o: getAlarmSystemStatusActions().collect {[n: it.value, v: it.key]}]],																										],
 		//keep emulated flash to not break old pistons
-		emulatedFlash			: [ n: "(Old do not use) Emulated Flash",	 r: ["on", "off"], 			i: "toggle-on",				d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																], //add back emulated flash with "o" option so that it overrides the native flash command
-		flash				: [ n: "Flash...",	 r: ["on", "off"], 			i: "toggle-on",				d: "Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		o: true /*override physical command*/													]
+		emulatedFlash			: [ n: "(Old do not use) Emulated Flash",	r: ["on", "off"],			i: "toggle-on",				d: "(Old do not use)Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],																], //add back emulated flash with "o" option so that it overrides the native flash command
+		flash				: [ n: "Flash...",	r: ["on", "off"],			i: "toggle-on",				d: "Flash on {0} / off {1} for {2} times{3}",							p: [[n:"On duration",t:"duration"],[n:"Off duration",t:"duration"],[n:"Number of flashes",t:"integer"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],		o: true /*override physical command*/													]
 	]
 }
 
@@ -3161,10 +3344,10 @@ private static Map comparisons() {
 		conditions: [
 			changed				: [ d: "changed",									g:"bdfis",				t: 1,	],
 			did_not_change			: [ d: "did not change",								g:"bdfis",				t: 1,	],
-			is 				: [ d: "is",				dd: "are",					g:"bs",		p: 1					],
-			is_not	 			: [ d: "is not",			dd: "are not",					g:"bs",		p: 1					],
-			is_any_of 			: [ d: "is any of",			dd: "are any of",				g:"s",		p: 1,	m: true,			],
-			is_not_any_of 			: [ d: "is not any of",			dd: "are not any of",				g:"s",		p: 1,	m: true,			],
+			is				: [ d: "is",				dd: "are",					g:"bs",		p: 1					],
+			is_not				: [ d: "is not",			dd: "are not",					g:"bs",		p: 1					],
+			is_any_of			: [ d: "is any of",			dd: "are any of",				g:"s",		p: 1,	m: true,			],
+			is_not_any_of			: [ d: "is not any of",			dd: "are not any of",				g:"s",		p: 1,	m: true,			],
 			is_equal_to			: [ d: "is equal to",			dd: "are equal to",				g:"di",		p: 1					],
 			is_different_than		: [ d: "is different than",		dd: "are different than",			g:"di",		p: 1					],
 			is_less_than			: [ d: "is less than",			dd: "are less than",				g:"di",		p: 1					],
@@ -3175,18 +3358,18 @@ private static Map comparisons() {
 			is_outside_of_range		: [ d: "is outside of range",		dd: "are outside of range",			g:"di",		p: 2					],
 			is_even				: [ d: "is even",			dd: "are even",					g:"di",							],
 			is_odd				: [ d: "is odd",			dd: "are odd",					g:"di",							],
-			was 				: [ d: "was",				dd: "were",					g:"bs",		p: 1,			t: 2,	],
-			was_not 			: [ d: "was not",			dd: "were not",					g:"bs",		p: 1,			t: 2,	],
-			was_any_of 			: [ d: "was any of",			dd: "were any of",				g:"s",		p: 1,	m: true,	t: 2,	],
-			was_not_any_of 			: [ d: "was not any of",		dd: "were not any of",				g:"s",		p: 1,	m: true,	t: 2,	],
-			was_equal_to 			: [ d: "was equal to",			dd: "were equal to",				g:"di",		p: 1,			t: 2,	],
-			was_different_than 		: [ d: "was different than",		dd: "were different than",			g:"di",		p: 1,			t: 2,	],
-			was_less_than 			: [ d: "was less than",			dd: "were less than",				g:"di",		p: 1,			t: 2,	],
-			was_less_than_or_equal_to 	: [ d: "was less than or equal to",	dd: "were less than or equal to",		g:"di",		p: 1,			t: 2,	],
-			was_greater_than 		: [ d: "was greater than",		dd: "were greater than",			g:"di",		p: 1,			t: 2,	],
-			was_greater_than_or_equal_to 	: [ d: "was greater than or equal to",	dd: "were greater than or equal to",		g:"di",		p: 1,			t: 2,	],
-			was_inside_of_range 		: [ d: "was inside of range",		dd: "were inside of range",			g:"di",		p: 2,			t: 2,	],
-			was_outside_of_range 		: [ d: "was outside of range",		dd: "were outside of range",			g:"di",		p: 2,			t: 2,	],
+			was				: [ d: "was",				dd: "were",					g:"bs",		p: 1,			t: 2,	],
+			was_not			: [ d: "was not",			dd: "were not",					g:"bs",		p: 1,			t: 2,	],
+			was_any_of			: [ d: "was any of",			dd: "were any of",				g:"s",		p: 1,	m: true,	t: 2,	],
+			was_not_any_of			: [ d: "was not any of",		dd: "were not any of",				g:"s",		p: 1,	m: true,	t: 2,	],
+			was_equal_to			: [ d: "was equal to",			dd: "were equal to",				g:"di",		p: 1,			t: 2,	],
+			was_different_than		: [ d: "was different than",		dd: "were different than",			g:"di",		p: 1,			t: 2,	],
+			was_less_than			: [ d: "was less than",			dd: "were less than",				g:"di",		p: 1,			t: 2,	],
+			was_less_than_or_equal_to	: [ d: "was less than or equal to",	dd: "were less than or equal to",		g:"di",		p: 1,			t: 2,	],
+			was_greater_than		: [ d: "was greater than",		dd: "were greater than",			g:"di",		p: 1,			t: 2,	],
+			was_greater_than_or_equal_to	: [ d: "was greater than or equal to",	dd: "were greater than or equal to",		g:"di",		p: 1,			t: 2,	],
+			was_inside_of_range		: [ d: "was inside of range",		dd: "were inside of range",			g:"di",		p: 2,			t: 2,	],
+			was_outside_of_range		: [ d: "was outside of range",		dd: "were outside of range",			g:"di",		p: 2,			t: 2,	],
 			was_even			: [ d: "was even",			dd: "were even",				g:"di",					t: 2,	],
 			was_odd				: [ d: "was odd",			dd: "were odd",					g:"di",					t: 2,	],
 			is_any				: [ d: "is any",									g:"t",		p: 0					],
@@ -3200,11 +3383,11 @@ private static Map comparisons() {
 			happens_daily_at		: [ d: "happens daily at",								g:"t",		p: 1					],
 			arrives				: [ d: "arrives",									g:"e",		p: 2					],
 			executes			: [ d: "executes",									g:"v",		p: 1					],
-			changes 			: [ d: "changes",			dd: "change",					g:"bdfis",						],
-			changes_to 			: [ d: "changes to",			dd: "change to",				g:"bdis",	p: 1,					],
-			changes_away_from 		: [ d: "changes away from",		dd: "change away from",				g:"bdis",	p: 1,					],
-			changes_to_any_of 		: [ d: "changes to any of",		dd: "change to any of",				g:"dis",	p: 1,	m: true,			],
-			changes_away_from_any_of 	: [ d: "changes away from any of",	dd: "change away from any of",			g:"dis",	p: 1,	m: true,			],
+			changes			: [ d: "changes",			dd: "change",					g:"bdfis",						],
+			changes_to			: [ d: "changes to",			dd: "change to",				g:"bdis",	p: 1,					],
+			changes_away_from		: [ d: "changes away from",		dd: "change away from",				g:"bdis",	p: 1,					],
+			changes_to_any_of		: [ d: "changes to any of",		dd: "change to any of",				g:"dis",	p: 1,	m: true,			],
+			changes_away_from_any_of	: [ d: "changes away from any of",	dd: "change away from any of",			g:"dis",	p: 1,	m: true,			],
 			drops				: [ d: "drops",				dd: "drop",					g:"di",							],
 			does_not_drop			: [ d: "does not drop",			dd: "do not drop",				g:"di",							],
 			drops_below			: [ d: "drops below",			dd: "drop below",				g:"di",		p: 1,					],
@@ -3213,7 +3396,7 @@ private static Map comparisons() {
 			remains_below_or_equal_to	: [ d: "remains below or equal to",	dd: "remains below or equal to",		g:"di",		p: 1,					],
 			rises				: [ d: "rises",				dd: "rise",					g:"di",							],
 			does_not_rise			: [ d: "does not rise",			dd: "do not rise",				g:"di",							],
-			receives 			: [ d: "receives",			dd: "receive",					g:"bdis",	p: 1,					],
+			receives			: [ d: "receives",			dd: "receive",					g:"bdis",	p: 1,					],
 			rises_above			: [ d: "rises above",			dd: "rise above",				g:"di",		p: 1,					],
 			rises_to_or_above		: [ d: "rises to or above",		dd: "rise to or above",				g:"di",		p: 1,					],
 			remains_above			: [ d: "remains above",			dd: "remains above",				g:"di",		p: 1,					],
@@ -3227,18 +3410,18 @@ private static Map comparisons() {
 			becomes_odd			: [ d: "becomes odd",			dd: "become odd",				g:"di",							],
 			remains_odd			: [ d: "remains odd",			dd: "remain odd",				g:"di",							],
 			stays_unchanged			: [ d: "stays unchanged",		dd: "stay unchanged",				g:"bdfis",				t: 1,	],
-			stays	 			: [ d: "stays",				dd: "stay",					g:"bdis",	p: 1,			t: 1,	],
+			stays				: [ d: "stays",				dd: "stay",					g:"bdis",	p: 1,			t: 1,	],
 			stays_away_from			: [ d: "stays away from",		dd: "stay away from",				g:"bdis",	p: 1,			t: 1,	],
 			stays_any_of			: [ d: "stays any of",			dd: "stay any of",				g:"dis",	p: 1,	m: true,	t: 1,	],
 			stays_away_from_any_of		: [ d: "stays away from any of",	dd: "stay away from any of",			g:"bdis",	p: 1,	m: true,	t: 1,	],
-			stays_equal_to 			: [ d: "stays equal to",		dd: "stay equal to",				g:"di",		p: 1,			t: 1,	],
+			stays_equal_to			: [ d: "stays equal to",		dd: "stay equal to",				g:"di",		p: 1,			t: 1,	],
 			stays_different_than		: [ d: "stays different than",		dd: "stay different than",			g:"di",		p: 1,			t: 1,	],
-			stays_less_than 		: [ d: "stays less than",		dd: "stay less than",				g:"di",		p: 1,			t: 1,	],
-			stays_less_than_or_equal_to 	: [ d: "stays less than or equal to",	dd: "stay less than or equal to",		g:"di",		p: 1,			t: 1,	],
-			stays_greater_than 		: [ d: "stays greater than",		dd: "stay greater than",			g:"di",		p: 1,			t: 1,	],
-			stays_greater_than_or_equal_to 	: [ d: "stays greater than or equal to",	dd: "stay greater than or equal to",	g:"di",		p: 1,			t: 1,	],
-			stays_inside_of_range 		: [ d: "stays inside of range",		dd: "stay inside of range",			g:"di",		p: 2,			t: 1,	],
-			stays_outside_of_range 		: [ d: "stays outside of range",	dd: "stay outside of range",			g:"di",		p: 2,			t: 1,	],
+			stays_less_than		: [ d: "stays less than",		dd: "stay less than",				g:"di",		p: 1,			t: 1,	],
+			stays_less_than_or_equal_to	: [ d: "stays less than or equal to",	dd: "stay less than or equal to",		g:"di",		p: 1,			t: 1,	],
+			stays_greater_than		: [ d: "stays greater than",		dd: "stay greater than",			g:"di",		p: 1,			t: 1,	],
+			stays_greater_than_or_equal_to	: [ d: "stays greater than or equal to",	dd: "stay greater than or equal to",	g:"di",		p: 1,			t: 1,	],
+			stays_inside_of_range		: [ d: "stays inside of range",		dd: "stay inside of range",			g:"di",		p: 2,			t: 1,	],
+			stays_outside_of_range		: [ d: "stays outside of range",	dd: "stay outside of range",			g:"di",		p: 2,			t: 1,	],
 			stays_even			: [ d: "stays even",			dd: "stay even",				g:"di",					t: 1,	],
 			stays_odd			: [ d: "stays odd",			dd: "stay odd",					g:"di",					t: 1,	],
 		]
@@ -3247,41 +3430,41 @@ private static Map comparisons() {
 
 private static Map functions() {
 	return [
-	  	age			: [ t: "integer",						],
-	  	previousage		: [ t: "integer",	d: "previousAge",	],
-	  	previousvalue		: [ t: "dynamic",	d: "previousValue",	],
-	  	newer			: [ t: "integer",						],
-	  	older			: [ t: "integer",						],
-	  	least			: [ t: "dynamic",						],
-	  	most			: [ t: "dynamic",						],
-	  	avg			: [ t: "decimal",						],
-	  	variance		: [ t: "decimal",						],
-	  	median			: [ t: "decimal",						],
-	  	stdev			: [ t: "decimal",						],
-	  	round			: [ t: "decimal",						],
-	  	ceil			: [ t: "decimal",						],
-	  	ceiling			: [ t: "decimal",						],
-	  	floor			: [ t: "decimal",						],
-	  	min			: [ t: "decimal",						],
-	  	max			: [ t: "decimal",						],
-	  	sum			: [ t: "decimal",						],
-	  	count			: [ t: "integer",						],
-	  	size			: [ t: "integer",						],
-	  	left			: [ t: "string",						],
-	  	right			: [ t: "string",						],
-	  	mid			: [ t: "string",						],
-	  	substring		: [ t: "string",						],
-	  	sprintf			: [ t: "string",						],
-	  	format			: [ t: "string",						],
-	  	string			: [ t: "string",						],
-	  	replace			: [ t: "string",						],
-	  	indexof			: [ t: "integer",	d: "indexOf",		],
-	  	lastindexof		: [ t: "integer",	d: "lastIndexOf",	],
-	  	concat			: [ t: "string",						],
-	  	text			: [ t: "string",						],
-	  	lower			: [ t: "string",						],
-	  	upper			: [ t: "string",						],
-	  	title			: [ t: "string",						],
+		age			: [ t: "integer",						],
+		previousage		: [ t: "integer",	d: "previousAge",	],
+		previousvalue		: [ t: "dynamic",	d: "previousValue",	],
+		newer			: [ t: "integer",						],
+		older			: [ t: "integer",						],
+		least			: [ t: "dynamic",						],
+		most			: [ t: "dynamic",						],
+		avg			: [ t: "decimal",						],
+		variance		: [ t: "decimal",						],
+		median			: [ t: "decimal",						],
+		stdev			: [ t: "decimal",						],
+		round			: [ t: "decimal",						],
+		ceil			: [ t: "decimal",						],
+		ceiling			: [ t: "decimal",						],
+		floor			: [ t: "decimal",						],
+		min			: [ t: "decimal",						],
+		max			: [ t: "decimal",						],
+		sum			: [ t: "decimal",						],
+		count			: [ t: "integer",						],
+		size			: [ t: "integer",						],
+		left			: [ t: "string",						],
+		right			: [ t: "string",						],
+		mid			: [ t: "string",						],
+		substring		: [ t: "string",						],
+		sprintf			: [ t: "string",						],
+		format			: [ t: "string",						],
+		string			: [ t: "string",						],
+		replace			: [ t: "string",						],
+		indexof			: [ t: "integer",	d: "indexOf",		],
+		lastindexof		: [ t: "integer",	d: "lastIndexOf",	],
+		concat			: [ t: "string",						],
+		text			: [ t: "string",						],
+		lower			: [ t: "string",						],
+		upper			: [ t: "string",						],
+		title			: [ t: "string",						],
 		int			: [ t: "integer",						],
 		integer			: [ t: "integer",						],
 		float			: [ t: "decimal",						],
@@ -3295,7 +3478,7 @@ private static Map functions() {
 		dewpoint		: [ t: "decimal",	d: "dewPoint",		],
 		fahrenheit		: [ t: "decimal",						],
 		celsius			: [ t: "decimal",						],
-		converttemperatureifneeded	: [ t:"decimal", d: "convertTemperatureIfNeeded", 	],
+		converttemperatureifneeded	: [ t:"decimal", d: "convertTemperatureIfNeeded",	],
 		dateAdd			: [ t: "time",		d: "dateAdd",		],
 		startswith		: [ t: "boolean",	d: "startsWith",	],
 		endswith		: [ t: "boolean",	d: "endsWith",		],
@@ -3328,7 +3511,7 @@ private static Map functions() {
 		monthname		: [ t: "string",	d: "monthName"		],
 		arrayitem		: [ t: "dynamic",	d: "arrayItem"		],
 		trim			: [ t: "string"							],
-		trimleft		: [ t: "string", 	d: "trimLeft"		],
+		trimleft		: [ t: "string",	d: "trimLeft"		],
 		ltrim			: [ t: "string"							],
 		trimright		: [ t: "string",	d: "trimRight"		],
 		rtrim			: [ t: "string"							],
@@ -3363,14 +3546,14 @@ private Map getLocationModeOptions(updateCache = false) {
 private static Map getAlarmSystemStatusActions() {
 	return [	
 		armAway:		"Arm Away",
-		armHome: 		"Arm Home",
-		armNight: 		"Arm Night",
+		armHome:		"Arm Home",
+		armNight:		"Arm Night",
 		disarm:			"Disarm",
-		armRules: 		"Arm Monitor Rules",	
-		disarmRules: 		"Disarm Monitor Rules",	
+		armRules:		"Arm Monitor Rules",	
+		disarmRules:		"Disarm Monitor Rules",	
 		disarmAll:		"Disarm All",
 		armAll:			"Arm All",
-	   	cancelAlerts:		"Cancel Alerts"	
+		cancelAlerts:		"Cancel Alerts"	
 	]
 }
 
@@ -3378,7 +3561,7 @@ private static Map getAlarmSystemStatusActions() {
 private static Map getAlarmSystemStatusOptions() {
 	return [
 	off:	"Disarmed",
-	stay: 	"Armed/Stay",
+	stay:	"Armed/Stay",
 	away:	"Armed/Away"
 	]
 }
@@ -3388,11 +3571,11 @@ private static Map getHubitatAlarmSystemStatusOptions() {
 	return [	
 		armedAway:		"Armed Away",
 		armingAway:		"Arming Away Pending exit delay",
-		armedHome: 		"Armed Home",
-		armingHome: 		"Arming Home pending exit delay",
-		armedNight: 		"Armed Night",
-		armingNight: 		"Arming Night pending exit delay",
-		disarmed: 		"Disarmed",
+		armedHome:		"Armed Home",
+		armingHome:		"Arming Home pending exit delay",
+		armedNight:		"Armed Night",
+		armingNight:		"Arming Night pending exit delay",
+		disarmed:		"Disarmed",
 		allDisarmed:		"All Disarmed"
 	]	
 }
@@ -3400,8 +3583,8 @@ private static Map getHubitatAlarmSystemStatusOptions() {
 private static Map getAlarmSystemAlertOptions() {
 	return [	
 		intrusion:		"Intrusion Away",
-		"intrusion-home": 	"Intrusion Home",
-		"intrusion-night": 	"Intrusion Night",
+		"intrusion-home":	"Intrusion Home",
+		"intrusion-night":	"Intrusion Night",
 		smoke:			"Smoke",
 		water:			"Water",
 		rule:			"Rule",
@@ -3412,8 +3595,8 @@ private static Map getAlarmSystemAlertOptions() {
 
 private static Map getAlarmSystemRuleOptions() {
 	return [	
-		armedRule: 	"Armed Rule",
-		disarmedRule: 	"Disarmed Rule"
+		armedRule:	"Armed Rule",
+		disarmedRule:	"Disarmed Rule"
 	]
 }
 
@@ -3477,164 +3660,164 @@ private Map virtualDevices(updateCache = false) {
 		email:			[ n: 'Email',			t: 'email',						m: true	],
 		powerSource:		[ n: 'Hub power source',	t: 'enum',	o: [battery: 'battery', mains: 'mains'],					x: true	],
 		ifttt:			[ n: 'IFTTT',			t: 'string',						m: true	],
-		mode:			[ n: 'Location mode',		t: 'enum', 	o: getLocationModeOptions(updateCache),	x: true],
+		mode:			[ n: 'Location mode',		t: 'enum',	o: getLocationModeOptions(updateCache),	x: true],
 		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
 		rule:			[ n: 'Rule',			t: 'enum',	o: getRuleOptions(updateCache),		m: true ],
 //ac - actions. hubitat doesn't reuse the status for actions
 		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),			x: true],
 		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],
-		alarmSystemAlert: 	[ n: 'Hubitat Safety Monitor alert',t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true],
-		alarmSystemRule: 	[ n: 'Hubitat Safety Monitor rule',t: 'enum',		o: getAlarmSystemRuleOptions(),		m: true]	
+		alarmSystemAlert:	[ n: 'Hubitat Safety Monitor alert',t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true],
+		alarmSystemRule:	[ n: 'Hubitat Safety Monitor rule',t: 'enum',		o: getAlarmSystemRuleOptions(),		m: true]	
 	]
 }
 
 public static List getColors(){
 	return [
-		[name:"Alice Blue",	 rgb:"#F0F8FF",	 h:208,	 s:100,	 l:97],
-		[name:"Antique White",	 rgb:"#FAEBD7",	 h:34,	 s:78,	 l:91],
-		[name:"Aqua",	 rgb:"#00FFFF",	 h:180,	 s:100,	 l:50],
-		[name:"Aquamarine",	 rgb:"#7FFFD4",	 h:160,	 s:100,	 l:75],
-		[name:"Azure",	 rgb:"#F0FFFF",	 h:180,	 s:100,	 l:97],
-		[name:"Beige",	 rgb:"#F5F5DC",	 h:60,	 s:56,	 l:91],
-		[name:"Bisque",	 rgb:"#FFE4C4",	 h:33,	 s:100,	 l:88],
-		[name:"Blanched Almond",	 rgb:"#FFEBCD",	 h:36,	 s:100,	 l:90],
-		[name:"Blue",	 rgb:"#0000FF",	 h:240,	 s:100,	 l:50],
-		[name:"Blue Violet",	 rgb:"#8A2BE2",	 h:271,	 s:76,	 l:53],
-		[name:"Brown",	 rgb:"#A52A2A",	 h:0,	 s:59,	 l:41],
-		[name:"Burly Wood",	 rgb:"#DEB887",	 h:34,	 s:57,	 l:70],
-		[name:"Cadet Blue",	 rgb:"#5F9EA0",	 h:182,	 s:25,	 l:50],
-		[name:"Chartreuse",	 rgb:"#7FFF00",	 h:90,	 s:100,	 l:50],
-		[name:"Chocolate",	 rgb:"#D2691E",	 h:25,	 s:75,	 l:47],
-		[name:"Cool White",	 rgb:"#F3F6F7",	 h:187,	 s:19,	 l:96],
-		[name:"Coral",	 rgb:"#FF7F50",	 h:16,	 s:100,	 l:66],
-		[name:"Corn Flower Blue",	 rgb:"#6495ED",	 h:219,	 s:79,	 l:66],
-		[name:"Corn Silk",	 rgb:"#FFF8DC",	 h:48,	 s:100,	 l:93],
-		[name:"Crimson",	 rgb:"#DC143C",	 h:348,	 s:83,	 l:58],
-		[name:"Cyan",	 rgb:"#00FFFF",	 h:180,	 s:100,	 l:50],
-		[name:"Dark Blue",	 rgb:"#00008B",	 h:240,	 s:100,	 l:27],
-		[name:"Dark Cyan",	 rgb:"#008B8B",	 h:180,	 s:100,	 l:27],
-		[name:"Dark Golden Rod",	 rgb:"#B8860B",	 h:43,	 s:89,	 l:38],
-		[name:"Dark Gray",	 rgb:"#A9A9A9",	 h:0,	 s:0,	 l:66],
-		[name:"Dark Green",	 rgb:"#006400",	 h:120,	 s:100,	 l:20],
-		[name:"Dark Khaki",	 rgb:"#BDB76B",	 h:56,	 s:38,	 l:58],
-		[name:"Dark Magenta",	 rgb:"#8B008B",	 h:300,	 s:100,	 l:27],
-		[name:"Dark Olive Green",	 rgb:"#556B2F",	 h:82,	 s:39,	 l:30],
-		[name:"Dark Orange",	 rgb:"#FF8C00",	 h:33,	 s:100,	 l:50],
-		[name:"Dark Orchid",	 rgb:"#9932CC",	 h:280,	 s:61,	 l:50],
-		[name:"Dark Red",	 rgb:"#8B0000",	 h:0,	 s:100,	 l:27],
-		[name:"Dark Salmon",	 rgb:"#E9967A",	 h:15,	 s:72,	 l:70],
-		[name:"Dark Sea Green",	 rgb:"#8FBC8F",	 h:120,	 s:25,	 l:65],
-		[name:"Dark Slate Blue",	 rgb:"#483D8B",	 h:248,	 s:39,	 l:39],
-		[name:"Dark Slate Gray",	 rgb:"#2F4F4F",	 h:180,	 s:25,	 l:25],
-		[name:"Dark Turquoise",	 rgb:"#00CED1",	 h:181,	 s:100,	 l:41],
-		[name:"Dark Violet",	 rgb:"#9400D3",	 h:282,	 s:100,	 l:41],
-		[name:"Daylight White",	 rgb:"#CEF4FD",	 h:191,	 s:9,	 l:90],
-		[name:"Deep Pink",	 rgb:"#FF1493",	 h:328,	 s:100,	 l:54],
-		[name:"Deep Sky Blue",	 rgb:"#00BFFF",	 h:195,	 s:100,	 l:50],
-		[name:"Dim Gray",	 rgb:"#696969",	 h:0,	 s:0,	 l:41],
-		[name:"Dodger Blue",	 rgb:"#1E90FF",	 h:210,	 s:100,	 l:56],
-		[name:"Fire Brick",	 rgb:"#B22222",	 h:0,	 s:68,	 l:42],
-		[name:"Floral White",	 rgb:"#FFFAF0",	 h:40,	 s:100,	 l:97],
-		[name:"Forest Green",	 rgb:"#228B22",	 h:120,	 s:61,	 l:34],
-		[name:"Fuchsia",	 rgb:"#FF00FF",	 h:300,	 s:100,	 l:50],
-		[name:"Gainsboro",	 rgb:"#DCDCDC",	 h:0,	 s:0,	 l:86],
-		[name:"Ghost White",	 rgb:"#F8F8FF",	 h:240,	 s:100,	 l:99],
-		[name:"Gold",	 rgb:"#FFD700",	 h:51,	 s:100,	 l:50],
-		[name:"Golden Rod",	 rgb:"#DAA520",	 h:43,	 s:74,	 l:49],
-		[name:"Gray",	 rgb:"#808080",	 h:0,	 s:0,	 l:50],
-		[name:"Green",	 rgb:"#008000",	 h:120,	 s:100,	 l:25],
-		[name:"Green Yellow",	 rgb:"#ADFF2F",	 h:84,	 s:100,	 l:59],
-		[name:"Honeydew",	 rgb:"#F0FFF0",	 h:120,	 s:100,	 l:97],
-		[name:"Hot Pink",	 rgb:"#FF69B4",	 h:330,	 s:100,	 l:71],
-		[name:"Indian Red",	 rgb:"#CD5C5C",	 h:0,	 s:53,	 l:58],
-		[name:"Indigo",	 rgb:"#4B0082",	 h:275,	 s:100,	 l:25],
-		[name:"Ivory",	 rgb:"#FFFFF0",	 h:60,	 s:100,	 l:97],
-		[name:"Khaki",	 rgb:"#F0E68C",	 h:54,	 s:77,	 l:75],
-		[name:"Lavender",	 rgb:"#E6E6FA",	 h:240,	 s:67,	 l:94],
-		[name:"Lavender Blush",	 rgb:"#FFF0F5",	 h:340,	 s:100,	 l:97],
-		[name:"Lawn Green",	 rgb:"#7CFC00",	 h:90,	 s:100,	 l:49],
-		[name:"Lemon Chiffon",	 rgb:"#FFFACD",	 h:54,	 s:100,	 l:90],
-		[name:"Light Blue",	 rgb:"#ADD8E6",	 h:195,	 s:53,	 l:79],
-		[name:"Light Coral",	 rgb:"#F08080",	 h:0,	 s:79,	 l:72],
-		[name:"Light Cyan",	 rgb:"#E0FFFF",	 h:180,	 s:100,	 l:94],
-		[name:"Light Golden Rod Yellow",	 rgb:"#FAFAD2",	 h:60,	 s:80,	 l:90],
-		[name:"Light Gray",	 rgb:"#D3D3D3",	 h:0,	 s:0,	 l:83],
-		[name:"Light Green",	 rgb:"#90EE90",	 h:120,	 s:73,	 l:75],
-		[name:"Light Pink",	 rgb:"#FFB6C1",	 h:351,	 s:100,	 l:86],
-		[name:"Light Salmon",	 rgb:"#FFA07A",	 h:17,	 s:100,	 l:74],
-		[name:"Light Sea Green",	 rgb:"#20B2AA",	 h:177,	 s:70,	 l:41],
-		[name:"Light Sky Blue",	 rgb:"#87CEFA",	 h:203,	 s:92,	 l:75],
-		[name:"Light Slate Gray",	 rgb:"#778899",	 h:210,	 s:14,	 l:53],
-		[name:"Light Steel Blue",	 rgb:"#B0C4DE",	 h:214,	 s:41,	 l:78],
-		[name:"Light Yellow",	 rgb:"#FFFFE0",	 h:60,	 s:100,	 l:94],
-		[name:"Lime",	 rgb:"#00FF00",	 h:120,	 s:100,	 l:50],
-		[name:"Lime Green",	 rgb:"#32CD32",	 h:120,	 s:61,	 l:50],
-		[name:"Linen",	 rgb:"#FAF0E6",	 h:30,	 s:67,	 l:94],
-		[name:"Maroon",	 rgb:"#800000",	 h:0,	 s:100,	 l:25],
-		[name:"Medium Aquamarine",	 rgb:"#66CDAA",	 h:160,	 s:51,	 l:60],
-		[name:"Medium Blue",	 rgb:"#0000CD",	 h:240,	 s:100,	 l:40],
-		[name:"Medium Orchid",	 rgb:"#BA55D3",	 h:288,	 s:59,	 l:58],
-		[name:"Medium Purple",	 rgb:"#9370DB",	 h:260,	 s:60,	 l:65],
-		[name:"Medium Sea Green",	 rgb:"#3CB371",	 h:147,	 s:50,	 l:47],
-		[name:"Medium Slate Blue",	 rgb:"#7B68EE",	 h:249,	 s:80,	 l:67],
-		[name:"Medium Spring Green",	 rgb:"#00FA9A",	 h:157,	 s:100,	 l:49],
-		[name:"Medium Turquoise",	 rgb:"#48D1CC",	 h:178,	 s:60,	 l:55],
-		[name:"Medium Violet Red",	 rgb:"#C71585",	 h:322,	 s:81,	 l:43],
-		[name:"Midnight Blue",	 rgb:"#191970",	 h:240,	 s:64,	 l:27],
-		[name:"Mint Cream",	 rgb:"#F5FFFA",	 h:150,	 s:100,	 l:98],
-		[name:"Misty Rose",	 rgb:"#FFE4E1",	 h:6,	 s:100,	 l:94],
-		[name:"Moccasin",	 rgb:"#FFE4B5",	 h:38,	 s:100,	 l:85],
-		[name:"Navajo White",	 rgb:"#FFDEAD",	 h:36,	 s:100,	 l:84],
-		[name:"Navy",	 rgb:"#000080",	 h:240,	 s:100,	 l:25],
-		[name:"Old Lace",	 rgb:"#FDF5E6",	 h:39,	 s:85,	 l:95],
-		[name:"Olive",	 rgb:"#808000",	 h:60,	 s:100,	 l:25],
-		[name:"Olive Drab",	 rgb:"#6B8E23",	 h:80,	 s:60,	 l:35],
-		[name:"Orange",	 rgb:"#FFA500",	 h:39,	 s:100,	 l:50],
-		[name:"Orange Red",	 rgb:"#FF4500",	 h:16,	 s:100,	 l:50],
-		[name:"Orchid",	 rgb:"#DA70D6",	 h:302,	 s:59,	 l:65],
-		[name:"Pale Golden Rod",	 rgb:"#EEE8AA",	 h:55,	 s:67,	 l:80],
-		[name:"Pale Green",	 rgb:"#98FB98",	 h:120,	 s:93,	 l:79],
-		[name:"Pale Turquoise",	 rgb:"#AFEEEE",	 h:180,	 s:65,	 l:81],
-		[name:"Pale Violet Red",	 rgb:"#DB7093",	 h:340,	 s:60,	 l:65],
-		[name:"Papaya Whip",	 rgb:"#FFEFD5",	 h:37,	 s:100,	 l:92],
-		[name:"Peach Puff",	 rgb:"#FFDAB9",	 h:28,	 s:100,	 l:86],
-		[name:"Peru",	 rgb:"#CD853F",	 h:30,	 s:59,	 l:53],
-		[name:"Pink",	 rgb:"#FFC0CB",	 h:350,	 s:100,	 l:88],
-		[name:"Plum",	 rgb:"#DDA0DD",	 h:300,	 s:47,	 l:75],
-		[name:"Powder Blue",	 rgb:"#B0E0E6",	 h:187,	 s:52,	 l:80],
-		[name:"Purple",	 rgb:"#800080",	 h:300,	 s:100,	 l:25],
-		[name:"Red",	 rgb:"#FF0000",	 h:0,	 s:100,	 l:50],
-		[name:"Rosy Brown",	 rgb:"#BC8F8F",	 h:0,	 s:25,	 l:65],
-		[name:"Royal Blue",	 rgb:"#4169E1",	 h:225,	 s:73,	 l:57],
-		[name:"Saddle Brown",	 rgb:"#8B4513",	 h:25,	 s:76,	 l:31],
-		[name:"Salmon",	 rgb:"#FA8072",	 h:6,	 s:93,	 l:71],
-		[name:"Sandy Brown",	 rgb:"#F4A460",	 h:28,	 s:87,	 l:67],
-		[name:"Sea Green",	 rgb:"#2E8B57",	 h:146,	 s:50,	 l:36],
-		[name:"Sea Shell",	 rgb:"#FFF5EE",	 h:25,	 s:100,	 l:97],
-		[name:"Sienna",	 rgb:"#A0522D",	 h:19,	 s:56,	 l:40],
-		[name:"Silver",	 rgb:"#C0C0C0",	 h:0,	 s:0,	 l:75],
-		[name:"Sky Blue",	 rgb:"#87CEEB",	 h:197,	 s:71,	 l:73],
-		[name:"Slate Blue",	 rgb:"#6A5ACD",	 h:248,	 s:53,	 l:58],
-		[name:"Slate Gray",	 rgb:"#708090",	 h:210,	 s:13,	 l:50],
-		[name:"Snow",	 rgb:"#FFFAFA",	 h:0,	 s:100,	 l:99],
-		[name:"Soft White",	 rgb:"#B6DA7C",	 h:83,	 s:44,	 l:67],
-		[name:"Spring Green",	 rgb:"#00FF7F",	 h:150,	 s:100,	 l:50],
-		[name:"Steel Blue",	 rgb:"#4682B4",	 h:207,	 s:44,	 l:49],
-		[name:"Tan",	 rgb:"#D2B48C",	 h:34,	 s:44,	 l:69],
-		[name:"Teal",	 rgb:"#008080",	 h:180,	 s:100,	 l:25],
-		[name:"Thistle",	 rgb:"#D8BFD8",	 h:300,	 s:24,	 l:80],
-		[name:"Tomato",	 rgb:"#FF6347",	 h:9,	 s:100,	 l:64],
-		[name:"Turquoise",	 rgb:"#40E0D0",	 h:174,	 s:72,	 l:56],
-		[name:"Violet",	 rgb:"#EE82EE",	 h:300,	 s:76,	 l:72],
-		[name:"Warm White",	 rgb:"#DAF17E",	 h:72,	 s:20,	 l:72],
-		[name:"Wheat",	 rgb:"#F5DEB3",	 h:39,	 s:77,	 l:83],
-		[name:"White",	 rgb:"#FFFFFF",	 h:0,	 s:0,	 l:100],
-		[name:"White Smoke",	 rgb:"#F5F5F5",	 h:0,	 s:0,	 l:96],
-		[name:"Yellow",	 rgb:"#FFFF00",	 h:60,	 s:100,	 l:50],
-		[name:"Yellow Green",	 rgb:"#9ACD32",	 h:80,	 s:61,	 l:50]
+		[name:"Alice Blue",	rgb:"#F0F8FF",	h:208,	s:100,	l:97],
+		[name:"Antique White",	rgb:"#FAEBD7",	h:34,	s:78,	l:91],
+		[name:"Aqua",	rgb:"#00FFFF",	h:180,	s:100,	l:50],
+		[name:"Aquamarine",	rgb:"#7FFFD4",	h:160,	s:100,	l:75],
+		[name:"Azure",	rgb:"#F0FFFF",	h:180,	s:100,	l:97],
+		[name:"Beige",	rgb:"#F5F5DC",	h:60,	s:56,	l:91],
+		[name:"Bisque",	rgb:"#FFE4C4",	h:33,	s:100,	l:88],
+		[name:"Blanched Almond",	rgb:"#FFEBCD",	h:36,	s:100,	l:90],
+		[name:"Blue",	rgb:"#0000FF",	h:240,	s:100,	l:50],
+		[name:"Blue Violet",	rgb:"#8A2BE2",	h:271,	s:76,	l:53],
+		[name:"Brown",	rgb:"#A52A2A",	h:0,	s:59,	l:41],
+		[name:"Burly Wood",	rgb:"#DEB887",	h:34,	s:57,	l:70],
+		[name:"Cadet Blue",	rgb:"#5F9EA0",	h:182,	s:25,	l:50],
+		[name:"Chartreuse",	rgb:"#7FFF00",	h:90,	s:100,	l:50],
+		[name:"Chocolate",	rgb:"#D2691E",	h:25,	s:75,	l:47],
+		[name:"Cool White",	rgb:"#F3F6F7",	h:187,	s:19,	l:96],
+		[name:"Coral",	rgb:"#FF7F50",	h:16,	s:100,	l:66],
+		[name:"Corn Flower Blue",	rgb:"#6495ED",	h:219,	s:79,	l:66],
+		[name:"Corn Silk",	rgb:"#FFF8DC",	h:48,	s:100,	l:93],
+		[name:"Crimson",	rgb:"#DC143C",	h:348,	s:83,	l:58],
+		[name:"Cyan",	rgb:"#00FFFF",	h:180,	s:100,	l:50],
+		[name:"Dark Blue",	rgb:"#00008B",	h:240,	s:100,	l:27],
+		[name:"Dark Cyan",	rgb:"#008B8B",	h:180,	s:100,	l:27],
+		[name:"Dark Golden Rod",	rgb:"#B8860B",	h:43,	s:89,	l:38],
+		[name:"Dark Gray",	rgb:"#A9A9A9",	h:0,	s:0,	l:66],
+		[name:"Dark Green",	rgb:"#006400",	h:120,	s:100,	l:20],
+		[name:"Dark Khaki",	rgb:"#BDB76B",	h:56,	s:38,	l:58],
+		[name:"Dark Magenta",	rgb:"#8B008B",	h:300,	s:100,	l:27],
+		[name:"Dark Olive Green",	rgb:"#556B2F",	h:82,	s:39,	l:30],
+		[name:"Dark Orange",	rgb:"#FF8C00",	h:33,	s:100,	l:50],
+		[name:"Dark Orchid",	rgb:"#9932CC",	h:280,	s:61,	l:50],
+		[name:"Dark Red",	rgb:"#8B0000",	h:0,	s:100,	l:27],
+		[name:"Dark Salmon",	rgb:"#E9967A",	h:15,	s:72,	l:70],
+		[name:"Dark Sea Green",	rgb:"#8FBC8F",	h:120,	s:25,	l:65],
+		[name:"Dark Slate Blue",	rgb:"#483D8B",	h:248,	s:39,	l:39],
+		[name:"Dark Slate Gray",	rgb:"#2F4F4F",	h:180,	s:25,	l:25],
+		[name:"Dark Turquoise",	rgb:"#00CED1",	h:181,	s:100,	l:41],
+		[name:"Dark Violet",	rgb:"#9400D3",	h:282,	s:100,	l:41],
+		[name:"Daylight White",	rgb:"#CEF4FD",	h:191,	s:9,	l:90],
+		[name:"Deep Pink",	rgb:"#FF1493",	h:328,	s:100,	l:54],
+		[name:"Deep Sky Blue",	rgb:"#00BFFF",	h:195,	s:100,	l:50],
+		[name:"Dim Gray",	rgb:"#696969",	h:0,	s:0,	l:41],
+		[name:"Dodger Blue",	rgb:"#1E90FF",	h:210,	s:100,	l:56],
+		[name:"Fire Brick",	rgb:"#B22222",	h:0,	s:68,	l:42],
+		[name:"Floral White",	rgb:"#FFFAF0",	h:40,	s:100,	l:97],
+		[name:"Forest Green",	rgb:"#228B22",	h:120,	s:61,	l:34],
+		[name:"Fuchsia",	rgb:"#FF00FF",	h:300,	s:100,	l:50],
+		[name:"Gainsboro",	rgb:"#DCDCDC",	h:0,	s:0,	l:86],
+		[name:"Ghost White",	rgb:"#F8F8FF",	h:240,	s:100,	l:99],
+		[name:"Gold",	rgb:"#FFD700",	h:51,	s:100,	l:50],
+		[name:"Golden Rod",	rgb:"#DAA520",	h:43,	s:74,	l:49],
+		[name:"Gray",	rgb:"#808080",	h:0,	s:0,	l:50],
+		[name:"Green",	rgb:"#008000",	h:120,	s:100,	l:25],
+		[name:"Green Yellow",	rgb:"#ADFF2F",	h:84,	s:100,	l:59],
+		[name:"Honeydew",	rgb:"#F0FFF0",	h:120,	s:100,	l:97],
+		[name:"Hot Pink",	rgb:"#FF69B4",	h:330,	s:100,	l:71],
+		[name:"Indian Red",	rgb:"#CD5C5C",	h:0,	s:53,	l:58],
+		[name:"Indigo",	rgb:"#4B0082",	h:275,	s:100,	l:25],
+		[name:"Ivory",	rgb:"#FFFFF0",	h:60,	s:100,	l:97],
+		[name:"Khaki",	rgb:"#F0E68C",	h:54,	s:77,	l:75],
+		[name:"Lavender",	rgb:"#E6E6FA",	h:240,	s:67,	l:94],
+		[name:"Lavender Blush",	rgb:"#FFF0F5",	h:340,	s:100,	l:97],
+		[name:"Lawn Green",	rgb:"#7CFC00",	h:90,	s:100,	l:49],
+		[name:"Lemon Chiffon",	rgb:"#FFFACD",	h:54,	s:100,	l:90],
+		[name:"Light Blue",	rgb:"#ADD8E6",	h:195,	s:53,	l:79],
+		[name:"Light Coral",	rgb:"#F08080",	h:0,	s:79,	l:72],
+		[name:"Light Cyan",	rgb:"#E0FFFF",	h:180,	s:100,	l:94],
+		[name:"Light Golden Rod Yellow",	rgb:"#FAFAD2",	h:60,	s:80,	l:90],
+		[name:"Light Gray",	rgb:"#D3D3D3",	h:0,	s:0,	l:83],
+		[name:"Light Green",	rgb:"#90EE90",	h:120,	s:73,	l:75],
+		[name:"Light Pink",	rgb:"#FFB6C1",	h:351,	s:100,	l:86],
+		[name:"Light Salmon",	rgb:"#FFA07A",	h:17,	s:100,	l:74],
+		[name:"Light Sea Green",	rgb:"#20B2AA",	h:177,	s:70,	l:41],
+		[name:"Light Sky Blue",	rgb:"#87CEFA",	h:203,	s:92,	l:75],
+		[name:"Light Slate Gray",	rgb:"#778899",	h:210,	s:14,	l:53],
+		[name:"Light Steel Blue",	rgb:"#B0C4DE",	h:214,	s:41,	l:78],
+		[name:"Light Yellow",	rgb:"#FFFFE0",	h:60,	s:100,	l:94],
+		[name:"Lime",	rgb:"#00FF00",	h:120,	s:100,	l:50],
+		[name:"Lime Green",	rgb:"#32CD32",	h:120,	s:61,	l:50],
+		[name:"Linen",	rgb:"#FAF0E6",	h:30,	s:67,	l:94],
+		[name:"Maroon",	rgb:"#800000",	h:0,	s:100,	l:25],
+		[name:"Medium Aquamarine",	rgb:"#66CDAA",	h:160,	s:51,	l:60],
+		[name:"Medium Blue",	rgb:"#0000CD",	h:240,	s:100,	l:40],
+		[name:"Medium Orchid",	rgb:"#BA55D3",	h:288,	s:59,	l:58],
+		[name:"Medium Purple",	rgb:"#9370DB",	h:260,	s:60,	l:65],
+		[name:"Medium Sea Green",	rgb:"#3CB371",	h:147,	s:50,	l:47],
+		[name:"Medium Slate Blue",	rgb:"#7B68EE",	h:249,	s:80,	l:67],
+		[name:"Medium Spring Green",	rgb:"#00FA9A",	h:157,	s:100,	l:49],
+		[name:"Medium Turquoise",	rgb:"#48D1CC",	h:178,	s:60,	l:55],
+		[name:"Medium Violet Red",	rgb:"#C71585",	h:322,	s:81,	l:43],
+		[name:"Midnight Blue",	rgb:"#191970",	h:240,	s:64,	l:27],
+		[name:"Mint Cream",	rgb:"#F5FFFA",	h:150,	s:100,	l:98],
+		[name:"Misty Rose",	rgb:"#FFE4E1",	h:6,	s:100,	l:94],
+		[name:"Moccasin",	rgb:"#FFE4B5",	h:38,	s:100,	l:85],
+		[name:"Navajo White",	rgb:"#FFDEAD",	h:36,	s:100,	l:84],
+		[name:"Navy",	rgb:"#000080",	h:240,	s:100,	l:25],
+		[name:"Old Lace",	rgb:"#FDF5E6",	h:39,	s:85,	l:95],
+		[name:"Olive",	rgb:"#808000",	h:60,	s:100,	l:25],
+		[name:"Olive Drab",	rgb:"#6B8E23",	h:80,	s:60,	l:35],
+		[name:"Orange",	rgb:"#FFA500",	h:39,	s:100,	l:50],
+		[name:"Orange Red",	rgb:"#FF4500",	h:16,	s:100,	l:50],
+		[name:"Orchid",	rgb:"#DA70D6",	h:302,	s:59,	l:65],
+		[name:"Pale Golden Rod",	rgb:"#EEE8AA",	h:55,	s:67,	l:80],
+		[name:"Pale Green",	rgb:"#98FB98",	h:120,	s:93,	l:79],
+		[name:"Pale Turquoise",	rgb:"#AFEEEE",	h:180,	s:65,	l:81],
+		[name:"Pale Violet Red",	rgb:"#DB7093",	h:340,	s:60,	l:65],
+		[name:"Papaya Whip",	rgb:"#FFEFD5",	h:37,	s:100,	l:92],
+		[name:"Peach Puff",	rgb:"#FFDAB9",	h:28,	s:100,	l:86],
+		[name:"Peru",	rgb:"#CD853F",	h:30,	s:59,	l:53],
+		[name:"Pink",	rgb:"#FFC0CB",	h:350,	s:100,	l:88],
+		[name:"Plum",	rgb:"#DDA0DD",	h:300,	s:47,	l:75],
+		[name:"Powder Blue",	rgb:"#B0E0E6",	h:187,	s:52,	l:80],
+		[name:"Purple",	rgb:"#800080",	h:300,	s:100,	l:25],
+		[name:"Red",	rgb:"#FF0000",	h:0,	s:100,	l:50],
+		[name:"Rosy Brown",	rgb:"#BC8F8F",	h:0,	s:25,	l:65],
+		[name:"Royal Blue",	rgb:"#4169E1",	h:225,	s:73,	l:57],
+		[name:"Saddle Brown",	rgb:"#8B4513",	h:25,	s:76,	l:31],
+		[name:"Salmon",	rgb:"#FA8072",	h:6,	s:93,	l:71],
+		[name:"Sandy Brown",	rgb:"#F4A460",	h:28,	s:87,	l:67],
+		[name:"Sea Green",	rgb:"#2E8B57",	h:146,	s:50,	l:36],
+		[name:"Sea Shell",	rgb:"#FFF5EE",	h:25,	s:100,	l:97],
+		[name:"Sienna",	rgb:"#A0522D",	h:19,	s:56,	l:40],
+		[name:"Silver",	rgb:"#C0C0C0",	h:0,	s:0,	l:75],
+		[name:"Sky Blue",	rgb:"#87CEEB",	h:197,	s:71,	l:73],
+		[name:"Slate Blue",	rgb:"#6A5ACD",	h:248,	s:53,	l:58],
+		[name:"Slate Gray",	rgb:"#708090",	h:210,	s:13,	l:50],
+		[name:"Snow",	rgb:"#FFFAFA",	h:0,	s:100,	l:99],
+		[name:"Soft White",	rgb:"#B6DA7C",	h:83,	s:44,	l:67],
+		[name:"Spring Green",	rgb:"#00FF7F",	h:150,	s:100,	l:50],
+		[name:"Steel Blue",	rgb:"#4682B4",	h:207,	s:44,	l:49],
+		[name:"Tan",	rgb:"#D2B48C",	h:34,	s:44,	l:69],
+		[name:"Teal",	rgb:"#008080",	h:180,	s:100,	l:25],
+		[name:"Thistle",	rgb:"#D8BFD8",	h:300,	s:24,	l:80],
+		[name:"Tomato",	rgb:"#FF6347",	h:9,	s:100,	l:64],
+		[name:"Turquoise",	rgb:"#40E0D0",	h:174,	s:72,	l:56],
+		[name:"Violet",	rgb:"#EE82EE",	h:300,	s:76,	l:72],
+		[name:"Warm White",	rgb:"#DAF17E",	h:72,	s:20,	l:72],
+		[name:"Wheat",	rgb:"#F5DEB3",	h:39,	s:77,	l:83],
+		[name:"White",	rgb:"#FFFFFF",	h:0,	s:0,	l:100],
+		[name:"White Smoke",	rgb:"#F5F5F5",	h:0,	s:0,	l:96],
+		[name:"Yellow",	rgb:"#FFFF00",	h:60,	s:100,	l:50],
+		[name:"Yellow Green",	rgb:"#9ACD32",	h:80,	s:61,	l:50]
 	]
 }
 
 private boolean isHubitat(){
- 	return hubUID != null
+	return hubUID != null
 }

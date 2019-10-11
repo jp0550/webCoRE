@@ -1,6 +1,6 @@
 private static String handle() { return "webCoRE" }
-public static String version() { return "v0.3.10e.20190628" }
-public static String HEversion() { return "v0.3.10e.20190814" }
+public static String version() { return "v0.3.110.20191009" }
+public static String HEversion() { return "v0.3.110.20191009_HE" }
 
 definition(
     namespace:"ady624",

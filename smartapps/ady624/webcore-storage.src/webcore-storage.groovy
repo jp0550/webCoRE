@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 30, 2019 for Hubitat
+ * Last update October 10, 2019 for Hubitat
  */
-public static String version() { return "v0.3.10f.20190822" }
-public static String HEversion() { return "v0.3.10f.20190830" }
+public static String version() { return "v0.3.110.20191009" }
+public static String HEversion() { return "v0.3.110.20191009" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -144,8 +144,8 @@ void updated() {
 
 public void startWeather() {
 	String myKey = state.apixuKey ?: null
-	String myZip = state.zipCode ?: location.zipCode
-	if(myKey && myZip) {
+	String weatherType = state.weatherType ?: null
+	if(myKey && weatherType) {
 		unschedule()
 		runEvery30Minutes(updateAPIXUdata)
 		updateAPIXUdata()
@@ -167,18 +167,28 @@ private void initialize() {
 
 public void updateAPIXUdata() {
 	String myKey = state.apixuKey ?: null
-	String myZip = state.zipCode ?: location.zipCode
-	if(myKey && myZip) {
-		String myUri = "https://api.apixu.com/v1/forecast.json?key=${myKey}&q=${myZip}&days=7"
-		def params = [ uri: myUri ]
-		try {
-			asynchttpGet('ahttpRequestHandler', params, [tt: 'finishPoll'])
-		} catch (e) {
-			log.error "http call failed for ApiXU weather api: $e"
-			return //false
-		}
-		return //true
+	String weatherType = state.weatherType ?: null
+	String myZip = state.zipCode
+	if(state.zipCode==null || state.zipCode == '') {
+		myZip = weatherType == 'DarkSky' ? location.latitude+','+location.longitude : location.zipCode
 	}
+	if(myKey && myZip && weatherType) {
+		String myUri
+		if(weatherType == 'apiXU') myUri = "https://api.apixu.com/v1/forecast.json?key=${myKey}&q=${myZip}&days=7"
+		if(weatherType == 'DarkSky') myUri = "https://api.darksky.net/forecast/${myKey}/" + "${myZip}" + "?units=us&exclude=minutely,flags"
+		if(myUri) {
+			def params = [ uri: myUri ]
+			try {
+				asynchttpGet('ahttpRequestHandler', params, [tt: 'finishPoll'])
+			} catch (e) {
+				log.error "http call failed for $weatherType weather api: $e"
+				return //false
+			}
+			return //true
+		} else {
+			log.error "no weather URI found $weatherType"
+		}
+	} else { log.error "missing some parameter" }
 	return //false
 }
 
@@ -188,6 +198,7 @@ public void ahttpRequestHandler(resp, callbackData) {
 	def json = [:]
 	def obs = [:]
 //	def err
+	String weatherType = state.weatherType ?: null
 	if ((resp.status == 200) && resp.data) {
 		try {
 			json = resp.getJson()
@@ -197,28 +208,30 @@ public void ahttpRequestHandler(resp, callbackData) {
 		}
 
 		if(!json) return
-		if(json.forecast && json.forecast.forecastday) {
-			for(int i = 0; i <= 6; i++) {
-				def t0 = json.forecast.forecastday[i]?.day?.condition?.code
-				if(!t0) continue
-				String t1 = getWUIconName(t0,1)
-				json.forecast.forecastday[i].day.condition.wuicon_name = t1
-				String t2 = getWUIconNum(t0)
-				json.forecast.forecastday[i].day.condition.wuicon = t2
+		if(weatherType == 'apiXU') {
+			if(json.forecast && json.forecast.forecastday) {
+				for(int i = 0; i <= 6; i++) {
+					def t0 = json.forecast.forecastday[i]?.day?.condition?.code
+					if(!t0) continue
+					String t1 = getWUIconName(t0,1)
+					json.forecast.forecastday[i].day.condition.wuicon_name = t1
+					String t2 = getWUIconNum(t0)
+					json.forecast.forecastday[i].day.condition.wuicon = t2
+				}
 			}
+			int tt0 = json.current.condition.code
+			String tt1 = getWUIconName(tt0,1)
+			json.current.condition.wuicon_name = tt1
+			String tt2 = getWUIconNum(tt0)
+			json.current.condition.wuicon = tt2
+		} else if(weatherType == 'DarkSky') {
 		}
-		int tt0 = json.current.condition.code
-		String tt1 = getWUIconName(tt0,1)
-		json.current.condition.wuicon_name = tt1
-		String tt2 = getWUIconNum(tt0)
-		json.current.condition.wuicon = tt2
-
 	} else {
 		if(resp.hasError()) {
-			log.error "apixu http Response Status: ${resp.status}   error Message: ${resp.getErrorMessage()}"
+			log.error "$weatherType http Response Status: ${resp.status}   error Message: ${resp.getErrorMessage()}"
 			return
 		}
-		log.error "apixu no data: ${resp.status}   resp.data: ${resp.data} resp.json: ${resp.json}"
+		log.error "$weatherType no data: ${resp.status}   resp.data: ${resp.data} resp.json: ${resp.json}"
 		return
 	}
 	theObsFLD = json
@@ -230,7 +243,8 @@ public void ahttpRequestHandler(resp, callbackData) {
 public Map getWData() {
 	def obs = [:]
 	//if(state.obs) {
-	if(theObsFLD) {
+	String weatherType = state.weatherType ?: null
+	if(theObsFLD && weatherType == 'apiXU') {
 		obs = theObsFLD //state.obs
 		String t0 = "${obs.current.last_updated}"
 		def t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
@@ -242,13 +256,17 @@ public Map getWData() {
 			obs = [:]
 		} else return obs
 	}
+	if(theObsFLD && weatherType == 'DarkSky') {
+		obs = theObsFLD //state.obs
+		return obs
+	}
 	return obs
 }
 
 def getTimeZone() {
 	def tz = null
 	if(location?.timeZone) { tz = location?.timeZone }
-	if(!tz) { LogAction("getTimeZone: Hub or Nest TimeZone not found", "warn", true) }
+	if(!tz) { log.error "getTimeZone: Hub or Nest TimeZone not found" }
 	return tz
 }
 
@@ -264,13 +282,12 @@ String formatDt(dt) {
 	def tf = new SimpleDateFormat("E MMM dd HH:mm:ss z yyyy")
 	if(getTimeZone()) { tf.setTimeZone(getTimeZone()) }
 	else {
-		LogAction("HE TimeZone is not set; Please open your location and Press Save", "warn", true)
+		log.error "HE TimeZone is not set; Please open your location and Press Save"
 	}
 	return tf.format(dt)
 }
 
 def GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=null) {
-	//LogTrace("[GetTimeDiffSeconds] StartDate: $strtDate | StopDate: ${stpDate ?: "Not Sent"} | MethodName: ${methName ?: "Not Sent"})")
 	if((strtDate && !stpDate) || (strtDate && stpDate)) {
 		//if(strtDate?.contains("dtNow")) { return 10000 }
 		def now = new Date()
@@ -278,7 +295,6 @@ def GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=nul
 		long start = Date.parse("E MMM dd HH:mm:ss z yyyy", strtDate).getTime()
 		long stop = Date.parse("E MMM dd HH:mm:ss z yyyy", stopVal).getTime()
 		long diff = (int) (long) (stop - start) / 1000
-//		LogTrace("[GetTimeDiffSeconds] Results for '$methName': ($diff seconds)")
 		return diff
 	} else { return null }
 }
@@ -317,13 +333,47 @@ public void initData(devices, contacts) {
 	}
 }
 
-public Map listAvailableDevices(boolean raw = false) {
+public Map listAvailableDevices(boolean raw = false, int offset = 0) {
+	def time = now()
+	def response = [:]
+	def devices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
+	def deviceCount = devices.size()
 	def overrides = commandOverrides()
 	if (raw) {
-		return settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}
+		response = devices.collectEntries{ dev -> [(hashId(dev.id)): dev]}
    	} else {
-		return settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev -> [ (id): [ n: dev.getDisplayName(), cn: dev.getCapabilities()*.name, a: dev.getSupportedAttributes().unique{ it.name }.collect{def x = [n: it.name, t: it.getDataType(), o: it.getValues()]; try {x.v = dev.currentValue(x.n);} catch(all) {}; x}, c: dev.getSupportedCommands().unique{ transformCommand(it, overrides) }.collect{[n: transformCommand(it, overrides), p: it.getArguments()]} ]]}
+		devices = devices[offset..-1]
+		response.devices = [:]
+		response.complete = !devices.indexed().find{ idx, dev ->
+//			log.debug "Loaded device at ${idx} after ${now() - time}ms. Data size is ${response.toString().size()}"
+			response.devices[hashId(dev.id)] = [
+				n: dev.getDisplayName(), 
+				cn: dev.getCapabilities()*.name, 
+				a: dev.getSupportedAttributes().unique{ it.name }.collect{[
+					n: it.name,
+					t: it.getDataType(),
+					o: it.getValues()
+				]}, 
+				c: dev.getSupportedCommands().unique{ transformCommand(it, overrides) }.collect{[
+					n: transformCommand(it, overrides),
+					p: it.getArguments()
+				]} 
+			]
+			boolean stop = false
+			def jsonData = groovy.json.JsonOutput.toJson(response)
+			int responseLength = jsonData.getBytes("UTF-8").length
+			if(responseLength > (70 * 1024)){
+				stop = true // Stop if large
+			}
+			if (idx < devices.size() - 1 && stop) {
+				response.nextOffset = offset + idx + 1
+				return true
+			}
+			false
+		}
 	}
+	log.debug "Generated list of ${offset}-${offset + devices.size()} of ${deviceCount} devices in ${now() - time}ms. Data size is ${response.toString().size()}"
+	return response
 }
 
 private def transformCommand(command, overrides){
