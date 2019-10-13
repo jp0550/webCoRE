@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 10, 2019 for Hubitat
+ * Last update October 12, 2019 for Hubitat
  */
 public static String version() { return "v0.3.110.20191009" }
 public static String HEversion() { return "v0.3.110.20191009" }
@@ -225,6 +225,121 @@ public void ahttpRequestHandler(resp, callbackData) {
 			String tt2 = getWUIconNum(tt0)
 			json.current.condition.wuicon = tt2
 		} else if(weatherType == 'DarkSky') {
+
+			def sunTimes = app.getSunriseAndSunset()
+			long sunrise = sunTimes.sunrise.time
+			long sunset = sunTimes.sunset.time
+			long time = now()
+
+			boolean is_day = true
+    			if(sunrise <= time && sunset >= time) {
+			        ;
+			} else {
+				is_day = false
+    			}
+
+			if(json.currently) {
+				def t0 = json.currently
+				String c_code = getdsIconCode(t0.icon, t0.summary, !is_day)
+				json.currently.condition_code = c_code
+				json.currently.condition_text = getcondText(c_code)
+
+				c_code = getdsIconCode(t0.icon, t0.summary)
+				String c1 = getStdIcon(c_code)
+				int wuCode = getWUConditionCode(c1)
+				//String tt1 = getWUIconName(wuCode,1)
+				String tt2 = getWUIconNum(wuCode)
+				json.currently.code = wuCode
+				//json.currently.wuicon_name = tt1
+				json.currently.wuicon = tt2
+
+				t0 = json?.daily?.data[0]
+				String f_code = getdsIconCode(t0?.icon, t0?.summary, !is_day)
+				json.currently.forecast_code = f_code
+				json.currently.forecast_text = getcondText(f_code)
+
+				f_code = getdsIconCode(t0.icon, t0.summary)
+				String f1 = getStdIcon(f_code)
+				wuCode = getWUConditionCode(f1)
+				//String tt1 = getWUIconName(wuCode,1)
+				tt2 = getWUIconNum(wuCode)
+				json.currently.fcode = wuCode
+				//json.currently.wuicon_name = tt1
+				json.currently.fwuicon = tt2
+			}
+			if(json.hourly && json.hourly.data) {
+				int hr = new Date(now()).hours
+				int indx = 0
+				for(int i = 0; i <= 50; i++) {
+					def t0 = json.hourly.data[i]
+					if(!t0) continue
+
+					t1 = json?.daily?.data[indx]
+
+					sunrise = t1.sunriseTime
+					sunset = t1.sunsetTime
+					time = t0.time
+					is_day = true
+    					if(sunrise <= time && sunset >= time) {
+					        ;
+					} else {
+						is_day = false
+    					}
+
+					String c_code = getdsIconCode(t0.icon, t0.summary, !is_day)
+					json.hourly.data[i].condition_code = c_code
+					json.hourly.data[i].condition_text = getcondText(c_code)
+
+					c_code = getdsIconCode(t0.icon, t0.summary)
+					String c1 = getStdIcon(c_code)
+					int wuCode = getWUConditionCode(c1)
+					//String tt1 = getWUIconName(wuCode,1)
+					String tt2 = getWUIconNum(wuCode)
+					json.hourly.data[i].code = wuCode
+					//json.hourly.data[i].wuicon_name = tt1
+					json.hourly.data[i].wuicon = tt2
+
+					String f_code = getdsIconCode(t1?.icon, t1?.summary)
+					json.hourly.data[i].forecast_code = f_code
+					json.hourly.data[i].forecast_text = getcondText(f_code)
+
+					f_code = getdsIconCode(t1.icon, t1.summary)
+					String f1 = getStdIcon(f_code)
+					wuCode = getWUConditionCode(f1)
+					//String tt1 = getWUIconName(wuCode,1)
+					tt2 = getWUIconNum(wuCode)
+					json.hourly.data[i].fcode = wuCode
+					//json.hourly.data[i].wuicon_name = tt1
+					json.hourly.data[i].fwuicon = tt2
+
+					hr+=1
+					if(hr != hr%24) {
+						hr %= 24
+						indx += 1
+					}
+				}
+			}
+			if(json.daily && json.daily.data) {
+				for(int i = 0; i <= 31; i++) {
+					def t0 = json.daily.data[i]
+					if(!t0) continue
+					String c_code = getdsIconCode(t0.icon, t0.summary)
+					json.daily.data[i].condition_code = c_code
+					json.daily.data[i].condition_text = getcondText(c_code)
+
+					//c_code = getdsIconCode(t0.icon, t0.summary)
+					String c1 = getStdIcon(c_code)
+					int wuCode = getWUConditionCode(c1)
+					//String tt1 = getWUIconName(wuCode,1)
+					String tt2 = getWUIconNum(wuCode)
+					json.daily.data[i].code = wuCode
+					//json.hourly.data[i].wuicon_name = tt1
+					json.daily.data[i].wuicon = tt2
+
+				}
+			}
+//			String jsonData = groovy.json.JsonOutput.toJson(json)
+//log.debug jsonData
 		}
 	} else {
 		if(resp.hasError()) {
@@ -443,12 +558,18 @@ private isHubitat(){
  	return hubUID != null   
 }
 
-
 String getWUIconName(condition_code, int is_day=0)	 {
 	def cC = condition_code
 	String wuIcon = (conditionFactor[cC] ? conditionFactor[cC][2] : '')
 	if (is_day != 1 && wuIcon)	wuIcon = 'nt_' + wuIcon;
 	return wuIcon
+}
+
+int getWUConditionCode(String code) {
+	for (myMap in conditionFactor) {
+		if(myMap.value[2] == code) return myMap.key
+	}
+	return 0
 }
 
 String getWUIconNum(int wCode)	 {
@@ -587,6 +708,193 @@ private getImgName(wCode, is_day) {
 	[code: 1279, day: 0, img: '46', ],	// NIGHT - Patchy light snow with thunder
 	[code: 1282, day: 0, img: '18', ]	// NIGHT - Moderate or heavy snow with thunder
 ]
+
+// From Darksky.net driver for HE https://community.hubitat.com/t/release-darksky-net-weather-driver-no-pws-required/22699 
+String getdsIconCode(String icon='unknown', String dcs='unknown', boolean isNight=false) {
+        switch(icon) {
+                case 'rain':
+                // rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
+                //       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
+                        if (dcs == 'Drizzle') {
+                                icon = 'drizzle'
+                        } else if       (dcs.startsWith('Light Rain')) {
+                                icon = 'lightrain'
+                                if (dcs.contains('Breezy')) icon += 'breezy'
+                                else if (dcs.contains('Windy'))  icon += 'windy'
+                        } else if       (dcs.startsWith('Heavy Rain')) {
+                                icon = 'heavyrain'
+                                if              (dcs.contains('Breezy')) icon += 'breezy'
+                                else if (dcs.contains('Windy'))  icon += 'windy'
+                        } else if       (dcs == 'Possible Light Rain') {
+                                icon = 'chancelightrain'
+                        } else if       (dcs.startsWith('Possible')) {
+                                icon = 'chancerain'
+                        } else if       (dcs.startsWith('Rain')) {
+                                if              (dcs.contains('Breezy')) icon += 'breezy'
+                                else if (dcs.contains('Windy'))  icon += 'windy'
+                        }
+                        break;
+                case 'snow':
+                        if      (dcs == 'Light Snow') icon = 'lightsnow'
+                        else if (dcs == 'Flurries') icon = 'flurries'
+                        else if (dcs == 'Possible Light Snow') icon = 'chancelightsnow'
+                        else if (dcs.startsWith('Possible Light Snow')) {
+                                if      (dcs.contains('Breezy')) icon = 'chancelightsnowbreezy'
+                                else if (dcs.contains('Windy')) icon = 'chancelightsnowwindy'
+                        } else if (dcs.startsWith('Possible')) icon = 'chancesnow'
+                        break;
+                case 'sleet':
+                        if (dcs.startsWith('Possible')) icon = 'chancesleet'
+                        else if (dcs.startsWith('Light')) icon = 'lightsleet'
+                        break;
+                case 'thunderstorm':
+                        if (dcs.startsWith('Possible')) icon = 'chancetstorms'
+                        break;
+                case 'partly-cloudy-night':
+                        if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
+                        else icon = 'partlycloudy'
+                        break;
+                case 'partly-cloudy-day':
+                        if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
+                        else icon = 'partlycloudy'
+                        break;
+                case 'cloudy-night':
+                        icon = 'cloudy'
+                        break;
+                case 'cloudy':
+                case 'cloudy-day':
+                        icon = 'cloudy'
+                        break;
+                case 'clear-night':
+                        icon = 'clear'
+                        break;
+                case 'clear':
+                case 'clear-day':
+                        icon = 'clear'
+                        break;
+                case 'fog':
+                case 'wind':
+                        // wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
+                        // Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy, Breezy and Foggy]}
+                        if (dcs.contains('Windy')) {
+                                // icon = 'wind'
+                                if              (dcs.contains('Overcast'))        icon = 'windovercast'
+                                else if (dcs.contains('Mostly Cloudy')) icon = 'windmostlycloudy'
+                                else if (dcs.contains('Partly Cloudy')) icon = 'windpartlycloudy'
+                                else if (dcs.contains('Foggy'))           icon = 'windfoggy'
+                        } else if (dcs.contains('Breezy')) {
+                                icon = 'breezy'
+                                if              (dcs.contains('Overcast'))        icon = 'breezyovercast'
+                                else if (dcs.summary.contains('Mostly Cloudy')) icon = 'breezymostlycloudy'
+                                else if (dcs.contains('Partly Cloudy')) icon = 'breezypartlycloudy'
+                                else if (dcs.contains('Foggy'))                   icon = 'breezyfoggy'
+                        }
+                        break;
+                case '':
+                        icon = 'unknown'
+                        break;
+                default:
+                        icon = 'unknown'
+        }
+    //boolean isNight = getDataValue("is_day")=="false"
+        if(isNight) icon = 'nt_' + icon
+    return icon
+}
+
+String getcondText(String wCode){
+	String code = wCode.contains('nt_') ? wCode.substring(3, wCode.size()-1) : wCode
+    //log.info("getImgName Input: wCode: " + code)
+    LUitem = LUTable.find{ it.ccode == code }
+    return (LUitem ? LUitem.ctext : '')
+}
+
+String getStdIcon(String code) {
+    LUitem = LUTable.find{ it.ccode == code }
+    return (LUitem ? LUitem.stdIcon : '')
+}
+
+@Field final List    LUTable =     [
+[ ccode: 'breezy', altIcon: '23.png', ctext: 'Breezy', owmIcon: '50d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
+[ ccode: 'breezyfoggy', altIcon: '48.png', ctext: 'Breezy and Foggy', owmIcon: '50d', stdIcon: 'fog', luxpercent: 0.2 ],
+[ ccode: 'breezymostlycloudy', altIcon: '51.png', ctext: 'Breezy and Mostly Cloudy', owmIcon: '04d', stdIcon: 'cloudy', luxpercent: 0.6 ],
+[ ccode: 'breezyovercast', altIcon: '49.png', ctext: 'Breezy and Overcast', owmIcon: '04d', stdIcon: 'cloudy', luxpercent: 0.6 ],
+[ ccode: 'breezypartlycloudy', altIcon: '53.png', ctext: 'Breezy and Partly Cloudy', owmIcon: '03d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
+[ ccode: 'chancelightrain', altIcon: '39.png', ctext: 'Chance of Light Rain', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'chancelightsnow', altIcon: '41.png', ctext: 'Possible Light Snow', owmIcon: '13d', stdIcon: 'snow', luxpercent: 0.3 ],
+[ ccode: 'chancelightsnowbreezy', altIcon: '54.png', ctext: 'Possible Light Snow and Breezy', owmIcon: '13d', stdIcon: 'snow', luxpercent: 0.3 ],
+[ ccode: 'chancerain', altIcon: '39.png', ctext: 'Chance of Rain', owmIcon: '10d', stdIcon: 'chancerain', luxpercent: 0.7 ],
+[ ccode: 'chancesleet', altIcon: '41.png', ctext: 'Chance of Sleet', owmIcon: '13d', stdIcon: 'chancesleet', luxpercent: 0.7 ],
+[ ccode: 'chancesnow', altIcon: '41.png', ctext: 'Chance of Snow', owmIcon: '13d', stdIcon: 'chancesnow', luxpercent: 0.3 ],
+[ ccode: 'chancetstorms', altIcon: '38.png', ctext: 'Chance of Thunderstorms', owmIcon: '11d', stdIcon: 'chancetstorms', luxpercent: 0.2 ],
+[ ccode: 'chancelightsnowwindy', altIcon: '54.png', ctext: 'Possible Light Snow and Windy', owmIcon: '13d', stdIcon: 'chancesnow', luxpercent: 0.3 ],
+[ ccode: 'clear', altIcon: '32.png', ctext: 'Clear', owmIcon: '01d', stdIcon: 'sunny', luxpercent: 1 ],
+[ ccode: 'cloudy', altIcon: '26.png', ctext: 'Overcast', owmIcon: '04d', stdIcon: 'cloudy', luxpercent: 0.6 ],
+[ ccode: 'drizzle', altIcon: '9.png', ctext: 'Drizzle', owmIcon: '09d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'flurries', altIcon: '13.png', ctext: 'Snow Flurries', owmIcon: '13d', stdIcon: 'flurries', luxpercent: 0.4 ],
+[ ccode: 'fog', altIcon: '19.png', ctext: 'Foggy', owmIcon: '50d', stdIcon: 'fog', luxpercent: 0.2 ],
+[ ccode: 'heavyrain', altIcon: '12.png', ctext: 'Heavy Rain', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'heavyrainbreezy', altIcon: '1.png', ctext: 'Heavy Rain and Breezy', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'heavyrainwindy', altIcon: '1.png', ctext: 'Heavy Rain and Windy', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'lightrain', altIcon: '11.png', ctext: 'Light Rain', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'lightrainbreezy', altIcon: '2.png', ctext: 'Light Rain and Breezy', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'lightrainwindy', altIcon: '2.png', ctext: 'Light Rain and Windy', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'lightsleet', altIcon: '8.png', ctext: 'Light Sleet', owmIcon: '13d', stdIcon: 'sleet', luxpercent: 0.5 ],
+[ ccode: 'lightsnow', altIcon: '14.png', ctext: 'Light Snow', owmIcon: '13d', stdIcon: 'snow', luxpercent: 0.3 ],
+[ ccode: 'mostlycloudy', altIcon: '28.png', ctext: 'Mostly Cloudy', owmIcon: '04d', stdIcon: 'cloudy', luxpercent: 0.6 ],
+[ ccode: 'partlycloudy', altIcon: '30.png', ctext: 'Partly Cloudy', owmIcon: '03d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
+[ ccode: 'rain', altIcon: '12.png', ctext: 'Rain', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'rainbreezy', altIcon: '1.png', ctext: 'Rain and Breezy', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'rainwindy', altIcon: '1.png', ctext: 'Rain and Windy', owmIcon: '10d', stdIcon: 'rain', luxpercent: 0.5 ],
+[ ccode: 'sleet', altIcon: '10.png', ctext: 'Sleet', owmIcon: '13d', stdIcon: 'sleet', luxpercent: 0.5 ],
+[ ccode: 'snow', altIcon: '15.png', ctext: 'Snow', owmIcon: '13d', stdIcon: 'snow', luxpercent: 0.3 ],
+[ ccode: 'sunny', altIcon: '36.png', ctext: 'Sunny', owmIcon: '01d', stdIcon: 'sunny', luxpercent: 1 ],
+[ ccode: 'thunderstorm', altIcon: '0.png', ctext: 'Thunderstorm', owmIcon: '11d', stdIcon: 'tstorms', luxpercent: 0.3 ],
+[ ccode: 'wind', altIcon: '23.png', ctext: 'Windy', owmIcon: '50d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
+[ ccode: 'windfoggy', altIcon: '23.png', ctext: 'Windy and Foggy', owmIcon: '50d', stdIcon: 'fog', luxpercent: 0.2 ],
+[ ccode: 'windmostlycloudy', altIcon: '51.png', ctext: 'Windy and Mostly Cloudy', owmIcon: '50d', stdIcon: 'cloudy', luxpercent: 0.6 ],
+[ ccode: 'windovercast', altIcon: '49.png', ctext: 'Windy and Overcast', owmIcon: '50d', stdIcon: 'cloudy', luxpercent: 0.6 ],
+[ ccode: 'windpartlycloudy', altIcon: '53.png', ctext: 'Windy and Partly Cloudy', owmIcon: '50d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
+[ ccode: 'nt_breezy', altIcon: '23.png', ctext: 'Breezy', owmIcon: '50n', stdIcon: 'nt_partlycloudy', luxpercent: 0 ],
+[ ccode: 'nt_breezyfoggy', altIcon: '48.png', ctext: 'Breezy and Foggy', owmIcon: '50n', stdIcon: 'nt_fog', luxpercent: 0 ],
+[ ccode: 'nt_breezymostlycloudy', altIcon: '50.png', ctext: 'Breezy and Mostly Cloudy', owmIcon: '04n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
+[ ccode: 'nt_breezyovercast', altIcon: '49.png', ctext: 'Breezy and Overcast', owmIcon: '04n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
+[ ccode: 'nt_breezypartlycloudy', altIcon: '52.png', ctext: 'Breezy and Partly Cloudy', owmIcon: '03n', stdIcon: 'nt_partlycloudy', luxpercent: 0 ],
+[ ccode: 'nt_chancelightrain', altIcon: '45.png', ctext: 'Chance of Light Rain', owmIcon: '09n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_chancelightsnow', altIcon: '46.png', ctext: 'Possible Light Snow', owmIcon: '13n', stdIcon: 'nt_snow', luxpercent: 0 ],
+[ ccode: 'nt_chancelightsnowbreezy', altIcon: '55.png', ctext: 'Possible Light Snow and Breezy', owmIcon: '13n', stdIcon: 'nt_snow', luxpercent: 0 ],
+[ ccode: 'nt_chancerain', altIcon: '39.png', ctext: 'Chance of Rain', owmIcon: '09n', stdIcon: 'nt_chancerain', luxpercent: 0 ],
+[ ccode: 'nt_chancesleet', altIcon: '46.png', ctext: 'Chance of Sleet', owmIcon: '13n', stdIcon: 'nt_chancesleet', luxpercent: 0 ],
+[ ccode: 'nt_chancesnow', altIcon: '46.png', ctext: 'Chance of Snow', owmIcon: '13n', stdIcon: 'nt_chancesnow', luxpercent: 0 ],
+[ ccode: 'nt_chancetstorms', altIcon: '47.png', ctext: 'Chance of Thunderstorms', owmIcon: '11n', stdIcon: 'nt_chancetstorms', luxpercent: 0 ],
+[ ccode: 'nt_chancelightsnowwindy', altIcon: '55.png', ctext: 'Possible Light Snow and Windy', owmIcon: '13n', stdIcon: 'nt_chancesnow', luxpercent: 0 ],
+[ ccode: 'nt_clear', altIcon: '31.png', ctext: 'Clear', owmIcon: '01n', stdIcon: 'nt_sunny', luxpercent: 0 ],
+[ ccode: 'nt_cloudy', altIcon: '26.png', ctext: 'Overcast', owmIcon: '04n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
+[ ccode: 'nt_drizzle', altIcon: '9.png', ctext: 'Drizzle', owmIcon: '09n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_flurries', altIcon: '13.png', ctext: 'Flurries', owmIcon: '13n', stdIcon: 'nt_flurries', luxpercent: 0 ],
+[ ccode: 'nt_fog', altIcon: '22.png', ctext: 'Foggy', owmIcon: '50n', stdIcon: 'nt_fog', luxpercent: 0 ],
+[ ccode: 'nt_heavyrain', altIcon: '12.png', ctext: 'Heavy Rain', owmIcon: '10n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_heavyrainbreezy', altIcon: '1.png', ctext: 'Heavy Rain and Breezy', owmIcon: '10n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_heavyrainwindy', altIcon: '1.png', ctext: 'Heavy Rain and Windy', owmIcon: '10n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_lightrain', altIcon: '11.png', ctext: 'Light Rain', owmIcon: '09n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_lightrainbreezy', altIcon: '11.png', ctext: 'Light Rain and Breezy', owmIcon: '09n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_lightrainwindy', altIcon: '11.png', ctext: 'Light Rain and Windy', owmIcon: '09n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_lightsleet', altIcon: '46.png', ctext: 'Sleet', owmIcon: '13n', stdIcon: 'nt_sleet', luxpercent: 0 ],
+[ ccode: 'nt_lightsnow', altIcon: '14.png', ctext: 'Light Snow', owmIcon: '13n', stdIcon: 'nt_snow', luxpercent: 0 ],
+[ ccode: 'nt_mostlycloudy', altIcon: '27.png', ctext: 'Mostly Cloudy', owmIcon: '04n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
+[ ccode: 'nt_partlycloudy', altIcon: '29.png', ctext: 'Partly Cloudy', owmIcon: '03n', stdIcon: 'nt_partlycloudy', luxpercent: 0 ],
+[ ccode: 'nt_rain', altIcon: '11.png', ctext: 'Rain', owmIcon: '10n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_rainbreezy', altIcon: '2.png', ctext: 'Rain and Breezy', owmIcon: '10n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_rainwindy', altIcon: '2.png', ctext: 'Rain and Windy', owmIcon: '10n', stdIcon: 'nt_rain', luxpercent: 0 ],
+[ ccode: 'nt_sleet', altIcon: '46.png', ctext: 'Sleet', owmIcon: '13n', stdIcon: 'nt_sleet', luxpercent: 0 ],
+[ ccode: 'nt_snow', altIcon: '46.png', ctext: 'Snow', owmIcon: '13n', stdIcon: 'nt_snow', luxpercent: 0 ],
+[ ccode: 'nt_thunderstorm', altIcon: '0.png', ctext: 'Thunderstorm', owmIcon: '11n', stdIcon: 'nt_tstorms', luxpercent: 0 ],
+[ ccode: 'nt_wind', altIcon: '23.png', ctext: 'Windy', owmIcon: '50n', stdIcon: 'nt_tstorms', luxpercent: 0 ],
+[ ccode: 'nt_windfoggy', altIcon: '48.png', ctext: 'Windy and Foggy', owmIcon: '50n', stdIcon: 'nt_fog', luxpercent: 0 ],
+[ ccode: 'nt_windmostlycloudy', altIcon: '50.png', ctext: 'Windy and Mostly Cloudy', owmIcon: '50n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
+[ ccode: 'nt_windovercast', altIcon: '49.png', ctext: 'Windy and Overcast', owmIcon: '50n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
+[ ccode: 'nt_windpartlycloudy', altIcon: '52.png', ctext: 'Windy and Partly Cloudy', owmIcon: '50n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
+]   
+
 
 /******************************************************************************/
 /***																		***/

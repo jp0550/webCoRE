@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 11, 2019 for Hubitat
+ * Last update October 12, 2019 for Hubitat
 */
 public static String version() { return "v0.3.110.20191009" }
 public static String HEversion() { return "v0.3.110.20191009_HE" }
@@ -581,7 +581,7 @@ private int setIds(boolean shorten, node, int maxId = 0, Map existingIds = [:], 
 				if(item.lo3) cleanCode((Map)item.lo3)
 				if(item.ro) cleanCode((Map)item.ro)
 				if(item.ro2) cleanCode((Map)item.ro2)
-				if(item.v) cleanCode((Map)item.v)
+				if(item.v) cleanCode(item.v)
 			}
 		}
 	}
@@ -594,7 +594,7 @@ private int setIds(boolean shorten, node, int maxId = 0, Map existingIds = [:], 
 	return maxId
 }
 
-private void cleanCode(Map item) {
+private void cleanCode(item) {
 	if(item.exp) {
 		Map t1 = item.exp
 		if(t1.str || t1.ok) {
@@ -604,8 +604,8 @@ private void cleanCode(Map item) {
 			def t0 = t1.i
 			if(t0 instanceof List) {
 				for(t2 in t0.findAll{ !!it }) {
-					if(t2 && t2.ok != null) t2.remove("ok")
-					if(t2 && t2.i) cleanCode(t2)
+					if(t2 && t2?.ok != null) t2.remove("ok")
+					if(t2 && t2?.i) cleanCode(t2)
 				}
 			}
 		}
@@ -615,8 +615,8 @@ private void cleanCode(Map item) {
 		if(t0 instanceof List) {
 //log.debug "found .i $t0 to remove"
 			for(t2 in t0.findAll{ !!it }) {
-				if(t2 && t2.ok != null) t2.remove("ok")
-				if(t2 && t2.i) cleanCode(t2)
+				if(t2 && t2?.ok != null) t2.remove("ok")
+				if(t2 && t2?.i) cleanCode(t2)
 			}
 		}
 	}
@@ -7989,7 +7989,8 @@ private long stringToTime(dateOrTimeOrString) { // this is convert something to 
 private String formatLocalTime(time, String format = "EEE, MMM d yyyy @ h:mm:ss a z") {
 	if("$time".isNumber()) {
 		if(time < 86400000) time = getTimeToday(time)
-//DST??
+// deal with a time in sec (vs. ms)
+		if(time < (now()/1000 + 86400*365)) time = time * 1000
 		time = new Date(time)
 	}
 	if(time instanceof String) {
@@ -8239,8 +8240,8 @@ private void initSunriseAndSunset(Map rtData) {
 		if(!sunTimes.sunrise) {
 			warn "Actual sunrise and sunset times are unavailable; please reset the location for your hub", rtData
 			long t1 = getMidnightTime()
-			sunTimes.sunrise = new Date(t0 + 7 * 3600000)
-			sunTimes.sunset = new Date(t0 + 19 * 3600000)
+			sunTimes.sunrise = new Date(t1 + 7 * 3600000)
+			sunTimes.sunset = new Date(t1 + 19 * 3600000)
 			t = 0L
 		}
 		t0 = [
