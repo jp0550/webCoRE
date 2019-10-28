@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 12, 2019 for Hubitat
+ * Last update October 28, 2019 for Hubitat
 */
 public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191009_HE" }
+public static String HEversion() { return "v0.3.110.20191028_HE" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -923,6 +923,10 @@ private Map getDSCache() {
 	} else theCacheFLD = [:]
 	if(!result) {
 		long stateStart = now()
+		if(state.pep == null) { // upgrades of older pistons
+			Map piston = recreatePiston()
+			state.pep = piston.o?.pep ? true : false
+		}
 		def t1 = [
 			id: appId,
 			logging: state.logging ? (int)state.logging : 0,
@@ -1030,8 +1034,9 @@ private Map getRunTimeData(Map rtData=null, Map retSt=null, boolean fetchWrapper
 		lstarted = rtData.lstarted ?: 0L
 		lended = rtData.lended ?: 0L
 		dbgLevel = rtData.debugLevel ?: 0
+	} else {
+		rtData = getTemporaryRunTimeData(timestamp)
 	}
-	rtData = getTemporaryRunTimeData(timestamp)
 	if(rtData.temporary) {
 		rtData.remove("temporary")
 	}
@@ -1187,7 +1192,7 @@ void executeHandler(event) {
 	maxLogs: 100,
 ]
 
-void handleEvents(event, boolean queue=true, boolean callMySelf=false, pist=null) {
+void handleEvents(event, boolean queue=true, boolean callMySelf=false, Map pist=null) {
 	long startTime = now()
 	Map tempRtData = getTemporaryRunTimeData(startTime)
 	Map msg = timer "Event processed successfully", tempRtData, -1
@@ -1219,20 +1224,12 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, pist=null
 	}
 
 	boolean myPep = (boolean)tempRtData.pep
-	if(myPep == null) {
-		Map piston = recreatePiston()
-		myPep = piston.o?.pep
-		state.pep = myPep
-		piston = null
-		clearMyCache("no pep, piston")
-	} else {
-		tempRtData.piston = pist
-	}
+	tempRtData.piston = pist
 
 	tempRtData.lstarted = now()
 	String appId = (String)tempRtData.id
 	boolean serializationOn = true // on / off switch
-	boolean strictSync = false // this could be a setting
+	boolean strictSync = true // this could be a setting
 	boolean doSerialization = !myPep && (serializationOn || strictSync)
 	String st0 = doSerialization ? appId : (String)null
 	Map retSt = [ semaphore: 0L, semaphoreName: (String)null, semaphoreDelay: 0L, wAtSem: false ]
@@ -1288,7 +1285,10 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, pist=null
 			p: t3,
 			s: stAccess,
 		]
-	//List t0 = rtData.runTimeHis
+	List data = [ "lstarted", "lended", "pStart", "pEnd", "generatedIn", "ended", "wAtSem", "semaphoreDelay", "vars", "stateAccess", "author", "bin", "build" ]
+	for (foo in data) {
+		rtData.remove((String)foo)
+	}
 //	}
 
 	rtData.temp = [:]  // equivalent of resetRandomValues()
@@ -1301,15 +1301,14 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, pist=null
 
 	Map msg2 = timer "Execution stage complete.", rtData, -1
 	boolean success = true
-	boolean syncTime = false
 	boolean firstTime = true
 	if((evntName != 'time') && (evntName != 'wc_async_reply')) {
 		if((int)rtData.logging) info "Execution stage started", rtData, 1
 		success = executeEvent(rtData, event)
-		syncTime = true
 		firstTime = false
 	}
 
+	boolean syncTime = true
 	while (success && ((int)getPistonLimits.executionTime + (long)rtData.timestamp - now() > (int)getPistonLimits.schedule)) {
 		List schedules
 		Map tt0 = getCachedMaps()
@@ -1319,16 +1318,15 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, pist=null
 		long t = now()
 		if(evntName == 'wc_async_reply') {
 			event.schedule = schedules.sort{ (long)it.t }.find{ (String)it.d == evntVal }
+			syncTime = false
 		} else {
 			//anything less than .9 seconds in the future is considered due, we'll do some pause to sync with it
 			//we're doing this because many times, the scheduler will run a job early, usually 0-1.5 seconds early...
 			evntName = 'time'
 			evntVal = "${t}"
 			event = [date: event.date, device: location, name: evntName, value: t, schedule: schedules.sort{ (long)it.t }.find{ (long)it.t < t + (int)getPistonLimits.scheduleVariance }]
-			syncTime = true
 		}
 		if(!event.schedule) break
-		if(firstTime && !strictSync) syncTime = false
 
 		schedules.remove(event.schedule)
 
@@ -1374,19 +1372,22 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, pist=null
 					event.schedule.stack.response = null
 				}
 				error "Timeout Error httpRequest", rtData
+				syncTime = true
 			}
 			if((String)event.schedule.d == 'sendEmail') {
 				error "Timeout Error sendEmail", rtData
+				syncTime = true
 			}
 			if((String)event.schedule.d == 'storeMedia') {
 				setSystemVariableValue(rtData, '$httpStatusCode', 408)
 				setSystemVariableValue(rtData, '$httpStatusOk', false)
 				error "Timeout Error storeMedia", rtData
+				syncTime = true
 			}
 		}
 		//if we have any other pending -3 events (device schedules), we cancel them all
 		//if(event.schedule.i > 0) schedules.removeAll{ (it.s == event.schedule.s) && (it.i == -3) }
-		if(syncTime) {
+		if(syncTime && strictSync) {
 			int delay = (long)event.schedule.t - now() - 30
 			if(delay > 0 && delay < (int)getPistonLimits.scheduleVariance) {
 				if((int)rtData.logging > 1) trace "Synchronizing scheduled event, waiting for ${delay}ms", rtData
@@ -1433,10 +1434,16 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, pist=null
 		handleEvents(theEvent, false, true, rtData.piston)
 	}
 
+	String msgt = "Exiting"
 	if(doSerialization && (String)rtData.semaphoreName != (String)null && ((long)theSemaphoresFLD."${(String)rtData.semaphoreName}" <= (long)rtData.semaphore)) {
-		if((int)rtData.logging > 2) { log.debug "Released Lock and exiting" }
+		msgt = "Released Lock and exiting"
 		theSemaphoresFLD."${(String)rtData.semaphoreName}" = 0L
-	} else if((int)rtData.logging > 2) { log.debug "Exiting" }
+	}
+	if((int)rtData.logging > 2) { log.debug msgt }
+	data = rtData.collect{ it.key }
+	for(item in data) rtData.remove((String)item)
+	//String tout = new groovy.json.JsonOutput().toJson(rtData)
+	//log.warn "rtData: $tout"
 }
 
 private boolean executeEvent(Map rtData, event) {
@@ -1519,7 +1526,7 @@ private boolean executeEvent(Map rtData, event) {
 		rtData.stack = [c: 0, s: 0, cs:[], ss:[]]
 		boolean ended = false
 		try {
-			boolean allowed = !rtData.piston.r || !((int)rtData.piston.r.length) || evaluateConditions(rtData, rtData.piston, 'r', true)
+			boolean allowed = !rtData.piston.r || !(rtData.piston.r.length) || evaluateConditions(rtData, rtData.piston, 'r', true)
 			rtData.restricted = !rtData.piston.o?.aps && !allowed
 			if(allowed || (int)rtData.fastForwardTo != 0) {
 				if((int)rtData.fastForwardTo == -3) {
@@ -1583,7 +1590,6 @@ private void finalizeEvent(Map rtData, Map initialMsg, boolean success = true) {
 		}
 	}
 
-//ERS
 	updateLogs(rtData, (long)rtData.timestamp)
 
 	Map t0 = getCachedMaps()
@@ -1612,7 +1618,7 @@ private void finalizeEvent(Map rtData, Map initialMsg, boolean success = true) {
 	}
 
 //remove large stuff
-	def data = [ "newCache", "mediaData", "weather", "logs", "trace", "devices", "systemVars", "localVars", "currentAction", "previousEvent", "json", "response", "cache", "store", "settings", "locationModeId", "locationId", "coreVersion", "hcoreVersion", "cancelations", "conditionStateChanged", "pistonStateChanged", "fastForwardTo", "resumed", "terminated", "instanceId", "wakingUp", "statementLevel", "args", "nfl", "temp" ]
+	List data = [ "newCache", "mediaData", "weather", "logs", "trace", "devices", "systemVars", "localVars", "currentAction", "previousEvent", "json", "response", "cache", "store", "settings", "locationModeId", "locationId", "coreVersion", "hcoreVersion", "cancelations", "conditionStateChanged", "pistonStateChanged", "fastForwardTo", "resumed", "terminated", "instanceId", "wakingUp", "statementLevel", "args", "nfl", "temp" ]
 	for (foo in data) {
 		rtData.remove((String)foo)
 	}
@@ -1687,19 +1693,6 @@ private void finalizeEvent(Map rtData, Map initialMsg, boolean success = true) {
 	else state.stats = stats
 
 	if(t0) theCacheFLD."${myId}".mem = mem()
-	//Map t0 = getCachedMaps()
-	//String myId = rtData.id
-//		if((int)rtData.logging > 2) debug "RunTime initialize > ${t0} LockT > ${t1}ms > rtDataT > ${t2}ms > pistonT > ${t3}ms (first state access ${missing} $t4 $t5)", rtData
-//		rtData.curStat = [
-//			i: t0,
-//			l: t1,
-//			r: t2,
-//			p: t3,
-//			s: stAccess,
-//		]
-		//theCacheFLD."${myId}".runTimeHis = hisList
-		//theCacheFLD."${myId}".runStats = [:] + rtData.curStat
-	//List t0 = rtData.runTimeHis
 	if(t0) {
 		theCacheFLD."${myId}".runStats = [:] + rtData.curStat
 		List hisList = theCacheFLD."${myId}".runTimeHis
@@ -1858,14 +1851,14 @@ private boolean executeStatement(Map rtData, Map statement, boolean async = fals
 		}
 	}
 	myDetail rtData, "executeStatement", 1
-	rtData.stack.ss.push(rtData.stack.s)
-	rtData.stack.s = statement.$
+	rtData.stack.ss.push((int)rtData.stack.s)
+	rtData.stack.s = statement.$ ? (int)statement.$ : 0
 	long t = now()
 	boolean value = true
-	def c = rtData.stack.c
+	int c = (int)rtData.stack.c
 	boolean stacked = true /* cancelable on condition change */
 	if(stacked) {
-		rtData.stack.cs.push(c)
+		def a = rtData.stack.cs.push(c)
 	}
 	boolean parentConditionStateChanged = (boolean)rtData.conditionStateChanged
 	//def parentAsync = async
@@ -2187,9 +2180,9 @@ private boolean executeStatement(Map rtData, Map statement, boolean async = fals
 	//restore current condition
 	rtData.stack.c = c
 	if(stacked) {
-		rtData.stack.cs.pop()
+		def a = rtData.stack.cs.pop()
 	}
-	rtData.stack.s = rtData.stack.ss.pop()
+	rtData.stack.s = (int)rtData.stack.ss.pop()
 	setSystemVariableValue(rtData, '$index', parentIndex)
 	setSystemVariableValue(rtData, '$device', parentDevice)
 	rtData.conditionStateChanged = parentConditionStateChanged
@@ -2387,10 +2380,10 @@ private void executePhysicalCommand(Map rtData, device, String command, params =
 		scheduleDevice = hashId(device.id)
 		//we're using schedules instead
 		Map statement = (Map)rtData.currentAction
-		def cs = [] + (((String)statement.tcp == 'b') || ((String)statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
+		List cs = [] + (((String)statement.tcp == 'b') || ((String)statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
 		int ps = ((String)statement.tcp == 'b') || ((String)statement.tcp == 'p') ? 1 : 0
 		cs.removeAll{ it == 0 }
-		def schedule = [
+		Map schedule = [
 			t: now() + delay,
 			s: (int)statement.$,
 			i: -3,
@@ -2407,7 +2400,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params =
 		List nparams = (params instanceof List) ? (List)params : (params != null ? [params] : [])
 		try {
 			//cleanup the params so that SONOS works
-			while ((int)nparams.size() && (nparams[(int)nparams.size()-1] == null)) nparams.pop()
+			while ((int)nparams.size() && (nparams[(int)nparams.size()-1] == null)) def a = nparams.pop()
 			Map msg = timer "", rtData
 			boolean skip = false
 			if(!rtData.piston.o?.dco && !disableCommandOptimization && !(command in ['setColorTemperature', 'setColor', 'setHue', 'setSaturation'])) {
@@ -2656,7 +2649,7 @@ private void scheduleTimeCondition(Map rtData, Map condition) {
 	//if already scheduled once during this run, don't do it again
 	int t0 = (int)condition.$
 	if(rtData.schedules.find{ ((int)it.s == t0) && ((int)it.i == 0) }) return
-	def comparison = Comparisons().conditions[(String)condition.co]
+	Map comparison = Comparisons().conditions[(String)condition.co]
 	boolean trigger = false
 	if(!comparison) {
 		comparison = Comparisons().triggers[(String)condition.co]
@@ -2745,13 +2738,13 @@ private long checkTimeRestrictions(Map rtData, Map operand, long time, int level
 	//day of month restrictions
 	if(odm) {
 		if(odm.indexOf((int)date.date) < 0) {
-			def lastDayOfMonth = (int)(new Date((int)date.year, (int)date.month + 1, 0)).date
+			int lastDayOfMonth = (int)(new Date((int)date.year, (int)date.month + 1, 0)).date
 			if(odm.find{ it < 1 }) {
 				//we need to add the last days
 				odm = [] + odm //copy the array
-				if(odm.indexOf(-1) >= 0) odm.push(lastDayOfMonth)
-				if(odm.indexOf(-2) >= 0) odm.push(lastDayOfMonth - 1)
-				if(odm.indexOf(-3) >= 0) odm.push(lastDayOfMonth - 2)
+				if(odm.indexOf(-1) >= 0) def a=odm.push(lastDayOfMonth)
+				if(odm.indexOf(-2) >= 0) def a=odm.push(lastDayOfMonth - 1)
+				if(odm.indexOf(-3) >= 0) def a=odm.push(lastDayOfMonth - 2)
 				odm.removeAll{ it < 1 }
 			}
 			switch (level) {
@@ -2819,7 +2812,7 @@ private int getWeekOfMonth(date = null, boolean backwards = false) {
 
 private void requestWakeUp(Map rtData, Map statement, Map task, long timeOrDelay, String data = (String)null) {
 	long time = timeOrDelay > 9999999999 ? timeOrDelay : now() + timeOrDelay
-	def cs = [] + (((String)statement.tcp == 'b') || ((String)statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
+	List cs = [] + (((String)statement.tcp == 'b') || ((String)statement.tcp == 'c') ? (rtData.stack?.cs ?: []) : [])
 	int ps = ((String)statement.tcp == 'b') || ((String)statement.tcp == 'p') ? 1 : 0
 	cs.removeAll{ it == 0 }
 // state to save across a sleep
@@ -2842,7 +2835,7 @@ private void requestWakeUp(Map rtData, Map statement, Map task, long timeOrDelay
 // currentEvent in case of httpRequest
 		]
 	]
-	rtData.schedules.push(schedule)
+	def a=rtData.schedules.push(schedule)
 }
 
 private long do_setLevel(Map rtData, device, List params, String attr, val=null) {
@@ -3905,12 +3898,12 @@ private boolean evaluateConditions(Map rtData, Map conditions, String collection
 	long t = now()
 	Map msg = timer '', rtData
 	//override condition id
-	def c = rtData.stack.c
-	int myC = conditions.$ ?: 0
+	int c = (int)rtData.stack.c
+	int myC = conditions.$ ? (int)conditions.$ : 0
 	rtData.stack.c = myC
 	boolean not = (collection == 'c') ? !!conditions.n : !!conditions.rn
 	String grouping = (collection == 'c') ? conditions.o : conditions.rop
-	boolean value = (grouping == 'or' ? false : true)
+	def value = (grouping == 'or' ? false : true)
 
 
 	if((grouping == 'followed by') && (collection == 'c')) {
@@ -3988,7 +3981,7 @@ private boolean evaluateConditions(Map rtData, Map conditions, String collection
 			if((int)rtData.fastForwardTo == 0 && (!rtData.piston.o?.cto) && ((value && (grouping == 'or')) || (!value && (grouping == 'and')))) break
 		}
 	}
-	boolean result
+	boolean result = false
 	if(value != null) {
 		result = not ? !value : value
 	}
@@ -4029,11 +4022,11 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 		values = [[i: "${node?.$}:$index:0", v: [t: ovt, v: null]]]
 		break
 	case "p": //physical device
-		def attribute = Attributes()[(String)operand.a]
+		Map attribute = (String)operand.a ? Attributes()[(String)operand.a] : [:]
 		for(String deviceId in expandDeviceList(rtData, (List)operand.d)) {
 			def value = [i: "${deviceId}:${(String)operand.a}", v:getDeviceAttribute(rtData, deviceId, (String)operand.a, operand.i, trigger) + (ovt ? [vt: ovt] : [:]) + (attribute && attribute.p ? [p: operand.p] : [:])]
 			updateCache(rtData, value)
-			values.push(value)
+			def a=values.push(value)
 		}
 		if(((int)values.size() > 1) && !((String)operand.g in ['any', 'all'])) {
 			//if we have multiple values and a grouping other than any or all we need to apply that function
@@ -4047,7 +4040,7 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 	case 'd': //devices
 		List deviceIds = []
 		for (String d in expandDeviceList(rtData, (List)operand.d)) {
-			if(getDevice(rtData, d)) deviceIds.push(d)
+			if(getDevice(rtData, d)) def a=deviceIds.push(d)
 		}
 		values = [[i: "${node?.$}:d", v:[t: 'device', v: deviceIds.unique()]]]
 		break
@@ -4125,7 +4118,7 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 				if(var.v instanceof List) {
 					sum += var.v
 				} else {
-					sum.push(var.v)
+					def a=sum.push(var.v)
 				}
 				values = [[i: "${node?.$}:$index:0", v:[t: 'device', v: sum] + (ovt ? [vt: ovt] : [:])]]
 			}
@@ -4186,13 +4179,13 @@ private boolean evaluateCondition(Map rtData, Map condition, String collection, 
 	long t = now()
 	Map msg = timer '', rtData
 	//override condition id
-	def c = rtData.stack.c
-	rtData.stack.c = condition.$
+	int c = (int)rtData.stack.c
+	rtData.stack.c = condition.$ ? (int)condition.$ : 0
 	boolean not = false
 	boolean oldResult = !!rtData.cache["c:${condition.$}"]
 	boolean result = false
 	if((String)condition.t == 'group') {
-		def tt1 = evaluateConditions(rtData, condition, collection, async)
+		Boolean tt1 = evaluateConditions(rtData, condition, collection, async)
 		myDetail rtData, "evaluateCondition $condition result: $tt1", -1
 		return tt1
 	} else {
@@ -4415,9 +4408,9 @@ private boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 		result = ((String)lo.operand.g == 'any' ? result || res : result && res)
 		if(options?.matches && (String)value.v.d) {
 			if(res) {
-				options.devices.matched.push((String)value.v.d)
+				def a=options.devices.matched.push((String)value.v.d)
 			} else {
-				options.devices.unmatched.push((String)value.v.d)
+				def a=options.devices.unmatched.push((String)value.v.d)
 			}
 		}
 		if(((String)lo.operand.g == 'any') && res && !(options?.matches)) {
@@ -4441,14 +4434,14 @@ private void cancelStatementSchedules(Map rtData, int statementId, String data =
 		if(found) break
 	}
 	if((int)rtData.logging > 2) debug "Cancelling statement #${statementId}'s schedules...", rtData
-	if(!found) ((List)rtData.cancelations.statements).push([id: statementId, data: data])
+	if(!found) def a=((List)rtData.cancelations.statements).push([id: statementId, data: data])
 }
 
 private void cancelConditionSchedules(Map rtData, int conditionId) {
 	//cancel all schedules that are pending for condition conditionId
 	if((int)rtData.logging > 2) debug "Cancelling condition #${conditionId}'s schedules...", rtData
 	if(!(conditionId in (List)rtData.cancelations.conditions)) {
-		((List)rtData.cancelations.conditions).push(conditionId)
+		def a=((List)rtData.cancelations.conditions).push(conditionId)
 	}
 }
 
@@ -4474,7 +4467,7 @@ private List listPreviousStates(device, String attribute, long threshold, exclud
 			long startTime = events[i].date.getTime()
 			long duration = endTime - startTime
 			if((duration >= 1000) && ((i > 0) || !excludeLast)) {
-				result.push([value: events[i].value, startTime: startTime, duration: duration])
+				def a=result.push([value: events[i].value, startTime: startTime, duration: duration])
 			}
 			if(startTime < thresholdTime)
 				break
@@ -4484,7 +4477,7 @@ private List listPreviousStates(device, String attribute, long threshold, exclud
 		def currentState = device.currentState(attribute, true)
 		if(currentState) {
 			long startTime = currentState.getDate().getTime()
-			result.push([value: currentState.value, startTime: startTime, duration: now() - startTime])
+			def a=result.push([value: currentState.value, startTime: startTime, duration: now() - startTime])
 		}
 	}
 	return result
@@ -4506,7 +4499,7 @@ private boolean valueWas(Map rtData, Map comparisonValue, Map rightValue, Map ri
 	String attribute = (String)comparisonValue.v.a
 	long threshold = (long)evaluateExpression(rtData, [t: 'duration', v: timeValue.v, vt: (String)timeValue.vt], 'long').v
 
-	def states = listPreviousStates(device, attribute, threshold, (rtData.event.device?.id == device.id) && ((String)rtData.event.name == attribute))
+	List states = listPreviousStates(device, attribute, threshold, (rtData.event.device?.id == device.id) && ((String)rtData.event.name == attribute))
 	boolean result = true
 	long duration = 0
 	for (stte in states) {
@@ -4528,7 +4521,7 @@ private boolean valueChanged(Map rtData, Map comparisonValue, Map timeValue) {
 	String attribute = (String)comparisonValue.v.a
 	long threshold = (long)evaluateExpression(rtData, [t: 'duration', v: timeValue.v, vt: (String)timeValue.vt], 'long').v
 
-	def states = listPreviousStates(device, attribute, threshold, false)
+	List states = listPreviousStates(device, attribute, threshold, false)
 	if(!(int)states.size()) return false
 	def value = states[0].value
 	for (tstate in states) {
@@ -4947,7 +4940,7 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 	}
 	conditionTraverser = { Map condition, parentCondition ->
 		if((String)condition.co) {
-			def comparison = Comparisons().conditions[(String)condition.co]
+			Map comparison = Comparisons().conditions[(String)condition.co]
 			String comparisonType = 'condition'
 			if(!comparison) {
 				hasTriggers = true
@@ -4969,7 +4962,7 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 	}
 	restrictionTraverser = { Map restriction, parentRestriction ->
 		if((String)restriction.co) {
-			def comparison = Comparisons().conditions[(String)restriction.co]
+			Map comparison = Comparisons().conditions[(String)restriction.co]
 			String comparisonType = 'condition'
 			if(!comparison) {
 				comparison = Comparisons().triggers[(String)restriction.co]
@@ -5127,7 +5120,7 @@ private List expandDeviceList(Map rtData, List devices, boolean localVarsOnly = 
 	List result = []
 	for(String deviceId in devices) {
 		if(deviceId && ((int)deviceId.size() == 34) && deviceId.startsWith(':') && deviceId.endsWith(':')) {
-			result.push(deviceId)
+			def a=result.push(deviceId)
 		} else {
 			if(localVarsOnly) {
 				//during subscriptions we use local vars only to make sure we don't subscribe to "variable" lists of devices
@@ -5155,7 +5148,7 @@ private String sanitizeVariableName(String name) {
 
 private getDevice(Map rtData, String idOrName) {
 	if((String)rtData.locationId == idOrName) return location
-	def device = rtData.devices[idOrName] ?: rtData.devices.find{ it.value.getDisplayName() == idOrName }?.value
+	def device = rtData.devices[idOrName] ?: rtData.devices.find{ (String)it.value.getDisplayName() == idOrName }?.value
 	if(!device) {
 		if(!rtData.allDevices) {
 			Map msg = timer "Device missing from piston. Loading all from parent...", rtData
@@ -5163,7 +5156,7 @@ private getDevice(Map rtData, String idOrName) {
 			if((int)rtData.logging > 2) debug msg, rtData
 		}
 		if(rtData.allDevices) {
-			def deviceMap = rtData.allDevices.find{ (idOrName == (String)it.key) || (idOrName == it.value.getDisplayName()) }
+			def deviceMap = rtData.allDevices.find{ (idOrName == (String)it.key) || (idOrName == (String)it.value.getDisplayName()) }
 			if(deviceMap) {
 				device = deviceMap.value
 				rtData.updateDevices = true
@@ -5221,7 +5214,7 @@ private Map getDeviceAttribute(Map rtData, String deviceId, String attributeName
 	def device = getDevice(rtData, deviceId)
 	if(device) {
 		//def attribute = rtData.attributes[attributeName ?: '']
-		def attribute = Attributes()[attributeName ?: '']
+		Map attribute = attributeName ? Attributes()[attributeName] : [:]
 		if(!attribute) {
 			attribute = [t: 'string', m: false]
 		}
@@ -5790,14 +5783,14 @@ private Map evaluateExpression(Map rtData, Map expression, String dataType=(Stri
 					int sz = param.v instanceof List ? (int)((List)param.v).size() : 1
 					switch (sz) {
 						case 0: break
-						case 1: params.push(param); break
+						case 1: def a=params.push(param); break
 						default:
 							for (v in param.v) {
-							params.push([t: (String)param.t, a: (String)param.a, v: [v]])
+							def b=params.push([t: (String)param.t, a: (String)param.a, v: [v]])
 						}
 					}
 				} else {
-					params.push(param)
+					def a=params.push(param)
 				}
 			}
 		}
@@ -7583,22 +7576,9 @@ private String mem(showBytes = true) {
 }
 
 private String runTimeHis(Map rtData) {
-	//List t0 = rtData.runTimeHis
-	Map t0 = getCachedMaps()
 	String myId = (String)rtData.id
-//		if((int)rtData.logging > 2) debug "RunTime initialize > ${t0} LockT > ${t1}ms > rtDataT > ${t2}ms > pistonT > ${t3}ms (first state access ${missing} $t4 $t5)", rtData
-//		rtData.curStat = [
-//			i: t0,
-//			l: t1,
-//			r: t2,
-//			p: t3,
-//			s: stAccess,
-//		]
 	return "Total run history: " + (theCacheFLD."${myId}".runTimeHis).toString() + "<br>" +
 		"Last run details: " + (theCacheFLD."${myId}".runStats).toString()
-		//theCacheFLD."${myId}".runTimeHis = hisList
-		//theCacheFLD."${myId}".runStats = [:] + rtData.curStat
-	//List t0 = rtData.runTimeHis
 }
 
 /*** UTILITIES									***/
@@ -8121,13 +8101,7 @@ private Map log(message, Map rtData, int shift=-2, err=null, String cmd=(String)
 	// -1 - end of routine, level down
 	// anything else - nothing happens
 	int maxLevel = 4
-	int level
-//ERS
-	level = rtData?.debugLevel ? (int)rtData.debugLevel : 0
-/*	def t0
-	t0 = getCachedMaps()
-	level = (int)t0.debugLevel*/
-	//level = state.debugLevel ?: 0
+	int level = rtData?.debugLevel ? (int)rtData.debugLevel : 0
 	String prefix = "║"
 	String prefix2 = "║"
 	String pad = "" //"░"
@@ -8154,11 +8128,6 @@ private Map log(message, Map rtData, int shift=-2, err=null, String cmd=(String)
 	}
 
 //ERS
-/*
-	String myId = hashId(app.id)
-	theCacheFLD."${myId}".debugLevel = level
-	state.debugLevel = level
-*/
 	rtData.debugLevel = level
 	boolean hasErr = (err!=null && !!err)
 

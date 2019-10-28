@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 12, 2019 for Hubitat
+ * Last update October 28, 2019 for Hubitat
  */
 public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191009" }
+public static String HEversion() { return "v0.3.110.20191028_HE" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -232,11 +232,11 @@ public void ahttpRequestHandler(resp, callbackData) {
 			long time = now()
 
 			boolean is_day = true
-    			if(sunrise <= time && sunset >= time) {
-			        ;
+			if(sunrise <= time && sunset >= time) {
+				;
 			} else {
 				is_day = false
-    			}
+			}
 
 			if(json.currently) {
 				def t0 = json.currently
@@ -247,10 +247,8 @@ public void ahttpRequestHandler(resp, callbackData) {
 				c_code = getdsIconCode(t0.icon, t0.summary)
 				String c1 = getStdIcon(c_code)
 				int wuCode = getWUConditionCode(c1)
-				//String tt1 = getWUIconName(wuCode,1)
 				String tt2 = getWUIconNum(wuCode)
 				json.currently.code = wuCode
-				//json.currently.wuicon_name = tt1
 				json.currently.wuicon = tt2
 
 				t0 = json?.daily?.data[0]
@@ -280,11 +278,11 @@ public void ahttpRequestHandler(resp, callbackData) {
 					sunset = t1.sunsetTime
 					time = t0.time
 					is_day = true
-    					if(sunrise <= time && sunset >= time) {
-					        ;
+					if(sunrise <= time && sunset >= time) {
+						;
 					} else {
 						is_day = false
-    					}
+					}
 
 					String c_code = getdsIconCode(t0.icon, t0.summary, !is_day)
 					json.hourly.data[i].condition_code = c_code
@@ -293,10 +291,8 @@ public void ahttpRequestHandler(resp, callbackData) {
 					c_code = getdsIconCode(t0.icon, t0.summary)
 					String c1 = getStdIcon(c_code)
 					int wuCode = getWUConditionCode(c1)
-					//String tt1 = getWUIconName(wuCode,1)
 					String tt2 = getWUIconNum(wuCode)
 					json.hourly.data[i].code = wuCode
-					//json.hourly.data[i].wuicon_name = tt1
 					json.hourly.data[i].wuicon = tt2
 
 					String f_code = getdsIconCode(t1?.icon, t1?.summary)
@@ -306,10 +302,8 @@ public void ahttpRequestHandler(resp, callbackData) {
 					f_code = getdsIconCode(t1.icon, t1.summary)
 					String f1 = getStdIcon(f_code)
 					wuCode = getWUConditionCode(f1)
-					//String tt1 = getWUIconName(wuCode,1)
 					tt2 = getWUIconNum(wuCode)
 					json.hourly.data[i].fcode = wuCode
-					//json.hourly.data[i].wuicon_name = tt1
 					json.hourly.data[i].fwuicon = tt2
 
 					hr+=1
@@ -327,13 +321,10 @@ public void ahttpRequestHandler(resp, callbackData) {
 					json.daily.data[i].condition_code = c_code
 					json.daily.data[i].condition_text = getcondText(c_code)
 
-					//c_code = getdsIconCode(t0.icon, t0.summary)
 					String c1 = getStdIcon(c_code)
 					int wuCode = getWUConditionCode(c1)
-					//String tt1 = getWUIconName(wuCode,1)
 					String tt2 = getWUIconNum(wuCode)
 					json.daily.data[i].code = wuCode
-					//json.hourly.data[i].wuicon_name = tt1
 					json.daily.data[i].wuicon = tt2
 
 				}
@@ -433,7 +424,7 @@ void stateRemove(key) {
 /******************************************************************************/
 
 public getStorageSettings(){
- 	settings   
+ 	settings
 }
 
 public void initData(devices, contacts) {
@@ -456,7 +447,7 @@ public Map listAvailableDevices(boolean raw = false, int offset = 0) {
 	def overrides = commandOverrides()
 	if (raw) {
 		response = devices.collectEntries{ dev -> [(hashId(dev.id)): dev]}
-   	} else {
+	} else {
 		devices = devices[offset..-1]
 		response.devices = [:]
 		response.complete = !devices.indexed().find{ idx, dev ->
@@ -555,7 +546,7 @@ private String hashId(id) {
 }
 
 private isHubitat(){
- 	return hubUID != null   
+ 	return hubUID != null
 }
 
 String getWUIconName(condition_code, int is_day=0)	 {
@@ -711,109 +702,108 @@ private getImgName(wCode, is_day) {
 
 // From Darksky.net driver for HE https://community.hubitat.com/t/release-darksky-net-weather-driver-no-pws-required/22699 
 String getdsIconCode(String icon='unknown', String dcs='unknown', boolean isNight=false) {
-        switch(icon) {
-                case 'rain':
-                // rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
-                //       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
-                        if (dcs == 'Drizzle') {
-                                icon = 'drizzle'
-                        } else if       (dcs.startsWith('Light Rain')) {
-                                icon = 'lightrain'
-                                if (dcs.contains('Breezy')) icon += 'breezy'
-                                else if (dcs.contains('Windy'))  icon += 'windy'
-                        } else if       (dcs.startsWith('Heavy Rain')) {
-                                icon = 'heavyrain'
-                                if              (dcs.contains('Breezy')) icon += 'breezy'
-                                else if (dcs.contains('Windy'))  icon += 'windy'
-                        } else if       (dcs == 'Possible Light Rain') {
-                                icon = 'chancelightrain'
-                        } else if       (dcs.startsWith('Possible')) {
-                                icon = 'chancerain'
-                        } else if       (dcs.startsWith('Rain')) {
-                                if              (dcs.contains('Breezy')) icon += 'breezy'
-                                else if (dcs.contains('Windy'))  icon += 'windy'
-                        }
-                        break;
-                case 'snow':
-                        if      (dcs == 'Light Snow') icon = 'lightsnow'
-                        else if (dcs == 'Flurries') icon = 'flurries'
-                        else if (dcs == 'Possible Light Snow') icon = 'chancelightsnow'
-                        else if (dcs.startsWith('Possible Light Snow')) {
-                                if      (dcs.contains('Breezy')) icon = 'chancelightsnowbreezy'
-                                else if (dcs.contains('Windy')) icon = 'chancelightsnowwindy'
-                        } else if (dcs.startsWith('Possible')) icon = 'chancesnow'
-                        break;
-                case 'sleet':
-                        if (dcs.startsWith('Possible')) icon = 'chancesleet'
-                        else if (dcs.startsWith('Light')) icon = 'lightsleet'
-                        break;
-                case 'thunderstorm':
-                        if (dcs.startsWith('Possible')) icon = 'chancetstorms'
-                        break;
-                case 'partly-cloudy-night':
-                        if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
-                        else icon = 'partlycloudy'
-                        break;
-                case 'partly-cloudy-day':
-                        if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
-                        else icon = 'partlycloudy'
-                        break;
-                case 'cloudy-night':
-                        icon = 'cloudy'
-                        break;
-                case 'cloudy':
-                case 'cloudy-day':
-                        icon = 'cloudy'
-                        break;
-                case 'clear-night':
-                        icon = 'clear'
-                        break;
-                case 'clear':
-                case 'clear-day':
-                        icon = 'clear'
-                        break;
-                case 'fog':
-                case 'wind':
-                        // wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
-                        // Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy, Breezy and Foggy]}
-                        if (dcs.contains('Windy')) {
-                                // icon = 'wind'
-                                if              (dcs.contains('Overcast'))        icon = 'windovercast'
-                                else if (dcs.contains('Mostly Cloudy')) icon = 'windmostlycloudy'
-                                else if (dcs.contains('Partly Cloudy')) icon = 'windpartlycloudy'
-                                else if (dcs.contains('Foggy'))           icon = 'windfoggy'
-                        } else if (dcs.contains('Breezy')) {
-                                icon = 'breezy'
-                                if              (dcs.contains('Overcast'))        icon = 'breezyovercast'
-                                else if (dcs.summary.contains('Mostly Cloudy')) icon = 'breezymostlycloudy'
-                                else if (dcs.contains('Partly Cloudy')) icon = 'breezypartlycloudy'
-                                else if (dcs.contains('Foggy'))                   icon = 'breezyfoggy'
-                        }
-                        break;
-                case '':
-                        icon = 'unknown'
-                        break;
-                default:
-                        icon = 'unknown'
-        }
-    //boolean isNight = getDataValue("is_day")=="false"
-        if(isNight) icon = 'nt_' + icon
-    return icon
+	switch(icon) {
+		case 'rain':
+		// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
+		//       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
+			if (dcs == 'Drizzle') {
+				icon = 'drizzle'
+			} else if       (dcs.startsWith('Light Rain')) {
+				icon = 'lightrain'
+				if (dcs.contains('Breezy')) icon += 'breezy'
+				else if (dcs.contains('Windy')) icon += 'windy'
+			} else if       (dcs.startsWith('Heavy Rain')) {
+				icon = 'heavyrain'
+				if	(dcs.contains('Breezy')) icon += 'breezy'
+				else if (dcs.contains('Windy')) icon += 'windy'
+			} else if       (dcs == 'Possible Light Rain') {
+				icon = 'chancelightrain'
+			} else if       (dcs.startsWith('Possible')) {
+				icon = 'chancerain'
+			} else if       (dcs.startsWith('Rain')) {
+				if	(dcs.contains('Breezy')) icon += 'breezy'
+				else if (dcs.contains('Windy')) icon += 'windy'
+			}
+			break;
+		case 'snow':
+			if      (dcs == 'Light Snow') icon = 'lightsnow'
+			else if (dcs == 'Flurries') icon = 'flurries'
+			else if (dcs == 'Possible Light Snow') icon = 'chancelightsnow'
+			else if (dcs.startsWith('Possible Light Snow')) {
+				if      (dcs.contains('Breezy')) icon = 'chancelightsnowbreezy'
+				else if (dcs.contains('Windy')) icon = 'chancelightsnowwindy'
+			} else if (dcs.startsWith('Possible')) icon = 'chancesnow'
+			break;
+		case 'sleet':
+			if (dcs.startsWith('Possible')) icon = 'chancesleet'
+			else if (dcs.startsWith('Light')) icon = 'lightsleet'
+			break;
+		case 'thunderstorm':
+			if (dcs.startsWith('Possible')) icon = 'chancetstorms'
+			break;
+		case 'partly-cloudy-night':
+			if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
+			else icon = 'partlycloudy'
+			break;
+		case 'partly-cloudy-day':
+			if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
+			else icon = 'partlycloudy'
+			break;
+		case 'cloudy-night':
+			icon = 'cloudy'
+			break;
+		case 'cloudy':
+		case 'cloudy-day':
+			icon = 'cloudy'
+			break;
+		case 'clear-night':
+			icon = 'clear'
+			break;
+		case 'clear':
+		case 'clear-day':
+			icon = 'clear'
+			break;
+		case 'fog':
+		case 'wind':
+			// wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
+			// Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy, Breezy and Foggy]}
+			if (dcs.contains('Windy')) {
+				// icon = 'wind'
+				if	(dcs.contains('Overcast'))	icon = 'windovercast'
+				else if (dcs.contains('Mostly Cloudy')) icon = 'windmostlycloudy'
+				else if (dcs.contains('Partly Cloudy')) icon = 'windpartlycloudy'
+				else if (dcs.contains('Foggy'))	   icon = 'windfoggy'
+			} else if (dcs.contains('Breezy')) {
+				icon = 'breezy'
+				if	(dcs.contains('Overcast'))	icon = 'breezyovercast'
+				else if (dcs.summary.contains('Mostly Cloudy')) icon = 'breezymostlycloudy'
+				else if (dcs.contains('Partly Cloudy')) icon = 'breezypartlycloudy'
+				else if (dcs.contains('Foggy'))		icon = 'breezyfoggy'
+			}
+			break;
+		case '':
+			icon = 'unknown'
+			break;
+		default:
+			icon = 'unknown'
+	}
+	if(isNight) icon = 'nt_' + icon
+	return icon
 }
 
 String getcondText(String wCode){
 	String code = wCode.contains('nt_') ? wCode.substring(3, wCode.size()-1) : wCode
-    //log.info("getImgName Input: wCode: " + code)
-    LUitem = LUTable.find{ it.ccode == code }
-    return (LUitem ? LUitem.ctext : '')
+	//log.info("getImgName Input: wCode: " + code)
+	LUitem = LUTable.find{ it.ccode == code }
+	return (LUitem ? LUitem.ctext : '')
 }
 
 String getStdIcon(String code) {
-    LUitem = LUTable.find{ it.ccode == code }
-    return (LUitem ? LUitem.stdIcon : '')
+	LUitem = LUTable.find{ it.ccode == code }
+	return (LUitem ? LUitem.stdIcon : '')
 }
 
-@Field final List    LUTable =     [
+@Field final List LUTable =  [
 [ ccode: 'breezy', altIcon: '23.png', ctext: 'Breezy', owmIcon: '50d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
 [ ccode: 'breezyfoggy', altIcon: '48.png', ctext: 'Breezy and Foggy', owmIcon: '50d', stdIcon: 'fog', luxpercent: 0.2 ],
 [ ccode: 'breezymostlycloudy', altIcon: '51.png', ctext: 'Breezy and Mostly Cloudy', owmIcon: '04d', stdIcon: 'cloudy', luxpercent: 0.6 ],
@@ -893,7 +883,7 @@ String getStdIcon(String code) {
 [ ccode: 'nt_windmostlycloudy', altIcon: '50.png', ctext: 'Windy and Mostly Cloudy', owmIcon: '50n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
 [ ccode: 'nt_windovercast', altIcon: '49.png', ctext: 'Windy and Overcast', owmIcon: '50n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
 [ ccode: 'nt_windpartlycloudy', altIcon: '52.png', ctext: 'Windy and Partly Cloudy', owmIcon: '50n', stdIcon: 'nt_cloudy', luxpercent: 0 ],
-]   
+]
 
 
 /******************************************************************************/
