@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated October 28, 2019 for Hubitat
+ * Last Updated November 23, 2019 for Hubitat
 */
 public String version() { return "v0.3.110.20191009" }
-public String HEversion() { return "v0.3.110.20191028_HE" }
+public String HEversion() { return "v0.3.110.20191123_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -2770,10 +2770,10 @@ private Map log(message, shift = null, err = null, String cmd = (String)null) {
 		message = (String)message.m + " (${now() - (long)message.t}ms)"
 	}
 	String myMsg = (String)message
-	if(!settings.logging && (cmd != "error")) {
+	if(!settings.logging && cmd != 'error' && cmd != 'warn') {
 		return
 	}
-	cmd = cmd ? cmd : "debug"
+	cmd = cmd ? cmd : 'debug'
 	//mode is
 	// 0 - initialize level, level set to 1
 	// 1 - start of routine, level up

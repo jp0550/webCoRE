@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 28, 2019 for Hubitat
+ * Last update November 23, 2019 for Hubitat
 */
 public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191028_HE" }
+public static String HEversion() { return "v0.3.110.20191123_HE" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -468,7 +468,7 @@ private Map recreatePiston(boolean shorten=false, boolean useCache=true) {
 			v: data.v ?: [],
 			z: data.z ?: ''
 		]
-		def a =setIds(shorten, piston)
+		def a = setIds(shorten, piston)
 		return piston
 	}
 	return [:]
@@ -493,7 +493,7 @@ public Map setup(data, chunks) {
 	]
 	String meth = "setup"
 	clearMyPiston(meth)
-	def a =setIds(false, piston)
+	def a = setIds(false, piston)
 
 	for(chunk in settings.findAll{ ((String)it.key).startsWith('chunk:') && !chunks[(String)it.key] }) {
 		app.clearSetting((String)chunk.key)
@@ -3674,7 +3674,7 @@ public void ahttpRequestHandler(resp, Map callbackData) {
 			binary = true
 	}
 	def data = [:]
-	def setRtData = [:]
+	def setRtData = [mediaData:null, mediaType:null, mediaUrl:null]
 	String callBackC = (String)callbackData?.command
 	if(callBackC == 'sendEmail') {
 		boolean success = false
@@ -3706,12 +3706,12 @@ public void ahttpRequestHandler(resp, Map callbackData) {
 			}
 			if(!resp.hasError() && resp.data && (resp.data instanceof java.io.ByteArrayInputStream)) {
 				setRtData.mediaType = mediaType
-				setRtData.mediaData = data?.getBytes()
+				setRtData.mediaData = resp.data?.getBytes()
 			} else {
-				setRtData.mediaType = null
-				setRtData.mediaData = null
+				//setRtData.mediaType = null
+				//setRtData.mediaData = null
 			}
-			setRtData.mediaUrl = null
+			//setRtData.mediaUrl = null
 		}
 	}
 
@@ -8129,7 +8129,7 @@ private Map log(message, Map rtData, int shift=-2, err=null, String cmd=(String)
 
 //ERS
 	rtData.debugLevel = level
-	boolean hasErr = (err!=null && !!err)
+	boolean hasErr = (err!=null && !!err) || (cmd == 'error' || cmd == 'warn')
 
 	if(svLog && rtData && (rtData instanceof Map) && (rtData.logs instanceof List)) {
 		myMsg = myMsg.replaceAll(/(\r\n|\r|\n|\\r\\n|\\r|\\n)+/, "\r")
