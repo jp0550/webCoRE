@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 28, 2019 for Hubitat
+ * Last update December 9, 2019 for Hubitat
  */
 public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191028_HE" }
+public static String HEversion() { return "v0.3.110.20191209_HE" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -238,6 +238,8 @@ public void ahttpRequestHandler(resp, callbackData) {
 				is_day = false
 			}
 
+			json.name = location.name
+			json.zipCode = location.zipCode
 			if(json.currently) {
 				def t0 = json.currently
 				String c_code = getdsIconCode(t0.icon, t0.summary, !is_day)

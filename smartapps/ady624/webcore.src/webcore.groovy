@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated November 23, 2019 for Hubitat
+ * Last Updated December 9, 2019 for Hubitat
 */
 public String version() { return "v0.3.110.20191009" }
-public String HEversion() { return "v0.3.110.20191123_HE" }
+public String HEversion() { return "v0.3.110.20191209_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -677,6 +677,22 @@ private void initialize() {
 	refreshDevices()
 	registerInstance()
 
+	checkWeather()
+
+	def recoveryMethod = (settings.recovery ?: 'Every 30 minutes').replace('Every ', 'Every').replace(' minute', 'Minute').replace(' hour', 'Hour')
+	if(recoveryMethod != 'Never') {
+		try {
+			"run$recoveryMethod"(recoveryHandler)
+		} catch (all) { }
+	}
+
+	if(state.accessToken){
+		updateEndpoint(state.accessToken)
+	}
+	state.lastRecovered = 0
+}
+
+private void checkWeather() {
 	if(settings.weatherType || state.storAppOn) {
 		def storageApp = getStorageApp( (settings.weatherType && settings.apixuKey) )
 		if(storageApp) state.storAppOn = true
@@ -695,18 +711,6 @@ private void initialize() {
 			;
 		}
 	}
-
-	def recoveryMethod = (settings.recovery ?: 'Every 30 minutes').replace('Every ', 'Every').replace(' minute', 'Minute').replace(' hour', 'Hour')
-	if(recoveryMethod != 'Never') {
-		try {
-			"run$recoveryMethod"(recoveryHandler)
-		} catch (all) { }
-	}
-
-	if(state.accessToken){
-		updateEndpoint(state.accessToken)
-	}
-	state.lastRecovered = 0
 }
 
 public Map getWCendpoints() {
@@ -2688,6 +2692,7 @@ def startHandler(evt){
 }
 
 def startWork() {
+	checkWeather()
 	recoveryHandler()
 }
 
