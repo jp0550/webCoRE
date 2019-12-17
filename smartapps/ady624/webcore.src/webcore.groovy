@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated December 9, 2019 for Hubitat
+ * Last Updated December 17, 2019 for Hubitat
 */
 public String version() { return "v0.3.110.20191009" }
-public String HEversion() { return "v0.3.110.20191209_HE" }
+public String HEversion() { return "v0.3.110.20191217_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -3387,6 +3387,7 @@ private static Map comparisons() {
 			gets				: [ d: "gets",										g:"m",		p: 1					],
 			happens_daily_at		: [ d: "happens daily at",								g:"t",		p: 1					],
 			arrives				: [ d: "arrives",									g:"e",		p: 2					],
+			event_occurs			: [ d: "event occurs",									g:"s",						],
 			executes			: [ d: "executes",									g:"v",		p: 1					],
 			changes			: [ d: "changes",			dd: "change",					g:"bdfis",						],
 			changes_to			: [ d: "changes to",			dd: "change to",				g:"bdis",	p: 1,					],
@@ -3668,6 +3669,7 @@ private Map virtualDevices(updateCache = false) {
 		mode:			[ n: 'Location mode',		t: 'enum',	o: getLocationModeOptions(updateCache),	x: true],
 		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
 		rule:			[ n: 'Rule',			t: 'enum',	o: getRuleOptions(updateCache),		m: true ],
+		systemStart:		[ n: 'System Start', t: 'string',		],
 //ac - actions. hubitat doesn't reuse the status for actions
 		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),			x: true],
 		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],

@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update December 9, 2019 for Hubitat
+ * Last update December 17, 2019 for Hubitat
 */
 public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191209_HE" }
+public static String HEversion() { return "v0.3.110.20191217_HE" }
 
 /*** webCoRE DEFINITION					***/
 
@@ -468,7 +468,7 @@ private Map recreatePiston(boolean shorten=false, boolean useCache=true) {
 			v: data.v ?: [],
 			z: data.z ?: ''
 		]
-		def a = setIds(shorten, piston)
+		def a = msetIds(shorten, piston)
 		return piston
 	}
 	return [:]
@@ -493,7 +493,7 @@ public Map setup(data, chunks) {
 	]
 	String meth = 'setup'
 	clearMyPiston(meth)
-	def a = setIds(false, piston)
+	def a = msetIds(false, piston)
 
 	for(chunk in settings.findAll{ ((String)it.key).startsWith('chunk:') && !chunks[(String)it.key] }) {
 		app.clearSetting((String)chunk.key)
@@ -527,7 +527,7 @@ public Map setup(data, chunks) {
 	return [active: state.active, build: state.build, modified: state.modified, state: state.state, rtData: rtData]
 }
 
-private int setIds(boolean shorten, node, int maxId = 0, Map existingIds = [:], List requiringIds = [], int level = 0) {
+private int msetIds(boolean shorten, node, int maxId = 0, Map existingIds = [:], List requiringIds = [], int level = 0) {
 	String nodeT = node?.t
 	if(nodeT in ['if', 'while', 'repeat', 'for', 'each', 'switch', 'action', 'every', 'condition', 'restriction', 'group', 'do', 'on', 'event']) {
 		int id = node['$'] ? (int)node['$'] : 0
@@ -574,7 +574,7 @@ private int setIds(boolean shorten, node, int maxId = 0, Map existingIds = [:], 
 	}
 	for (list in node.findAll{ it.value instanceof List }) {
 		for (item in list.value.findAll{ it instanceof Map }) {
-			maxId = setIds(shorten, item, maxId, existingIds, requiringIds, level + 1)
+			maxId = msetIds(shorten, item, maxId, existingIds, requiringIds, level + 1)
 			if(shorten) {
 				if(item) cleanCode(item)
 				if(item.lo) cleanCode((Map)item.lo)
@@ -604,8 +604,8 @@ private void cleanCode(item) {
 			def t0 = t1.i
 			if(t0 instanceof List) {
 				for(t2 in t0.findAll{ !!it }) {
-					if(t2 && t2?.ok != null) t2.remove('ok')
-					if(t2 && t2?.i) cleanCode(t2)
+					if(t2 && t2 instanceof Map && t2?.ok != null) t2.remove('ok')
+					if(t2 && t2 instanceof Map && t2?.i) cleanCode(t2)
 				}
 			}
 		}
@@ -615,13 +615,13 @@ private void cleanCode(item) {
 		if(t0 instanceof List) {
 //log.debug "found .i $t0 to remove"
 			for(t2 in t0.findAll{ !!it }) {
-				if(t2 && t2?.ok != null) t2.remove('ok')
-				if(t2 && t2?.i) cleanCode(t2)
+				if(t2 && t2 instanceof Map && t2?.ok != null) t2.remove('ok')
+				if(t2 && t2 instanceof Map && t2?.i) cleanCode(t2)
 			}
 		}
 	}
-	if(item.z) item.remove('z')
-	if(item.zc) item.remove('zc')
+	if(item instanceof Map && item.z) item.remove('z')
+	if(item instanceof Map && item.zc) item.remove('zc')
 }
 
 public void settingsToState(String myKey, setval) {
@@ -1052,7 +1052,8 @@ private Map getRunTimeData(Map rtData=null, Map retSt=null, boolean fetchWrapper
 	}
 	rtData = rtData + mtt1
 
-	rtData.locationModeId = hashId((long)location.getCurrentMode().id)
+	def mode = location.getCurrentMode()
+	rtData.locationModeId = mode ? hashId((long)mode.getId()) : null
 
 	rtData.timestamp = timestamp
 	rtData.lstarted = lstarted
@@ -2210,9 +2211,10 @@ private long doPause(String mstr, long delay, Map rtData) {
 		pause(delay)
 		long t1 = now()
 		actDelay = t1 - t0 
-		rtData.tPause = (long)rtData.tPause + actDelay
+		long t2 = rtData.tPause ? (long)rtData.tPause : 0L
+		rtData.tPause = t2 + actDelay
 		rtData.lastPause = t1
-		long t2 = state.pauses ? (long)state.pauses : 0L
+		t2 = state.pauses ? (long)state.pauses : 0L
 		state.pauses = t2 + 1
 	}
 	return actDelay
@@ -4076,6 +4078,9 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 		case 'routine':
 			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rEN == 'routineExecuted' ? hashId(evntVal) : (String)null)]]]
 			break
+		case 'systemStart':
+			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rEN == 'systemStart' ? evntVal : (String)null)]]]
+			break
 		case 'tile':
 			values = [[i: "${node?.$}:v", v:[t: 'string', v: (rEN == (String)operand.v ? evntVal : (String)null)]]]
 			break
@@ -4353,7 +4358,8 @@ private boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 			if(!ro) {
 				Map msg = timer "", rtData
 //myDetail rtData, "$fn $value   $rvalue    $r2value    $tvalue   $tvalue2", 1
-				res = (boolean)"$fn"(rtData, value, null, null, tvalue, tvalue2)
+				if(comparison == 'event_occurs' && (String)lo.operand.t == 'v' && (String)rtData.event.name == (String)lo.operand.v) res = true
+				else res = (boolean)"$fn"(rtData, value, null, null, tvalue, tvalue2)
 //myDetail rtData, "$res  ${myObj(value?.v?.v)}    ${myObj(rvalue?.v?.v)} $fn $value   $rvalue    $r2value    $tvalue   $tvalue2", -1
 				msg.m = "Comparison (${value?.v?.t}) ${value?.v?.v} $comparison = $res"
 				if((int)rtData.logging > 2) debug msg, rtData
@@ -4588,8 +4594,8 @@ private boolean comp_is_not_between			(Map rtData, Map lv, Map rv = null, Map rv
 private boolean comp_gets				(Map rtData, Map lv, Map rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return ((String)cast(rtData, lv.v.v, 'string') == (String)cast(rtData, rv.v.v, 'string')) && matchDeviceSubIndex(lv.v.i, rtData.currentEvent.index)}
 private boolean comp_executes				(Map rtData, Map lv, Map rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return comp_is(rtData, lv, rv, rv2, tv, tv2) }
 private boolean comp_arrives				(Map rtData, Map lv, Map rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return (rtData.event.name == 'email') && match(rtData.event?.jsonData?.from ?: '', (String)evaluateExpression(rtData, (Map)rv.v, 'string').v) && match(rtData.event?.jsonData?.message ?: '', (String)evaluateExpression(rtData, (Map)rv2.v, 'string').v) }
+private boolean comp_event_occurs			(Map rtData, Map lv, Map rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return false }
 private boolean comp_happens_daily_at			(Map rtData, Map lv, Map rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return rtData.wakingUp }
-
 private boolean comp_changes				(Map rtData, Map lv, rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return valueCacheChanged(rtData, lv) && matchDeviceInteraction((String)lv.v.p, (boolean)rtData.currentEvent.physical) }
 private boolean comp_changes_to				(Map rtData, Map lv, Map rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return valueCacheChanged(rtData, lv) && ("${lv.v.v}" == "${rv.v.v}") && matchDeviceInteraction((String)lv.v.p, (boolean)rtData.currentEvent.physical) }
 private boolean comp_receives				(Map rtData, Map lv, Map rv = null, Map rv2 = null, Map tv = null, Map tv2 = null) { return ("${lv.v.v}" == "${rv.v.v}") && matchDeviceInteraction((String)lv.v.p, (boolean)rtData.currentEvent.physical) }
@@ -4879,6 +4885,7 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 			case 'datetime':
 			case 'mode':
 			case 'powerSource':
+			case 'systemStart':
 				subscriptionId = "$deviceId${operV}"
 				attribute = operV
 				break
@@ -5476,7 +5483,7 @@ private Map getIncidents(rtData, String name) {
 }
 
 private void initIncidents(rtData) {
-	if (rtData.incidents instanceof List) return;
+	if (rtData.incidents instanceof List) return
 	def t0 = parent.getIncidents()
 	rtData.incidents = t0 ?: []
 }
