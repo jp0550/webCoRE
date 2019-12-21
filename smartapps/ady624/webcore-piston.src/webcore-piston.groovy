@@ -18,14 +18,14 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update December 17, 2019 for Hubitat
+ * Last update December 20, 2019 for Hubitat
 */
-public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191217_HE" }
+public static String version() { return 'v0.3.110.20191009' }
+public static String HEversion() { return 'v0.3.110.20191217_HE' }
 
 /*** webCoRE DEFINITION					***/
 
-private static String handle() { return "webCoRE" }
+private static String handle() { return 'webCoRE' }
 
 import groovy.json.*
 import hubitat.helper.RMUtils
@@ -33,23 +33,23 @@ import groovy.transform.Field
 
 definition(
 	name: "${handle()} Piston",
-	namespace: "ady624",
-	author: "Adrian Caramaliu",
-	description: "Do not install this directly, use webCoRE instead",
-	category: "Convenience",
+	namespace: 'ady624',
+	author: 'Adrian Caramaliu',
+	description: 'Do not install this directly, use webCoRE instead',
+	category: 'Convenience',
 	parent: "ady624:${handle()}",
-	iconUrl: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png",
-	iconX2Url: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png",
-	iconX3Url: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png",
-	importUrl: "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-piston.src/webcore-piston.groovy"
+	iconUrl: 'https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png',
+	iconX2Url: 'https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png',
+	iconX3Url: 'https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png',
+	importUrl: 'https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-piston.src/webcore-piston.groovy'
 )
 
 preferences {
-	page(name: "pageMain")
-	page(name: "pageRun")
-	page(name: "pageClear")
-	page(name: "pageClearAll")
-	page(name: "pageDumpPiston")
+	page(name: 'pageMain')
+	page(name: 'pageRun')
+	page(name: 'pageClear')
+	page(name: 'pageClearAll')
+	page(name: 'pageDumpPiston')
 }
 
 private static boolean beta() { return false }
@@ -58,41 +58,41 @@ private static boolean eric() { return false }
 /*** CONFIGURATION PAGES				***/
 
 def pageMain() {
-	return dynamicPage(name: "pageMain", title: "", install: true, uninstall: !!state.build) {
+	return dynamicPage(name: 'pageMain', title: '', install: true, uninstall: !!state.build) {
 		if(!parent || !parent.isInstalled()) {
 			section() {
-				paragraph "Sorry you cannot install a piston directly from the HE console; please use the webCoRE dashboard (dashboard.webcore.co) instead."
+				paragraph 'Sorry you cannot install a piston directly from the HE console; please use the webCoRE dashboard (dashboard.webcore.co) instead.'
 			}
-			section(sectionTitleStr("Installing webCoRE")) {
-				paragraph "If you are trying to install webCoRE please go back one step and choose webCoRE, not webCoRE Piston. You can also visit wiki.webcore.co for more information on how to install and use webCoRE"
+			section(sectionTitleStr('Installing webCoRE')) {
+				paragraph 'If you are trying to install webCoRE please go back one step and choose webCoRE, not webCoRE Piston. You can also visit wiki.webcore.co for more information on how to install and use webCoRE'
 				if(parent) {
 					String t0 = (String)parent.getWikiUrl()
-					href "", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("More information")), description: t0, style: "external", url: t0, required: false
+					href '', title: imgTitle('https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png', inputTitleStr('More information')), description: t0, style: 'external', url: t0, required: false
 				}
 			}
 		} else {
 			//if(settings.logging == null) setLoggingLevel(state.logging?:0)
-			section (sectionTitleStr("General")) {
-				label name: "name", title: "Name", required: true, state: (name ? "complete" : (String)null), defaultValue: (String)parent.generatePistonName(), submitOnChange: true
+			section (sectionTitleStr('General')) {
+				label name: 'name', title: 'Name', required: true, state: (name ? 'complete' : (String)null), defaultValue: (String)parent.generatePistonName(), submitOnChange: true
 			}
 
-			section(sectionTitleStr("Dashboard")) {
+			section(sectionTitleStr('Dashboard')) {
 				String dashboardUrl = (String)parent.getDashboardUrl()
 				if(dashboardUrl) {
 					dashboardUrl = "${dashboardUrl}piston/${hashId(app.id)}"
-					href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("View piston in dashboard")), style: "external", url: dashboardUrl, required: false
+					href '', title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr('View piston in dashboard')), style: 'external', url: dashboardUrl, required: false
 				} else {
-					paragraph "Sorry your dashboard does not seem to be enabled; please go to the parent app and enable the dashboard."
+					paragraph 'Sorry your dashboard does not seem to be enabled; please go to the parent app and enable the dashboard.'
 				}
 			}
 
-			section(sectionTitleStr("Application Info")) {
+			section(sectionTitleStr('Application Info')) {
 				Map rtData = getTemporaryRunTimeData(now())
 				if((boolean)rtData.disabled) {
-					paragraph "Piston is disabled by webCoRE"
+					paragraph 'Piston is disabled by webCoRE'
 				}
 				if(!(boolean)rtData.active) {
-					paragraph "Piston is paused"
+					paragraph 'Piston is paused'
 				}
 				if(!rtData.bin) {
 					paragraph "Automatic backup bin code: ${rtData.bin}"
@@ -104,22 +104,22 @@ def pageMain() {
 
 			}
 
-			section(sectionTitleStr("Recovery")) {
-				href "pageRun", title: "Force-run this piston"
-				href "pageClear", title: "Clear all data except local variables", description: "You will lose all logs, trace points, statistics, but no variables"
-				href "pageClearAll", title: "Clear all data", description: "You will lose all data stored in any local variables"
+			section(sectionTitleStr('Recovery')) {
+				href 'pageRun', title: 'Force-run this piston'
+				href 'pageClear', title: 'Clear all data except local variables', description: 'You will lose all logs, trace points, statistics, but no variables'
+				href 'pageClearAll', title: 'Clear all data', description: 'You will lose all data stored in any local variables'
 			}
 
 			section() {
-				input "dev", "capability.*", title: "Devices", description: "Piston devices", multiple: true
-				input "logging", "enum", title: "Logging Level", options: [0:"None", 1: "Minimal", 2: "Medium", 3:"Full"], description: "Piston logging", defaultValue: (state.logging?:0).toString()
-				input "logsToHE", "bool", title: "Piston logs are also displayed in HE console logs?", description: "Logs are available in webCoRE console;  also display in HE console 'Logs'?", defaultValue: false
-				input "maxStats", "number", title: "Max number of history stats", description: "Max number of stats", defaultValue: 100
-				input "maxLogs", "number", title: "Max number of history logs", description: "Max number of logs", defaultValue: 100
+				input 'dev', "capability.*", title: 'Devices', description: 'Piston devices', multiple: true
+				input 'logging', 'enum', title: 'Logging Level', options: [0:"None", 1: "Minimal", 2: "Medium", 3:"Full"], description: 'Piston logging', defaultValue: (state.logging?:0).toString()
+				input 'logsToHE', 'bool', title: 'Piston logs are also displayed in HE console logs?', description: "Logs are available in webCoRE console;  also display in HE console 'Logs'?", defaultValue: false
+				input 'maxStats', 'number', title: 'Max number of history stats', description: 'Max number of stats', defaultValue: 100
+				input 'maxLogs', 'number', title: 'Max number of history logs', description: 'Max number of logs', defaultValue: 100
 			}
 			if(eric()) {
-				section("Debug") {
-					href "pageDumpPiston", title: "Dump piston structure", description: ""
+				section('Debug') {
+					href 'pageDumpPiston', title: 'Dump piston structure', description: ''
 				}
 			}
 		}
@@ -128,9 +128,9 @@ def pageMain() {
 
 def pageRun() {
 	test()
-	return dynamicPage(name: "pageRun", title: "", uninstall: false) {
-		section("Run") {
-			paragraph "Piston tested"
+	return dynamicPage(name: 'pageRun', title: '', uninstall: false) {
+		section('Run') {
+			paragraph 'Piston tested'
 			Map t0 = parent.getWCendpoints()
 			String t1 = "/execute/${hashId(app.id)}?access_token=${t0.at}"
 			paragraph "Cloud Execute endpoint ${t0.ep}${t1}"
@@ -145,7 +145,7 @@ private String pageTitleStr(String title)	{ return "<h1>$title</h1>" }
 private String paraTitleStr(String title)	{ return "<b>$title</b>" }
 
 private String imgTitle(String imgSrc, String titleStr, String color=(String)null, imgWidth=30, imgHeight=null) {
-	String imgStyle = ""
+	String imgStyle = ''
 	imgStyle += imgWidth ? "width: ${imgWidth}px !important;" : ""
 	imgStyle += imgHeight ? "${imgWidth ? " " : ""}height: ${imgHeight}px !important;" : ""
 	if(color) { return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""" }
@@ -154,9 +154,9 @@ private String imgTitle(String imgSrc, String titleStr, String color=(String)nul
 
 def pageClear() {
 	clear1()
-	return dynamicPage(name: "pageClear", title: "", uninstall: false) {
-		section("Clear") {
-			paragraph "All non-essential data has been cleared."
+	return dynamicPage(name: 'pageClear', title: '', uninstall: false) {
+		section('Clear') {
+			paragraph 'All non-essential data has been cleared.'
 		}
 	}
 }
@@ -166,13 +166,13 @@ private void clear1() {
 	state.stats = [:]
 	state.trace = [:]
 
-	String tsemaphoreName = "sph" + "${app.id}"
+	String tsemaphoreName = 'sph' + "${app.id}"
 	if(theSempahoresFLD) theSemaphoresFLD."${tsemaphoreName}" = null
-	String queueName = "aevQ" + "${app.id}"
+	String queueName = 'aevQ' + "${app.id}"
 	if(theQueuesFLD) theQueuesFLD."${queueName}" = []
 
 	cleanState()
-	clearMyCache("clear1")
+	clearMyCache('clear1')
 }
 
 def pageClearAll() {
@@ -180,15 +180,15 @@ def pageClearAll() {
 	state.vars = [:]
 	state.store = [:]
 	clear1()
-	return dynamicPage(name: "pageClearAll", title: "", uninstall: false) {
-		section("Clear All") {
-			paragraph "All local data has been cleared."
+	return dynamicPage(name: 'pageClearAll', title: '', uninstall: false) {
+		section('Clear All') {
+			paragraph 'All local data has been cleared.'
 		}
 	}
 }
 
 private String dumpListDesc(data, int level, List lastLevel, String listLabel, boolean html=false) {
-	String str = ""
+	String str = ''
 	int cnt = 1
 	List newLevel = lastLevel
 
@@ -213,9 +213,9 @@ private String dumpListDesc(data, int level, List lastLevel, String listLabel, b
 				lineStrt += (i+1 < level) ? (!lastLevel[i] ? "     │" : "      " ) : "      "
 			}
 			lineStrt += (cnt == 1 && (int)list1.size() > 1) ? "┌─ " : (cnt < (int)list1?.size() ? "├─ " : "└─ ")
-			if(html) str += "<span>"
+			if(html) str += '<span>'
 			str += "${lineStrt}${listLabel}[${t0}]: ${par} (${getObjType(par)})"
-			if(html) str += "</span>"
+			if(html) str += '</span>'
 		}
 		cnt = cnt+1
 	}
@@ -223,10 +223,10 @@ private String dumpListDesc(data, int level, List lastLevel, String listLabel, b
 }
 
 private String dumpMapDesc(data, int level, List lastLevel, boolean listCall=false, boolean html=false) {
-	String str = ""
+	String str = ''
 	int cnt = 1
 	data?.each { par ->
-		String lineStrt = ""
+		String lineStrt = ''
 		List newLevel = lastLevel
 		boolean thisIsLast = (cnt == (int)data?.size() && !listCall) ? true : false
 		if(level > 0) {
@@ -245,23 +245,23 @@ private String dumpMapDesc(data, int level, List lastLevel, boolean listCall=fal
 		}
 		String objType = getObjType(par.value)
 		if(par.value instanceof Map) {
-			if(html) str += "<span>"
+			if(html) str += '<span>'
 			str += "${lineStrt}${(String)par.key}: (${objType})"
-			if(html) str += "</span>"
+			if(html) str += '</span>'
 			newLevel[(level+1)] = theLast
 			str += dumpMapDesc(par.value, level+1, newLevel, false, html)
 		}
 		else if(par.value instanceof List || par.value instanceof ArrayList) {
-			if(html) str += "<span>"
+			if(html) str += '<span>'
 			str += "${lineStrt}${(String)par.key}: [${objType}]"
-			if(html) str += "</span>"
+			if(html) str += '</span>'
 			newLevel[(level+1)] = theLast
-			str += dumpListDesc(par.value, level+1, newLevel, "", html)
+			str += dumpListDesc(par.value, level+1, newLevel, '', html)
 		}
 		else {
-			if(html) str += "<span>"
+			if(html) str += '<span>'
 			str += "${lineStrt}${(String)par.key}: (${par.value}) (${objType})"
-			if(html) str += "</span>"
+			if(html) str += '</span>'
 		}
 		cnt = cnt + 1
 	}
@@ -393,12 +393,12 @@ public Map activity(lastLogTimestamp) {
 	int index = (llt && lsz) ? logs.findIndexOf{ it.t == llt } : 0
 	index = index > 0 ? index : (llt ? 0 : lsz)
 	return [
-		name: t0.name,
-		state: t0.state,
+		name: (String)t0.name,
+		state: (Map)t0.state,
 		logs: index ? logs[0..index-1] : [],
-		trace: t0.trace,
-		localVars: t0.vars,
-		memory: t0.mem,
+		trace: (Map)t0.trace,
+		localVars: (Map)t0.vars,
+		memory: (String)t0.mem,
 		lastExecuted: t0.lastExecuted,
 		nextSchedule: t0.nextSchedule,
 		schedules: t0.schedules
@@ -1422,7 +1422,7 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, Map pist=
 
 // any queued events?
 	while(doSerialization && !callMySelf) {
-		String queueName = "aevQ" + "${app.id}"
+		String queueName = 'aevQ' + "${app.id}"
 		List evtQ = theQueuesFLD?."${queueName}"
 		if(evtQ == null || evtQ == [] || (int)evtQ.size() == 0) break
 		List evtList = evtQ.sort { (long)it.t }
@@ -1432,12 +1432,12 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, Map pist=
 		int qsize = (int)evtQ.size()
 		if(qsize > 8) { log.error "large queue size ${qsize}" }
 		theEvent.date = new Date((long)theEvent.t)
-		handleEvents(theEvent, false, true, rtData.piston)
+		handleEvents(theEvent, false, true, (Map)rtData.piston)
 	}
 
-	String msgt = "Exiting"
+	String msgt = 'Exiting'
 	if(doSerialization && (String)rtData.semaphoreName != (String)null && ((long)theSemaphoresFLD."${(String)rtData.semaphoreName}" <= (long)rtData.semaphore)) {
-		msgt = "Released Lock and exiting"
+		msgt = 'Released Lock and exiting'
 		theSemaphoresFLD."${(String)rtData.semaphoreName}" = 0L
 	}
 	if((int)rtData.logging > 2) { log.debug msgt }
@@ -1448,7 +1448,7 @@ void handleEvents(event, boolean queue=true, boolean callMySelf=false, Map pist=
 }
 
 private boolean executeEvent(Map rtData, event) {
-	myDetail rtData, "executeEvent", 1
+	myDetail rtData, 'executeEvent', 1
 	try {
 		//if(!rtData) { log.error "no rtData executeEvent"; return }
 
@@ -1552,7 +1552,7 @@ private boolean executeEvent(Map rtData, event) {
 					processSchedules rtData
 				}
 			} else {
-				warn "Piston execution aborted due to restrictions in effect", rtData
+				warn 'Piston execution aborted due to restrictions in effect', rtData
 				//we need to run through all to update stuff
 				rtData.fastForwardTo = -9
 				boolean a = executeStatements(rtData, (List)rtData.piston.s)
@@ -1562,12 +1562,12 @@ private boolean executeEvent(Map rtData, event) {
 			}
 			if(!ended) tracePoint(rtData, 'break', 0, 0)
 		} catch (all) {
-			error "An error occurred while executing the event: ", rtData, -2, all
+			error 'An error occurred while executing the event: ', rtData, -2, all
 		}
-		myDetail rtData, "executeEvent Result: TRUE", -1
+		myDetail rtData, 'executeEvent Result: TRUE', -1
 		return true
 	} catch(all) {
-		error "An error occurred within executeEvent: ", rtData, -2, all
+		error 'An error occurred within executeEvent: ', rtData, -2, all
 	}
 	processSchedules rtData
 	return false
@@ -1576,10 +1576,6 @@ private boolean executeEvent(Map rtData, event) {
 private void finalizeEvent(Map rtData, Map initialMsg, boolean success = true) {
 	long startTime = now()
 	boolean myPep = (boolean)rtData.pep
-
-	if((boolean)rtData.updateDevices) {
-		updateDeviceList(rtData, rtData.devices*.value.id) // this may clear the cache
-	}
 
 	processSchedules(rtData, true)
 
@@ -1619,7 +1615,7 @@ private void finalizeEvent(Map rtData, Map initialMsg, boolean success = true) {
 	}
 
 //remove large stuff
-	List data = [ "newCache", "mediaData", "weather", "logs", "trace", "devices", "systemVars", "localVars", "currentAction", "previousEvent", "json", "response", "cache", "store", "settings", "locationModeId", "locationId", "coreVersion", "hcoreVersion", "cancelations", "conditionStateChanged", "pistonStateChanged", "fastForwardTo", "resumed", "terminated", "instanceId", "wakingUp", "statementLevel", "args", "nfl", "temp" ]
+	List data = [ "newCache", "mediaData", "weather", "logs", "trace", "systemVars", "localVars", "currentAction", "previousEvent", "json", "response", "cache", "store", "settings", "locationModeId", "locationId", "coreVersion", "hcoreVersion", "cancelations", "conditionStateChanged", "pistonStateChanged", "fastForwardTo", "resumed", "terminated", "instanceId", "wakingUp", "statementLevel", "args", "nfl", "temp" ]
 	for (foo in data) {
 		rtData.remove((String)foo)
 	}
@@ -1706,6 +1702,11 @@ private void finalizeEvent(Map rtData, Map initialMsg, boolean success = true) {
 		}
 		theCacheFLD."${myId}".runTimeHis = hisList
 	}
+
+	if((boolean)rtData.updateDevices) {
+		updateDeviceList(rtData, rtData.devices*.value.id) // this will clear the cache
+	}
+	rtData.remove("devices")
 }
 
 public void finishUIupdate(myRt) {
@@ -1865,7 +1866,7 @@ private boolean executeStatement(Map rtData, Map statement, boolean async = fals
 	//def parentAsync = async
 	def parentIndex = getVariable(rtData, '$index').v
 	def parentDevice = getVariable(rtData, '$device').v
-	boolean selfAsync = ((String)statement.a == "1") || ((String)statement.t == 'every') || ((String)statement.t == 'on')
+	boolean selfAsync = ((String)statement.a == '1') || ((String)statement.t == 'every') || ((String)statement.t == 'on')
 	async = async || selfAsync
 	boolean myPep = (boolean)rtData.pep
 	boolean perform = false
@@ -3637,20 +3638,20 @@ private long vcmd_httpRequest(Map rtData, device, List params) {
 		]
 		String func = ""
 		switch(method) {
-			case "GET":
-				func = "asynchttpGet"
+			case 'GET':
+				func = 'asynchttpGet'
 				break
-			case "POST":
-				func = "asynchttpPost"
+			case 'POST':
+				func = 'asynchttpPost'
 				break
-			case "PUT":
-				func = "asynchttpPut"
+			case 'PUT':
+				func = 'asynchttpPut'
 				break
-			case "DELETE":
-				func = "asynchttpDelete"
+			case 'DELETE':
+				func = 'asynchttpDelete'
 				break
-			case "HEAD":
-				func = "asynchttpHead"
+			case 'HEAD':
+				func = 'asynchttpHead'
 				break
 		}
 		if((int)rtData.logging > 2) debug "Sending ${func} web request to: $uri", rtData
@@ -4023,7 +4024,7 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 	case '': //optional, nothing selected
 		values = [[i: "${node?.$}:$index:0", v: [t: ovt, v: null]]]
 		break
-	case "p": //physical device
+	case 'p': //physical device
 		Map attribute = (String)operand.a ? Attributes()[(String)operand.a] : [:]
 		for(String deviceId in expandDeviceList(rtData, (List)operand.d)) {
 			def value = [i: "${deviceId}:${(String)operand.a}", v:getDeviceAttribute(rtData, deviceId, (String)operand.a, operand.i, trigger) + (ovt ? [vt: ovt] : [:]) + (attribute && attribute.p ? [p: operand.p] : [:])]
@@ -4093,7 +4094,7 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 			break
 		}
 		break
-	case "s": //preset
+	case 's': //preset
 		boolean time = false
 		switch (ovt) {
 		case 'time':
@@ -4114,7 +4115,7 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 			break
 		}
 		break
-	case "x": //variable
+	case 'x': //variable
 		if((ovt == 'device') && (operand.x instanceof List)) {
 			//we could have multiple devices selected
 			def sum = []
@@ -4131,7 +4132,7 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 			values = [[i: "${node?.$}:$index:0", v:getVariable(rtData, (String)operand.x + ((String)operand.xi != (String)null ? '[' + (String)operand.xi + ']' : '')) + (ovt ? [vt: ovt] : [:])]]
 		}
 		break
-	case "c": //constant
+	case 'c': //constant
 		switch (ovt) {
 		case 'time':
 			long offset = (operand.c instanceof Integer) ? operand.c : (int)cast(rtData, operand.c, 'integer')
@@ -4143,12 +4144,12 @@ private evaluateOperand(Map rtData, Map node, Map operand, index = null, boolean
 			break
 		}
 		if((int)values.size()) break
-	case "e": //expression
+	case 'e': //expression
 		values = [[i: "${node?.$}:$index:0", v: [:] + evaluateExpression(rtData, (Map)operand.exp) + (ovt ? [vt: ovt] : [:]) ]]
 //		def outV = ovt ? evaluateExpression(rtData, (Map)operand.exp, ovt) : evaluateExpression(rtData, (Map)operand.exp)
 //		values = [[i: "${node?.$}:$index:0", v: [:] + outV ]]
 		break
-	case "u": //expression
+	case 'u': //expression
 		values = [[i: "${node?.$}:$index:0", v: getArgument(rtData, (String)operand.u)]]
 		break
 	}
@@ -4751,7 +4752,7 @@ private void traverseExpressions(node, closure, param, parentNode = null) {
 }
 
 private void updateDeviceList(Map rtData, List deviceIdList) {
-	app.updateSetting('dev', [type: /*isHubitat() ?*/ 'capability'/* : 'capability.device'*/, value: deviceIdList.unique()])
+	app.updateSetting('dev', [type: /*isHubitat() ?*/ 'capability'/* : 'capability.device'*/, value: deviceIdList.unique()]) // settings update do not happen till next execution
 	clearMyCache("updateDeviceList")
 }
 
@@ -4819,7 +4820,7 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 	operandTraverser = { Map node, Map operand, value, String comparisonType ->
 		if(!operand) return
 		switch ((String)operand.t) {
-		case "p": //physical device
+		case 'p': //physical device
 			for(String deviceId in expandDeviceList(rtData, (List)operand.d, true)) {
 				devices[deviceId] = [c: (comparisonType ? 1 : 0) + (devices[deviceId]?.c ?: 0)]
 				//String subscriptionId = "$deviceId${operand.a}"
@@ -4856,7 +4857,7 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 				}
 			}
 			break
-		case "v": //virtual device
+		case 'v': //virtual device
 			String deviceId = (String)rtData.locationId
 			//if we have any trigger, it takes precedence over anything else
 			devices[deviceId] = [c: (comparisonType ? 1 : 0) + (devices[deviceId]?.c ?: 0)]
@@ -4933,8 +4934,8 @@ private void subscribeAll(Map rtData, boolean doit=true) {
 				subscriptions[subscriptionId] = [d: (String)rtData.locationId, a: attribute, t: ct, c: (subscriptions[subscriptionId] ? subscriptions[subscriptionId].c : []) + (comparisonType?[node]:[])]
 			}
 			break
-		case "c": //constant
-		case "e": //expression
+		case 'c': //constant
+		case 'e': //expression
 			traverseExpressions(operand.exp?.i, expressionTraverser, comparisonType)
 			break
 		}
@@ -7652,8 +7653,8 @@ private cast(Map rtData, value, String dataType, String srcDataType=(String)null
 	//error "CASTING ($srcDataType) $value as $dataType", rtData
 	//if(srcDataType == 'vector3') error "got x = $value.x", rtData
 	if(dataType == 'dynamic') return value
-	List trueStrings = ["1", "true", "on", "open", "locked", "active", "wet", "detected", "present", "occupied", "muted", "sleeping"]
-	List falseStrings = ["0", "false", "off", "closed", "unlocked", "inactive", "dry", "clear", "not detected", "not present", "not occupied", "unmuted", "not sleeping", "null"]
+	List trueStrings = ['1', 'true', "on", "open", "locked", "active", "wet", "detected", "present", "occupied", "muted", "sleeping"]
+	List falseStrings = ['0', 'false', "off", "closed", "unlocked", "inactive", "dry", "clear", "not detected", "not present", "not occupied", "unmuted", "not sleeping", "null"]
 	//get rid of GStrings
 	if(value == null) {
 		value = ''
