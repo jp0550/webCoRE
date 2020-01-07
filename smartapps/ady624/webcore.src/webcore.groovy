@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated January 6, 2020 for Hubitat
+ * Last Updated January 7, 2020 for Hubitat
 */
-public String version() { return "v0.3.110.20191009" }
-public String HEversion() { return "v0.3.110.20200106_HE" }
+public static String version() { return "v0.3.110.20191009" }
+public static String HEversion() { return "v0.3.110.20200106_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -118,38 +118,40 @@ def pageMain() {
 
 		if(settings.agreement) {
 			section("Engine block") {
-				href "pageEngineBlock", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/app-CoRE.png", inputTitleStr("Cast iron")), description: app.version()+" HE: "+ app.HEversion(), required: false
+				href "pageEngineBlock", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/app-CoRE.png" as String, inputTitleStr("Cast iron")), description: app.version()+" HE: "+ app.HEversion(), required: false
 			}
 		}
 
 		section("Dashboard") {
 			if(!state.endpoint) {
-				href "pageInitializeDashboard", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), description: "Tap to initialize", required: false
+				href "pageInitializeDashboard", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png" as String, inputTitleStr("Dashboard")), description: "Tap to initialize", required: false
 			} else {
 				//trace "*** DO NOT SHARE THIS LINK WITH ANYONE *** Dashboard URL: ${getDashboardInitUrl()}"
-				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), style: "external", url: getDashboardInitUrl(), description: "Tap to open", required: false
-				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/browser-reg.png", inputTitleStr("Register a browser")), style: "embedded", url: getDashboardInitUrl(true), description: "Tap to open", required: false
+				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/dashboard.png" as String, inputTitleStr("Dashboard")), style: "external", url: getDashboardInitUrl(), description: "Tap to open", required: false
+				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/browser-reg.png" as String, inputTitleStr("Register a browser")), style: "embedded", url: getDashboardInitUrl(true), description: "Tap to open", required: false
 			}
 		}
 
 		section(title:"Settings") {
-			href "pageSettings", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/settings.png", inputTitleStr("Settings")), required: false
+			href "pageSettings", title: imgTitle("https://raw.githubusercontent.com/ady624/${handle()}/master/resources/icons/settings.png" as String, inputTitleStr("Settings")), required: false
 		}
 
 	}
 }
 
-private String sectionTitleStr(title)	{ return "<h3>$title</h3>" }
-private String inputTitleStr(title)	{ return "<u>$title</u>" }
-private String pageTitleStr(title)		{ return "<h1>$title</h1>" }
-private String paraTitleStr(title)		{ return "<b>$title</b>" }
+private static String sectionTitleStr(String title)	{ return '<h3>'+title+'</h3>' }
+private static String inputTitleStr(String title)	{ return '<u>'+title+'</u>' }
+private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
+private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
 
-private String imgTitle(String imgSrc, String titleStr, String color=(String)null, imgWidth=30, imgHeight=null) {
-	String imgStyle = ""
+private static String imgTitle(String imgSrc, String titleStr, String color=(String)null, int imgWidth=30, int imgHeight=0) {
+	String imgStyle = ''
 	imgStyle += imgWidth ? "width: ${imgWidth}px !important;" : ""
 	imgStyle += imgHeight ? "${imgWidth ? " " : ""}height: ${imgHeight}px !important;" : ""
-	if(color) { return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""" }
-	else { return """<img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img>""" }
+	if(color) { return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""" as String
+	}
+	else { return """<img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img>""" as String
+	}
 }
 
 
@@ -215,7 +217,7 @@ private pageSectionTimeZoneInstructions() {
 private pageInitializeDashboard() {
 	//webCoRE Dashboard initialization
 	boolean success = initializeWebCoREEndpoint()
-	boolean hasTZ = !!location.getTimeZone()
+	boolean hasTZ = location.getTimeZone() != null
 	dynamicPage(name: "pageInitializeDashboard", title: "", nextPage: success && hasTZ ? "pageSelectDevices" : null) {
 		if(!state.installed) {
 			if(success) {
@@ -349,9 +351,9 @@ def pageSettings() {
 			input "pushDevice", "capability.notification", title: "Notification device for pushMessage (HE PhoneApp or pushOver)", multiple: true, required: false, submitOnChange: true
 		}
 	
-		String defaultLoc = weatherType == 'DarkSky' ? "${location.latitude},${location.longitude}" : "${location.zipCode}"
+		String defaultLoc = weatherType == 'DarkSky' ? "${location.latitude},${location.longitude}" as String : "${location.zipCode}" as String
 		String mreq = weatherType
-		String zipDesc = weatherType == 'DarkSky' ? "Override latitude,longitude (Default: ${location.latitude},${location.longitude})?" : "Override zip code (${location.zipCode}), or set city name or latitude,longitude?"
+		String zipDesc = weatherType == 'DarkSky' ? "Override latitude,longitude (Default: ${location.latitude},${location.longitude})?" as String : "Override zip code (${location.zipCode}), or set city name or latitude,longitude?" as String
 		section(sectionTitleStr('enable \$weather via external provider')) {
 			input "weatherType", "enum", title: "Weather Type to enable?", defaultValue: '', submitOnChange: true, required: false, options:['apiXU', 'DarkSky', '']
 			if(weatherType) {

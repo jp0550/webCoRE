@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update January 6, 2020 for Hubitat
+ * Last update January 7, 2020 for Hubitat
 */
 public static String version(){ return 'v0.3.110.20191009' }
 public static String HEversion(){ return 'v0.3.110.20200106_HE' }
@@ -913,7 +913,7 @@ private void clearMyCache(String meth=(String)null){
 	if(eric()) log.warn "clearing my cache $meth"
 }
 
-private Map getCachedMaps(retry=true){
+private Map getCachedMaps(boolean retry=true){
 	def result=[:]
 	String myId=hashId(app.id)
 	if(theCacheFLD!=null && theCacheFLD."${myId}"!=null){
@@ -1461,18 +1461,20 @@ private boolean executeEvent(Map rtData, event){
 		}
 		Map srcEvent=null
 		rtData.args=[:]
-		if(event!=null && evntName=='time' && event.schedule!=null) {
-			srcEvent=event.schedule.evt!=null ? event.schedule.evt : null
-			rtData.args=event.schedule.args!=null && event.schedule.args instanceof Map ? event.schedule.args : (event.jsonData!=null ? event.jsonData : [:])
-			Map tMap=event.schedule.stack
-			if(tMap!=null){
-				rtData.systemVars['$index'].v=tMap.index
-				rtData.systemVars['$device'].v=tMap.device
-				rtData.systemVars['$devices'].v=tMap.devices
-				rtData.json=tMap.json!=null ? tMap.json : [:]
-				rtData.response=tMap.response!=null ? tMap.response : [:]
-				index=srcEvent?.index!=null ? srcEvent.index : 0
+		if(event!=null){
+			rtData.args= evntName=='time' && event.schedule!=null && event.schedule.args!=null && event.schedule.args instanceof Map ? event.schedule.args : (event.jsonData!=null ? event.jsonData : [:])
+			if(evntName=='time' && event.schedule!=null){
+				srcEvent=event.schedule.evt!=null ? event.schedule.evt : null
+				Map tMap=event.schedule.stack
+				if(tMap!=null){
+					rtData.systemVars['$index'].v=tMap.index
+					rtData.systemVars['$device'].v=tMap.device
+					rtData.systemVars['$devices'].v=tMap.devices
+					rtData.json=tMap.json!=null ? tMap.json : [:]
+					rtData.response=tMap.response!=null ? tMap.response : [:]
+					index=srcEvent?.index!=null ? srcEvent.index : 0
 // more to restore here?
+				}
 			}
 		}
 		setSystemVariableValue(rtData, '$args', rtData.args)
