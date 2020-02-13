@@ -2137,11 +2137,13 @@ private Boolean executeStatement(Map rtData, Map statement, Boolean async=false)
 				schedule=schedules.find{ (Integer)it.s==statementNum }
 			} else schedule=t0
 		}
-		if(schedule){
+		String myS="s:${statementNum}".toString()
+		Long myL=Math.round(1.0D*now()-t)
+		if(schedule!=null){
 			//timers need to show the remaining time
-			tracePoint(rtData, "s:${statementNum}".toString(), Math.round(1.0D*now()-t), Math.round(1.0D*now()-(Long)schedule.t))
+			tracePoint(rtData, myS, myL, Math.round(1.0D*now()-(Long)schedule.t))
 		}else{
-			tracePoint(rtData, "s:${statementNum}".toString(), Math.round(1.0D*now()-t), value)
+			tracePoint(rtData, myS, myL, value)
 		}
 	}
 	//if(statement.a=='1'){
