@@ -18,12 +18,12 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update February 10, 2020 for Hubitat
+ * Last update February 13, 2020 for Hubitat
 */
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
 
-/*** webCoRE DEFINITION					***/
+/** webCoRE DEFINITION					**/
 
 private static String handle(){ return 'webCoRE' }
 
@@ -55,7 +55,7 @@ preferences{
 private static Boolean beta(){ return false }
 private static Boolean eric(){ return false }
 
-/*** CONFIGURATION PAGES				***/
+/** CONFIGURATION PAGES				**/
 
 def pageMain(){
 	return dynamicPage(name:'pageMain', title:'', install:true, uninstall: !!state.build){
@@ -308,7 +308,7 @@ def pageDumpPiston(){
 	}
 }
 
-/*** PUBLIC METHODS					***/
+/** PUBLIC METHODS					**/
 
 public Boolean isInstalled(){
 	return !!state.created
@@ -456,7 +456,7 @@ private LinkedHashMap recreatePiston(Boolean shorten=false, Boolean useCache=tru
 		String s=(String)settings?."chunk:$i"
 		if(s!=null){
 			sdata += s
-		}else{ break }
+		}else break
 		i++
 	}
 	if(sdata!=''){
@@ -566,7 +566,7 @@ private Integer msetIds(Boolean shorten, node, Integer maxId=0, Map existingIds=
 			}
 		}
 		if(nodeT=='switch' && node.cs){
-			for (_case in node.cs){
+			for (Map _case in (List)node.cs){
 				id=_case['$']!=null ? (Integer)_case['$']:0
 				if(id==0 || existingIds[id]!=null){
 					Boolean a=requiringIds.push(_case)
@@ -577,7 +577,7 @@ private Integer msetIds(Boolean shorten, node, Integer maxId=0, Map existingIds=
 			}
 		}
 		if(nodeT=='action' && node.k){
-			for (task in (List)node.k){
+			for (Map task in (List)node.k){
 				id=task['$']!=null ? (Integer)task['$']:0
 				if(id==0 || existingIds[id]!=null){
 					Boolean a=requiringIds.push(task)
@@ -1144,7 +1144,7 @@ private void checkVersion(Map rtData){
 	}
 }
 
-/*** EVENT HANDLING								***/
+/** EVENT HANDLING								**/
 
 void deviceHandler(event){
 	handleEvents(event)
@@ -1902,7 +1902,7 @@ private Boolean executeStatement(Map rtData, Map statement, Boolean async=false)
 						if(operand!=null && (String)operand.t){
 							switch ((String)operand.t){
 							case 'p':
-								if(deviceId!=(String)null && (String)rtData.event.name==(String)operand.a && operand.d!=[] && deviceId in expandDeviceList(rtData, (List)operand.d, true)) perform=true
+								if(deviceId!=(String)null && (String)rtData.event.name==(String)operand.a && (List)operand.d!=[] && deviceId in expandDeviceList(rtData, (List)operand.d, true)) perform=true
 								break
 							case 'v':
 								if((String)rtData.event.name==(String)operand.v) perform=true
@@ -2021,16 +2021,16 @@ private Boolean executeStatement(Map rtData, Map statement, Boolean async=false)
 				}
 				break
 			case 'switch':
-				Map lo=[operand: (Map)statement.lo, values: evaluateOperand(rtData, statement, (Map)statement.lo)]
+				Map lo=[operand: (Map)statement.lo, values: (List)evaluateOperand(rtData, statement, (Map)statement.lo)]
 				//go through all cases
 				Boolean found=false
-				Boolean implicitBreaks=((String)statement.ctp=='i')
+				Boolean implicitBreaks=((String)statement.ctp=='i') // case traversal policy
 				Boolean fallThrough=!implicitBreaks
 				perform=false
 				if((Integer)rtData.logging>2)debug "Evaluating switch with values $lo.values", rtData
-				for (Map _case in statement.cs){
-					Map ro=[operand: (Map)_case.ro, values: evaluateOperand(rtData, _case, (Map)_case.ro)]
-					Map ro2=((String)_case.t=='r')? [operand: (Map)_case.ro2, values: evaluateOperand(rtData, _case, (Map)_case.ro2, null, false, true)]:null
+				for (Map _case in (List)statement.cs){
+					Map ro=[operand: (Map)_case.ro, values: (List)evaluateOperand(rtData, _case, (Map)_case.ro)]
+					Map ro2=((String)_case.t=='r')? [operand: (Map)_case.ro2, values: (List)evaluateOperand(rtData, _case, (Map)_case.ro2, null, false, true)]:null
 					perform=perform || evaluateComparison(rtData, ((String)_case.t=='r' ? 'is_inside_of_range':'is'), lo, ro, ro2)
 					found=found || perform
 					if(perform || (found && fallThrough)|| (Integer)rtData.fastForwardTo!=0){
@@ -2235,13 +2235,12 @@ private Boolean executeAction(Map rtData, Map statement, Boolean async){
 }
 
 private Boolean executeTask(Map rtData, List devices, Map statement, Map task, Boolean async){
-	//parse parameters
-	def virtualDevice=(Integer)devices.size()!=0 ? null:location
 	Long t=now()
+	String myS="t:${(Integer)task.$}".toString()
 	if((Integer)rtData.fastForwardTo!=0){
 		if((Integer)task.$==(Integer)rtData.fastForwardTo){
 			//finally found the resuming point, play nicely from hereon
-			tracePoint(rtData, "t:${(Integer)task.$}", Math.round(1.0D*now()-t), null)
+			tracePoint(rtData, myS, Math.round(1.0D*now()-t), null)
 			rtData.fastForwardTo=0
 			//restore $device and $devices
 			rtData.resumed=true
@@ -2256,6 +2255,8 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 		}
 	}
 	myDetail rtData, "executeTask ${(String)task.c}", 1
+
+	//parse parameters
 	List params=[]
 	for (Map param in (List)task.p){
 		def p
@@ -2283,6 +2284,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 	def override=CommandsOverrides.find{ (String)it.value.r==(String)task.c }
 	String command=override ? (String)override.value.c:(String)task.c
 
+	def virtualDevice=(Integer)devices.size()!=0 ? null:location
 	Map vcmd=VirtualCommands()[command]
 	Long delay=0L
 	for (device in (virtualDevice!=null ? [virtualDevice]:devices)){
@@ -2317,7 +2319,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 			//schedule a wake up
 			Long sec=Math.round(delay/1000.0D)
 			if((Integer)rtData.logging>1)trace "Requesting a wake up for ${formatLocalTime(Math.round(now()*1.0D+delay))} (in ${sec}s)", rtData
-			tracePoint(rtData, "t:${(Integer)task.$}", Math.round(1.0D*now()-t), -delay)
+			tracePoint(rtData, myS, Math.round(1.0D*now()-t), -delay)
 			requestWakeUp(rtData, statement, task, delay, (String)task.c)
 			myDetail rtData, "executeTask ${(String)task.c} result: FALSE", -1
 			return false
@@ -2326,7 +2328,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 			pauseExecution(delay)
 		}
 	}
-	tracePoint(rtData, "t:${(Integer)task.$}", Math.round(1.0D*now()-t), delay)
+	tracePoint(rtData, myS, Math.round(1.0D*now()-t), delay)
 
 	//get remaining piston time
 	Long overBy=checkForSlowdown(rtData)
@@ -3952,7 +3954,7 @@ private Boolean evaluateConditions(Map rtData, Map conditions, String collection
 	}else{
 		for(condition in conditions[collection]){
 			Boolean res=evaluateCondition(rtData, condition, collection, async)
-			value=(grouping=='or')? value || res:value && res
+			value=(grouping=='or') ? value||res : value&&res
 			//condition traversal optimizations go here
 			if((Integer)rtData.fastForwardTo==0 && !rtData.piston.o?.cto && ((value && grouping=='or') || (!value && grouping=='and')))break
 		}
@@ -3962,14 +3964,15 @@ private Boolean evaluateConditions(Map rtData, Map conditions, String collection
 		result=not ? !value:value
 	}
 	if(value!=null && myC!=0){
-		if((Integer)rtData.fastForwardTo==0)tracePoint(rtData, "c:${myC}", Math.round(1.0D*now()-t), result)
-		Boolean oldResult=!!rtData.cache["c:${myC}".toString()]
+		String mC="c:${myC}".toString()
+		if((Integer)rtData.fastForwardTo==0)tracePoint(rtData, mC, Math.round(1.0D*now()-t), result)
+		Boolean oldResult=!!(Boolean)rtData.cache[mC]
 		rtData.conditionStateChanged=(oldResult!=result)
 		if((Boolean)rtData.conditionStateChanged){
 			//condition change, perform Task Cancellation Policy TCP
 			cancelConditionSchedules(rtData, myC)
 		}
-		rtData.cache["c:${myC}".toString()]=result
+		rtData.cache[mC]=result
 		//true/false actions
 		if(collection=='c'){
 			if((result || (Integer)rtData.fastForwardTo!=0) && conditions.ts!=null && (List)(conditions.ts).length)Boolean a=executeStatements(rtData, (List)conditions.ts, async)
@@ -3988,25 +3991,27 @@ private Boolean evaluateConditions(Map rtData, Map conditions, String collection
 
 private evaluateOperand(Map rtData, Map node, Map operand, index=null, Boolean trigger=false, Boolean nextMidnight=false){
 	myDetail rtData, "evaluateOperand $operand", 1
-	def values=[]
+	List values=[]
 	//older pistons don't have the 'to' operand (time offset), we're simulating an empty one
 	if(!operand)operand=[t:'c']
 	String ovt=(String)operand.vt
+	String nodeI="${node?.$}:$index:0".toString()
 	switch ((String)operand.t){
 	case '': //optional, nothing selected
-		values=[[i: "${node?.$}:$index:0", v: [t: ovt, v: null]]]
+		values=[[i:nodeI, v:[t:ovt, v:null]]]
 		break
 	case 'p': //physical device
-		Map attribute=(String)operand.a ? Attributes()[(String)operand.a]:[:]
+		String operA=(String)operand.a
+		Map attribute=operA ? Attributes()[operA]:[:]
 		for(String deviceId in expandDeviceList(rtData, (List)operand.d)){
-			Map value=[i: "${deviceId}:${(String)operand.a}", v:getDeviceAttribute(rtData, deviceId, (String)operand.a, operand.i, trigger)+(ovt ? [vt: ovt]:[:])+(attribute && attribute.p ? [p: operand.p]:[:])]
+			Map value=[i: deviceId+':'+operA, v:getDeviceAttribute(rtData, deviceId, operA, operand.i, trigger)+(ovt ? [vt:ovt]:[:])+(attribute && attribute.p ? [p:operand.p]:[:])]
 			updateCache(rtData, value)
 			Boolean a=values.push(value)
 		}
 		if((Integer)values.size()>1 && !((String)operand.g in ['any', 'all'])){
 			//if we have multiple values and a grouping other than any or all we need to apply that function
 			try{
-				values=[[i: "${node?.$}:$index:0", v:(Map)"func_${(String)operand.g}"(rtData, values*.v)+(ovt ? [vt: ovt]:[:])]]
+				values=[[i:nodeI, v:(Map)"func_${(String)operand.g}"(rtData, values*.v)+(ovt ? [vt:ovt]:[:])]]
 			} catch(all){
 				error "Error applying grouping method ${(String)operand.g}", rtData
 			}
@@ -4017,48 +4022,49 @@ private evaluateOperand(Map rtData, Map node, Map operand, index=null, Boolean t
 		for (String d in expandDeviceList(rtData, (List)operand.d)){
 			if(getDevice(rtData, d))Boolean a=deviceIds.push(d)
 		}
-		values=[[i: "${node?.$}:d", v:[t:'device', v:deviceIds.unique()]]]
+		values=[[i:"${node?.$}:d".toString(), v:[t:'device', v:deviceIds.unique()]]]
 		break
 	case 'v': //virtual devices
 		String rEN=(String)rtData.event.name
 		String evntVal="${rtData.event.value}".toString()
+		String nodeV="${node?.$}:v".toString()
 		switch ((String)operand.v){
 		case 'mode':
 		case 'alarmSystemStatus':
-			values=[[i: "${node?.$}:v", v:getDeviceAttribute(rtData, (String)rtData.locationId, (String)operand.v)]]
+			values=[[i:nodeV, v:getDeviceAttribute(rtData, (String)rtData.locationId, (String)operand.v)]]
 			break
 		case 'alarmSystemAlert':
 			String valStr=evntVal+(rEN=='hsmAlert' && evntVal=="rule" ? ", ${(String)rtData.event.descriptionText}".toString():'')
-			values=[[i: "${node?.$}:v", v:[t:'string', v:(rEN=='hsmAlert' ? valStr:(String)null)]]]
+			values=[[i:nodeV, v:[t:'string', v:(rEN=='hsmAlert' ? valStr:(String)null)]]]
 			break
 		case 'alarmSystemEvent':
-			values=[[i: "${node?.$}:v", v:[t:'string', v:(rEN=='hsmSetArm' ? evntVal:(String)null)]]]
+			values=[[i:nodeV, v:[t:'string', v:(rEN=='hsmSetArm' ? evntVal:(String)null)]]]
 			break
 		case 'alarmSystemRule':
-			values=[[i: "${node?.$}:v", v:[t:'string', v:(rEN=='hsmRules' ? evntVal:(String)null)]]]
+			values=[[i:nodeV, v:[t:'string', v:(rEN=='hsmRules' ? evntVal:(String)null)]]]
 			break
 		case 'powerSource':
-			values=[[i: "${node?.$}:v", v:[t:'enum', v:rtData.powerSource]]]
+			values=[[i:nodeV, v:[t:'enum', v:rtData.powerSource]]]
 			break
 		case 'time':
 		case 'date':
 		case 'datetime':
-			values=[[i: "${node?.$}:v", v:[t: (String)operand.v, v: (Long)cast(rtData, now(), (String)operand.v, 'long')]]]
+			values=[[i:nodeV, v:[t:(String)operand.v, v:(Long)cast(rtData, now(), (String)operand.v, 'long')]]]
 			break
 		case 'routine':
-			values=[[i: "${node?.$}:v", v:[t:'string', v:(rEN=='routineExecuted' ? hashId(evntVal):(String)null)]]]
+			values=[[i:nodeV, v:[t:'string', v:(rEN=='routineExecuted' ? hashId(evntVal):(String)null)]]]
 			break
 		case 'systemStart':
-			values=[[i: "${node?.$}:v", v:[t:'string', v:(rEN=='systemStart' ? evntVal:(String)null)]]]
+			values=[[i:nodeV, v:[t:'string', v:(rEN=='systemStart' ? evntVal:(String)null)]]]
 			break
 		case 'tile':
-			values=[[i: "${node?.$}:v", v:[t:'string', v:(rEN==(String)operand.v ? evntVal:(String)null)]]]
+			values=[[i:nodeV, v:[t:'string', v:(rEN==(String)operand.v ? evntVal:(String)null)]]]
 			break
 		case 'ifttt':
-			values=[[i: "${node?.$}:v", v:[t:'string', v:(rEN==('ifttt.'+evntVal)? evntVal:(String)null)]]]
+			values=[[i:nodeV, v:[t:'string', v:(rEN==('ifttt.'+evntVal)? evntVal:(String)null)]]]
 			break
 		case 'email':
-			values=[[i: "${node?.$}:v", v:[t:'email', v:(rEN==('email.'+evntVal)? evntVal:(String)null)]]]
+			values=[[i:nodeV, v:[t:'email', v:(rEN==('email.'+evntVal)? evntVal:(String)null)]]]
 			break
 		}
 		break
@@ -4076,10 +4082,10 @@ private evaluateOperand(Map rtData, Map node, Map operand, index=null, Boolean t
 			case 'sunset': v=adjustPreset(rtData, "Sunset", nextMidnight); break
 			}
 			if(time)v=(Long)cast(rtData, v, ovt, 'datetime')
-			values=[[i: "${node?.$}:$index:0", v:[t:ovt, v:v]]]
+			values=[[i:nodeI, v:[t:ovt, v:v]]]
 			break
 		default:
-			values=[[i: "${node?.$}:$index:0", v:[t:ovt, v:operand.s]]]
+			values=[[i:nodeI, v:[t:ovt, v:operand.s]]]
 			break
 		}
 		break
@@ -4094,33 +4100,33 @@ private evaluateOperand(Map rtData, Map node, Map operand, index=null, Boolean t
 				}else{
 					Boolean a=sum.push(var.v)
 				}
-				values=[[i: "${node?.$}:$index:0", v:[t:'device', v:sum]+(ovt ? [vt:ovt]:[:])]]
+				values=[[i:nodeI, v:[t:'device', v:sum]+(ovt ? [vt:ovt]:[:])]]
 			}
 		}else{
-			values=[[i: "${node?.$}:$index:0", v:getVariable(rtData, (String)operand.x+((String)operand.xi!=(String)null ? '['+(String)operand.xi+']':''))+(ovt ? [vt: ovt]:[:])]]
+			values=[[i:nodeI, v:getVariable(rtData, (String)operand.x+((String)operand.xi!=(String)null ? '['+(String)operand.xi+']':''))+(ovt ? [vt:ovt]:[:])]]
 		}
 		break
 	case 'c': //constant
 		switch (ovt){
 		case 'time':
 			Long offset=(operand.c instanceof Integer)? operand.c:(Integer)cast(rtData, operand.c, 'integer')
-			values=[[i: "${node?.$}:$index:0", v: [t:'time', v:(offset%1440)*60000]]]
+			values=[[i:nodeI, v:[t:'time', v:(offset%1440)*60000]]]
 			break
 		case 'date':
 		case 'datetime':
-			values=[[i: "${node?.$}:$index:0", v: [t: ovt, v:operand.c]]]
+			values=[[i:nodeI, v:[t:ovt, v:operand.c]]]
 			break
 		}
 		if((Integer)values.size()!=0)break
 	case 'e': //expression
-		values=[[i: "${node?.$}:$index:0", v: [:]+evaluateExpression(rtData, (Map)operand.exp)+(ovt ? [vt: ovt]:[:])]]
+		values=[[i:nodeI, v: [:]+evaluateExpression(rtData, (Map)operand.exp)+(ovt ? [vt:ovt]:[:])]]
 		break
 	case 'u': //expression
-		values=[[i: "${node?.$}:$index:0", v: getArgument(rtData, (String)operand.u)]]
+		values=[[i:nodeI, v:getArgument(rtData, (String)operand.u)]]
 		break
 	}
 	def ret=values
-	if(!node){
+	if(node==null){
 		if(values.length)ret=values[0].v
 		else ret=[t:'dynamic', v:null]
 	}
@@ -4143,7 +4149,7 @@ private Long adjustPreset(Map rtData, String ttyp, nextMidnight){
 
 private Map evaluateScalarOperand(Map rtData, Map node, Map operand, index=null, String dataType='string'){
 	def value=evaluateOperand(rtData, null, operand, index)
-	return [t: dataType, v: cast(rtData, (value ? value.v:''), dataType)]
+	return [t:dataType, v:cast(rtData, (value ? value.v:''), dataType)]
 }
 
 private Boolean evaluateCondition(Map rtData, Map condition, String collection, Boolean async){
@@ -4174,18 +4180,18 @@ private Boolean evaluateCondition(Map rtData, Map condition, String collection, 
 				Map ro=null
 				Map ro2=null
 				for(Integer i=0; i<=paramCount; i++){
-					Map operand=(i==0 ? condition.lo:(i==1 ? condition.ro:condition.ro2))
+					Map operand=(i==0 ? (Map)condition.lo:(i==1 ? (Map)condition.ro : (Map)condition.ro2))
 					//parse the operand
-					def values=evaluateOperand(rtData, condition, operand, i, trigger)
+					List values=(List)evaluateOperand(rtData, condition, operand, i, trigger)
 					switch (i){
 					case 0:
-						lo=[operand: operand, values: values]
+						lo=[operand:operand, values:values]
 						break
 					case 1:
-						ro=[operand: operand, values: values]
+						ro=[operand:operand, values:values]
 						break
 					case 2:
-						ro2=[operand: operand, values: values]
+						ro2=[operand:operand, values:values]
 						break
 					}
 				}
@@ -4202,9 +4208,9 @@ private Boolean evaluateCondition(Map rtData, Map condition, String collection, 
 				Map to2=ro2!=null && (String)lo.operand.t=='v' && (String)lo.operand.v=='time' && (String)ro2.operand.t!='c' && condition.to2!=null ? [operand: (Map)condition.to2, values: evaluateOperand(rtData, null, (Map)condition.to2)]:null
 				result=evaluateComparison(rtData, (String)condition.co, lo, ro, ro2, to, to2, options)
 				//save new values to cache
-				if(lo)for (Map value in lo.values)updateCache(rtData, value)
-				if(ro)for (Map value in ro.values)updateCache(rtData, value)
-				if(ro2)for (Map value in ro2.values)updateCache(rtData, value)
+				if(lo)for (Map value in (List)lo.values)updateCache(rtData, value)
+				if(ro)for (Map value in (List)ro.values)updateCache(rtData, value)
+				if(ro2)for (Map value in (List)ro2.values)updateCache(rtData, value)
 				if((Integer)rtData.fastForwardTo==0)tracePoint(rtData, "c:${conditionNum}".toString(), Math.round(1.0D*now()-t), result)
 				if(lo.operand.dm!=null && options.devices!=null)def m=setVariable(rtData, (String)lo.operand.dm, options.devices.matched!=null ? (List)options.devices.matched:[])
 				if(lo.operand.dn!=null && options.devices!=null)def n=setVariable(rtData, (String)lo.operand.dn, options.devices.unmatched!=null ? (List)options.devices.unmatched:[])
@@ -4221,7 +4227,7 @@ private Boolean evaluateCondition(Map rtData, Map condition, String collection, 
 								Map t0=getCachedMaps()
 								if(t0!=[:])schedules=[]+(List)t0.schedules
 								else{ schedules=(Boolean)rtData.pep ? (List)atomicState.schedules:(List)state.schedules }
-								for (value in lo.values){
+								for (value in (List)lo.values){
 									String dev=(String)value.v?.d
 									if(dev in (List)options.devices.matched){
 										//schedule one device schedule
@@ -4313,7 +4319,7 @@ private Boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 	//if multiple left values, go through each
 	Map tvalue=to && to.operand && to.values ? (Map)to.values+[f: to.operand.f]:null
 	Map tvalue2=to2 && to2.operand && to2.values ? (Map)to2.values:null
-	for(Map value in lo.values){
+	for(Map value in (List)lo.values){
 		Boolean res=false
 		if(value && value.v && (!value.v.x || options.forceAll)){
 			try{
@@ -4330,7 +4336,7 @@ private Boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 					Boolean rres
 					res=((String)ro.operand.g=='any' ? false:true)
 					//if multiple right values, go through each
-					for (Map rvalue in ro.values){
+					for (Map rvalue in (List)ro.values){
 						if(rvalue && ((String)rvalue.v.t=='device'))rvalue.v=evaluateExpression(rtData, (Map)rvalue.v, 'dynamic')
 						if(!ro2){
 							Map msg=timer '', rtData
@@ -4340,7 +4346,7 @@ private Boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 						}else{
 							rres=((String)ro2.operand.g=='any' ? false:true)
 							//if multiple right2 values, go through each
-							for (r2value in ro2.values){
+							for (Map r2value in (List)ro2.values){
 								if(r2value && ((String)r2value.v.t=='device'))r2value.v=evaluateExpression(rtData, (Map)r2value.v, 'dynamic')
 								Map msg=timer '', rtData
 //myDetail rtData, "$fn $value   $rvalue    $r2value    $tvalue   $tvalue2", 1
@@ -4413,8 +4419,9 @@ private void cancelConditionSchedules(Map rtData, Integer conditionId){
 }
 
 private static Boolean matchDeviceSubIndex(list, deviceSubIndex){
-	if(list==null || !(list instanceof List) || (Integer)list.size()==0)return true
-	return list.collect{ "$it".toString()}.indexOf("$deviceSubIndex".toString())>=0
+	return true
+	//if(list==null || !(list instanceof List) || (Integer)list.size()==0)return true
+	//return list.collect{ "$it".toString()}.indexOf("$deviceSubIndex".toString())>=0
 }
 
 private static Boolean matchDeviceInteraction(String option, Boolean isPhysical){
@@ -4509,7 +4516,7 @@ private static Boolean match(String string, String pattern){
 private Boolean comp_is					(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ return ((String)evaluateExpression(rtData, (Map)lv.v, 'string').v==(String)evaluateExpression(rtData, (Map)rv.v, 'string').v)|| (lv.v.n && ((String)cast(rtData, lv.v.n, 'string')==(String)cast(rtData, rv.v.v, 'string')))}
 private Boolean comp_is_not				(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ return !comp_is(rtData, lv, rv, rv2, tv, tv2)}
 private Boolean comp_is_equal_to			(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ String dt=(((String)lv?.v?.t=='decimal')|| ((String)rv?.v?.t=='decimal')? 'decimal':(((String)lv?.v?.t=='integer')|| ((String)rv?.v?.t=='integer')? 'integer':'dynamic')); return evaluateExpression(rtData, (Map)lv.v, dt).v==evaluateExpression(rtData, (Map)rv.v, dt).v }
-private Boolean comp_is_not_equal_to			(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ String dt=(((String)lv?.v?.t=='decimal')|| ((String)rv?.v?.t=='decimal')? 'decimal':(((String)lv?.v?.t=='integer')|| ((String)rv?.v?.t=='integer')? 'integer':'dynamic')); return evaluateExpression(rtData, (Map)lv.v, dt).v!=evaluateExpression(rtData, (Map)rv.v, dt).v }
+private Boolean comp_is_not_equal_to			(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ return !comp_is_equal_to(rtData, lv, rv, rv2, tv, tv2)}
 private Boolean comp_is_different_than			(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ return comp_is_not_equal_to(rtData, lv, rv, rv2, tv, tv2)}
 private Boolean comp_is_less_than			(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ return (Double)evaluateExpression(rtData, (Map)lv.v, 'decimal').v<(Double)evaluateExpression(rtData, (Map)rv.v, 'decimal').v }
 private Boolean comp_is_less_than_or_equal_to		(Map rtData, Map lv, Map rv=null, Map rv2=null, Map tv=null, Map tv2=null){ return (Double)evaluateExpression(rtData, (Map)lv.v, 'decimal').v<=(Double)evaluateExpression(rtData, (Map)rv.v, 'decimal').v }
@@ -4679,7 +4686,7 @@ private void traverseRestrictions(node, closure, parentNode=null){
 		for(item in node){
 			traverseRestrictions(item, closure, parentNode)
 		}
-	return
+		return
 	}
 	//got a restriction
 	if(node.t=='restriction' && (closure instanceof Closure)){
@@ -4901,7 +4908,7 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 	eventTraverser={ Map event, parentEvent ->
 		if(event.lo){
 			String comparisonType='trigger'
-			operandTraverser(event, event.lo, null, comparisonType)
+			operandTraverser(event, (Map)event.lo, null, comparisonType)
 		}
 	}
 	conditionTraverser={ Map condition, parentCondition ->
@@ -4918,13 +4925,13 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 				Integer paramCount=comparison.p ?: 0
 				for(Integer i=0; i<=paramCount; i++){
 					//get the operand to parse
-					def operand=(i==0 ? condition.lo:(i==1 ? condition.ro:condition.ro2))
+					Map operand=(i==0 ? (Map)condition.lo:(i==1 ? (Map)condition.ro:(Map)condition.ro2))
 					operandTraverser(condition, operand, condition.ro, comparisonType)
 				}
 			}
 		}
-		if(condition.ts instanceof List)traverseStatements(condition.ts, statementTraverser, condition, statementData)
-		if(condition.fs instanceof List)traverseStatements(condition.fs, statementTraverser, condition, statementData)
+		if(condition.ts instanceof List)traverseStatements((List)condition.ts, statementTraverser, condition, statementData)
+		if(condition.fs instanceof List)traverseStatements((List)condition.fs, statementTraverser, condition, statementData)
 	}
 	restrictionTraverser={ Map restriction, parentRestriction ->
 		if((String)restriction.co){
@@ -4937,7 +4944,7 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 				Integer paramCount=comparison.p ?: 0
 				for(Integer i=0; i<=paramCount; i++){
 					//get the operand to parse
-					def operand=(i==0 ? restriction.lo:(i==1 ? restriction.ro:restriction.ro2))
+					Map operand=(i==0 ? (Map)restriction.lo:(i==1 ? (Map)restriction.ro:(Map)restriction.ro2))
 					operandTraverser(restriction, operand, null, (String)null)
 				}
 			}
@@ -4956,14 +4963,14 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 		switch((String)node.t){
 		case 'action':
 			if(node.k){
-				for (k in (List)node.k){
+				for (Map k in (List)node.k){
 					traverseStatements(k.p?:[], statementTraverser, k, data)
 				}
 			}
 			break
 		case 'if':
 			if(node.ei){
-				for (ei in node.ei){
+				for (Map ei in (List)node.ei){
 					traverseConditions(ei.c?:[], conditionTraverser)
 					traverseStatements(ei.s?:[], statementTraverser, ei, data)
 				}
@@ -4976,14 +4983,12 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 			traverseEvents(node.c?:[], eventTraverser)
 			break
 		case 'switch':
-			operandTraverser(node, node.lo, null, 'condition')
-			for (c in node.cs){
-				operandTraverser(c, c.ro, null, (String)null)
+			operandTraverser(node, (Map)node.lo, null, 'condition')
+			for (Map c in (List)node.cs){
+				operandTraverser(c, (Map)c.ro, null, (String)null)
 				//if case is a range, traverse the second operand too
-				if((String)c.t=='r')operandTraverser(c, c.ro2, null, (String)null)
-				if(c.s instanceof List){
-					traverseStatements(c.s, statementTraverser, node, data)
-				}
+				if((String)c.t=='r')operandTraverser(c, (Map)c.ro2, null, (String)null)
+				if(c.s instanceof List) traverseStatements((List)c.s, statementTraverser, node, data)
 			}
 			break
 		case 'every':
@@ -4991,8 +4996,8 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 			break
 		}
 	}
-	if(rtData.piston.r)traverseRestrictions(rtData.piston.r, restrictionTraverser)
-	if(rtData.piston.s)traverseStatements(rtData.piston.s, statementTraverser, null, statementData)
+	if(rtData.piston.r)traverseRestrictions((List)rtData.piston.r, restrictionTraverser)
+	if(rtData.piston.s)traverseStatements((List)rtData.piston.s, statementTraverser, null, statementData)
 	//device variables
 	for(variable in rtData.piston.v.findAll{ (String)it.t=='device' && it.v && it.v.d && it.v.d instanceof List}){
 		for (String deviceId in variable.v.d){
@@ -5626,7 +5631,7 @@ public Map setLocalVariable(String name, value){ // called by parent (IDE)to set
 	return vars
 }
 
-/*** EXPRESSION FUNCTIONS							***/
+/** EXPRESSION FUNCTIONS							**/
 
 public Map proxyEvaluateExpression(Map rtData, Map expression, String dataType=(String)null){
 	rtData=getRunTimeData(rtData)
@@ -5664,24 +5669,24 @@ private Map evaluateExpression(Map rtData, Map expression, String dataType=(Stri
 	case 'integer':
 	case 'long':
 	case 'decimal':
-		result=[t: exprType, v: expression.v]
+		result=[t:exprType, v:expression.v]
 		break
 	case 'time':
 		def t0=expression.v
 		Boolean found=false
 		if("$t0".isNumber() && (t0<86400000))found=true
-		result=[t: exprType, v: found ? t0.toLong():(Long)cast(rtData, t0, exprType, dataType)]
+		result=[t:exprType, v: found ? t0.toLong():(Long)cast(rtData, t0, exprType, dataType)]
 		break
 	case 'datetime':
 		def t0=expression.v
 		if("$t0".isNumber() && (t0>=86400000)){
-			result=[t: exprType, v: t0.toLong() ]
+			result=[t:exprType, v: t0.toLong() ]
 			break
 		}
 	case 'int32':
 	case 'int64':
 	case 'date':
-		result=[t: exprType, v: cast(rtData, expression.v, exprType, dataType)]
+		result=[t:exprType, v:cast(rtData, expression.v, exprType, dataType)]
 		break
 	case 'bool':
 	case 'boolean':
@@ -6230,7 +6235,7 @@ private Map evaluateExpression(Map rtData, Map expression, String dataType=(Stri
 			Boolean match= (dataType in ['string', 'enum'])&& (t0 in ['string', 'enum'])
 			if(!match)t1=cast(rtData, result.v, dataType, t0)
 		}
-		result=[t: dataType, v: t1]+(result.a ? [a: (String)result.a]:[:])+(result.i ? [a: result.i]:[:])
+		result=[t:dataType, v: t1] + (result.a ? [a:(String)result.a]:[:])+(result.i ? [a:result.i]:[:])
 	}
 	result.d=now()-time
 	myDetail rtData, "evaluateExpression $expression  result: $result", -1
@@ -6273,8 +6278,8 @@ private String buildDeviceAttributeList(Map rtData, devices, String attribute, S
 	return buildList(list, suffix)
 }
 
-/*** dewPoint returns the calculated dew point temperature					***/
-/*** Usage: dewPoint(temperature, relativeHumidity[, scale])				***/
+/** dewPoint returns the calculated dew point temperature			**/
+/** Usage: dewPoint(temperature, relativeHumidity[, scale])			**/
 private Map func_dewpoint(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting dewPoint(temperature, relativeHumidity[, scale])']
@@ -6298,8 +6303,8 @@ private Map func_dewpoint(Map rtData, List params){
 	return [t:'decimal', v:result]
 }
 
-/*** celsius converts temperature from Fahrenheit to Celsius				***/
-/*** Usage: celsius(temperature)											***/
+/** celsius converts temperature from Fahrenheit to Celsius			**/
+/** Usage: celsius(temperature)							**/
 private Map func_celsius(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting celsius(temperature)']
@@ -6310,8 +6315,8 @@ private Map func_celsius(Map rtData, List params){
 }
 
 
-/*** fahrenheit converts temperature from Celsius to Fahrenheit			***/
-/*** Usage: fahrenheit(temperature)						***/
+/** fahrenheit converts temperature from Celsius to Fahrenheit			**/
+/** Usage: fahrenheit(temperature)						**/
 private Map func_fahrenheit(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting fahrenheit(temperature)']
@@ -6321,9 +6326,9 @@ private Map func_fahrenheit(Map rtData, List params){
 	return [t:'decimal', v:(Double)(t*9.0D/5.0D+32.0D)]
 }
 
-/*** fahrenheit converts temperature between Celsius and Fahrenheit if the ***/
-/*** units differ from location.temperatureScale			***/
-/*** Usage: convertTemperatureIfNeeded(celsiusTemperature, 'C')		***/
+/** fahrenheit converts temperature between Celsius and Fahrenheit if the	**/
+/** units differ from location.temperatureScale					**/
+/** Usage: convertTemperatureIfNeeded(celsiusTemperature, 'C')			**/
 private Map func_converttemperatureifneeded(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting convertTemperatureIfNeeded(temperature, unit)']
@@ -6338,8 +6343,8 @@ private Map func_converttemperatureifneeded(Map rtData, List params){
 	}
 }
 
-/*** integer converts a decimal to integer value			***/
-/*** Usage: integer(decimal or string)						***/
+/** integer converts a decimal to integer value			**/
+/** Usage: integer(decimal or string)				**/
 private Map func_integer(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting integer(decimal or string)']
@@ -6348,8 +6353,8 @@ private Map func_integer(Map rtData, List params){
 }
 private Map func_int(Map rtData, List params){ return func_integer(rtData, params)}
 
-/*** decimal/float converts an integer value to it's decimal value		***/
-/*** Usage: decimal(integer or string)						***/
+/** decimal/float converts an integer value to it's decimal value		**/
+/** Usage: decimal(integer or string)						**/
 private Map func_decimal(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting decimal(integer or string)']
@@ -6359,8 +6364,8 @@ private Map func_decimal(Map rtData, List params){
 private Map func_float(Map rtData, List params){ return func_decimal(rtData, params)}
 private Map func_number(Map rtData, List params){ return func_decimal(rtData, params)}
 
-/*** string converts an value to it's string value				***/
-/*** Usage: string(anything)							***/
+/** string converts an value to it's string value				**/
+/** Usage: string(anything)							**/
 private Map func_string(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting string(anything)']
@@ -6374,8 +6379,8 @@ private Map func_string(Map rtData, List params){
 private Map func_concat(Map rtData, List params){ return func_string(rtData, params)}
 private Map func_text(Map rtData, List params){ return func_string(rtData, params)}
 
-/*** Boolean converts a value to it's Boolean value				***/
-/*** Usage: boolean(anything)							***/
+/** Boolean converts a value to it's Boolean value				**/
+/** Usage: boolean(anything)							**/
 private Map func_boolean(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting boolean(anything)']
@@ -6384,8 +6389,8 @@ private Map func_boolean(Map rtData, List params){
 }
 private Map func_bool(Map rtData, List params){ return func_boolean(rtData, params)}
 
-/*** sqr converts a decimal to square decimal value			***/
-/*** Usage: sqr(integer or decimal or string)					***/
+/** sqr converts a decimal to square decimal value			**/
+/** Usage: sqr(integer or decimal or string)				**/
 private Map func_sqr(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting sqr(integer or decimal or string)']
@@ -6393,8 +6398,8 @@ private Map func_sqr(Map rtData, List params){
 	return [t:'decimal', v:(Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v**2]
 }
 
-/*** sqrt converts a decimal to square root decimal value		***/
-/*** Usage: sqrt(integer or decimal or string)					***/
+/** sqrt converts a decimal to square root decimal value		**/
+/** Usage: sqrt(integer or decimal or string)				**/
 private Map func_sqrt(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting sqrt(integer or decimal or string)']
@@ -6402,8 +6407,8 @@ private Map func_sqrt(Map rtData, List params){
 	return [t:'decimal', v:Math.sqrt((Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v)]
 }
 
-/*** power converts a decimal to power decimal value			***/
-/*** Usage: power(integer or decimal or string, power)				***/
+/** power converts a decimal to power decimal value			**/
+/** Usage: power(integer or decimal or string, power)			**/
 private Map func_power(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting sqrt(integer or decimal or string, power)']
@@ -6411,8 +6416,8 @@ private Map func_power(Map rtData, List params){
 	return [t:'decimal', v:(Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v ** (Double)evaluateExpression(rtData, (Map)params[1], 'decimal').v]
 }
 
-/*** round converts a decimal to rounded value			***/
-/*** Usage: round(decimal or string[, precision])				***/
+/** round converts a decimal to rounded value			**/
+/** Usage: round(decimal or string[, precision])		**/
 private Map func_round(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting round(decimal or string[, precision])']
@@ -6421,8 +6426,8 @@ private Map func_round(Map rtData, List params){
 	return [t:'decimal', v:Math.round((Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v * (10 ** precision))/(10 ** precision)]
 }
 
-/*** floor converts a decimal to closest lower integer value		***/
-/*** Usage: floor(decimal or string)						***/
+/** floor converts a decimal to closest lower integer value		**/
+/** Usage: floor(decimal or string)					**/
 private Map func_floor(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting floor(decimal or string)']
@@ -6430,8 +6435,8 @@ private Map func_floor(Map rtData, List params){
 	return [t:'integer', v:(Integer)cast(rtData, Math.floor((Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v), 'integer')]
 }
 
-/*** ceiling converts a decimal to closest higher integer value	***/
-/*** Usage: ceiling(decimal or string)						***/
+/** ceiling converts a decimal to closest higher integer value	**/
+/** Usage: ceiling(decimal or string)						**/
 private Map func_ceiling(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting ceiling(decimal or string)']
@@ -6441,8 +6446,8 @@ private Map func_ceiling(Map rtData, List params){
 private Map func_ceil(Map rtData, List params){ return func_ceiling(rtData, params)}
 
 
-/*** sprintf converts formats a series of values into a string			***/
-/*** Usage: sprintf(format, arguments)						***/
+/** sprintf converts formats a series of values into a string			**/
+/** Usage: sprintf(format, arguments)						**/
 private Map func_sprintf(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting sprintf(format, arguments)']
@@ -6460,8 +6465,8 @@ private Map func_sprintf(Map rtData, List params){
 }
 private Map func_format(Map rtData, List params){ return func_sprintf(rtData, params)}
 
-/*** left returns a substring of a value					***/
-/*** Usage: left(string, count)							***/
+/** left returns a substring of a value					**/
+/** Usage: left(string, count)						**/
 private Map func_left(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting left(string, count)']
@@ -6472,8 +6477,8 @@ private Map func_left(Map rtData, List params){
 	return [t:'string', v:value.substring(0, count)]
 }
 
-/*** right returns a substring of a value					***/
-/*** Usage: right(string, count)						***/
+/** right returns a substring of a value				**/
+/** Usage: right(string, count)						**/
 private Map func_right(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting right(string, count)']
@@ -6484,8 +6489,8 @@ private Map func_right(Map rtData, List params){
 	return [t:'string', v:value.substring((Integer)value.size()-count, (Integer)value.size())]
 }
 
-/*** strlen returns the length of a string value				***/
-/*** Usage: strlen(string)							***/
+/** strlen returns the length of a string value				**/
+/** Usage: strlen(string)						**/
 private Map func_strlen(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
 		return [t:'error', v:'Expecting strlen(string)']
@@ -6495,8 +6500,8 @@ private Map func_strlen(Map rtData, List params){
 }
 private Map func_length(Map rtData, List params){ return func_strlen(rtData, params)}
 
-/*** coalesce returns the first non-empty parameter				***/
-/*** Usage: coalesce(value1[, value2[, ..., valueN]])				***/
+/** coalesce returns the first non-empty parameter				**/
+/** Usage: coalesce(value1[, value2[, ..., valueN]])				**/
 private Map func_coalesce(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting coalesce(value1[, value2[, ..., valueN]])']
@@ -6510,8 +6515,8 @@ private Map func_coalesce(Map rtData, List params){
 	return [t:'dynamic', v:null]
 }
 
-/*** trim removes leading and trailing spaces from a string			***/
-/*** Usage: trim(value)								***/
+/** trim removes leading and trailing spaces from a string			**/
+/** Usage: trim(value)								**/
 private Map func_trim(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
 		return [t:'error', v:'Expecting trim(value)']
@@ -6521,8 +6526,8 @@ private Map func_trim(Map rtData, List params){
 	return [t:'string', v:value]
 }
 
-/*** trimleft removes leading spaces from a string				***/
-/*** Usage: trimLeft(value)							***/
+/** trimleft removes leading spaces from a string				**/
+/** Usage: trimLeft(value)							**/
 private Map func_trimleft(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
 		return [t:'error', v:'Expecting trimLeft(value)']
@@ -6533,8 +6538,8 @@ private Map func_trimleft(Map rtData, List params){
 }
 private Map func_ltrim(Map rtData, List params){ return func_trimleft(rtData, params)}
 
-/*** trimright removes trailing spaces from a string				***/
-/*** Usage: trimRight(value)							***/
+/** trimright removes trailing spaces from a string				**/
+/** Usage: trimRight(value)							**/
 private Map func_trimright(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
 		return [t:'error', v:'Expecting trimRight(value)']
@@ -6545,8 +6550,8 @@ private Map func_trimright(Map rtData, List params){
 }
 private Map func_rtrim(Map rtData, List params){ return func_trimright(rtData, params)}
 
-/*** substring returns a substring of a value					***/
-/*** Usage: substring(string, start, count)					***/
+/** substring returns a substring of a value					**/
+/** Usage: substring(string, start, count)					**/
 private Map func_substring(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting substring(string, start, count)']
@@ -6579,8 +6584,8 @@ private Map func_substring(Map rtData, List params){
 private Map func_substr(Map rtData, List params){ return func_substring(rtData, params)}
 private Map func_mid(Map rtData, List params){ return func_substring(rtData, params)}
 
-/*** replace replaces a search text inside of a value				***/
-/*** Usage: replace(string, search, replace[, [..], search, replace])		***/
+/** replace replaces a search text inside of a value				**/
+/** Usage: replace(string, search, replace[, [..], search, replace])		**/
 private Map func_replace(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<3)|| ((Integer)params.size()%2 !=1)){
 		return [t:'error', v:'Expecting replace(string, search, replace[, [..], search, replace])']
@@ -6600,8 +6605,8 @@ private Map func_replace(Map rtData, List params){
 	return [t:'string', v:value]
 }
 
-/*** rangeValue returns the matching value in a range				***/
-/*** Usage: rangeValue(input, defaultValue, point1, value1[, [..], pointN, valueN])***/
+/** rangeValue returns the matching value in a range					**/
+/** Usage: rangeValue(input, defaultValue, point1, value1[, [..], pointN, valueN])	**/
 private Map func_rangevalue(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)|| ((Integer)params.size()%2!=0)){
 		return [t:'error', v:'Expecting rangeValue(input, defaultValue, point1, value1[, [..], pointN, valueN])']
@@ -6616,8 +6621,8 @@ private Map func_rangevalue(Map rtData, List params){
 	return value
 }
 
-/*** rainbowValue returns the matching value in a range				***/
-/*** Usage: rainbowValue(input, minInput, minColor, maxInput, maxColor)		***/
+/** rainbowValue returns the matching value in a range				**/
+/** Usage: rainbowValue(input, minInput, minColor, maxInput, maxColor)		**/
 private Map func_rainbowvalue(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=5)){
 		return [t:'error', v:'Expecting rainbowValue(input, minColor, minValue, maxInput, maxColor)']
@@ -6647,8 +6652,8 @@ private Map func_rainbowvalue(Map rtData, List params){
 	return [t:'string', v:hslToHex(h,s,l)]
 }
 
-/*** indexOf finds the first occurrence of a substring in a string		***/
-/*** Usage: indexOf(stringOrDeviceOrList, substringOrItem)			***/
+/** indexOf finds the first occurrence of a substring in a string		**/
+/** Usage: indexOf(stringOrDeviceOrList, substringOrItem)			**/
 private Map func_indexof(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)|| (((String)params[0].t!='device')&& ((Integer)params.size()!=2))){
 		return [t:'error', v:'Expecting indexOf(stringOrDeviceOrList, substringOrItem)']
@@ -6673,8 +6678,8 @@ private Map func_indexof(Map rtData, List params){
 	}
 }
 
-/*** lastIndexOf finds the first occurrence of a substring in a string		***/
-/*** Usage: lastIndexOf(string, substring)									***/
+/** lastIndexOf finds the first occurrence of a substring in a string		**/
+/** Usage: lastIndexOf(string, substring)					**/
 private Map func_lastindexof(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)|| (((String)params[0].t!='device')&& ((Integer)params.size()!=2))){
 		return [t:'error', v:'Expecting lastIndexOf(string, substring)']
@@ -6700,8 +6705,8 @@ private Map func_lastindexof(Map rtData, List params){
 }
 
 
-/*** lower returns a lower case value of a string				***/
-/*** Usage: lower(string)							***/
+/** lower returns a lower case value of a string				**/
+/** Usage: lower(string)							**/
 private Map func_lower(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting lower(string)']
@@ -6713,8 +6718,8 @@ private Map func_lower(Map rtData, List params){
 	return [t:'string', v:result.toLowerCase()]
 }
 
-/*** upper returns a upper case value of a string				***/
-/*** Usage: upper(string)							***/
+/** upper returns a upper case value of a string				**/
+/** Usage: upper(string)							**/
 private Map func_upper(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting upper(string)']
@@ -6726,8 +6731,8 @@ private Map func_upper(Map rtData, List params){
 	return [t:'string', v:result.toUpperCase()]
 }
 
-/*** title returns a title case value of a string				***/
-/*** Usage: title(string)							***/
+/** title returns a title case value of a string				**/
+/** Usage: title(string)							**/
 private Map func_title(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting title(string)']
@@ -6739,8 +6744,8 @@ private Map func_title(Map rtData, List params){
 	return [t:'string', v:result.tokenize(' ')*.toLowerCase()*.capitalize().join(' ')]
 }
 
-/*** avg calculates the average of a series of numeric values			***/
-/*** Usage: avg(values)								***/
+/** avg calculates the average of a series of numeric values			**/
+/** Usage: avg(values)								**/
 private Map func_avg(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting avg(value1, value2, ..., valueN)']
@@ -6752,8 +6757,8 @@ private Map func_avg(Map rtData, List params){
 	return [t:'decimal', v:sum/(Integer)params.size()]
 }
 
-/*** median returns the value in the middle of a sorted array			***/
-/*** Usage: median(values)							***/
+/** median returns the value in the middle of a sorted array			**/
+/** Usage: median(values)							**/
 private Map func_median(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting median(value1, value2, ..., valueN)']
@@ -6765,8 +6770,8 @@ private Map func_median(Map rtData, List params){
 	return [t:'dynamic', v:'']
 }
 
-/*** least returns the value that is least found a series of numeric values	***/
-/*** Usage: least(values)							***/
+/** least returns the value that is least found a series of numeric values	**/
+/** Usage: least(values)							**/
 private Map func_least(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting least(value1, value2, ..., valueN)']
@@ -6774,14 +6779,14 @@ private Map func_least(Map rtData, List params){
 	Map data=[:]
 	for (Map param in params){
 		Map value=evaluateExpression(rtData, param, 'dynamic')
-		data[value.v]=[t: (String)value.t, v: value.v, c: (data[value.v]?.c ?: 0)+1]
+		data[value.v]=[t:(String)value.t, v:value.v, c:(data[value.v]?.c ?: 0)+1]
 	}
 	def value=data.sort{ it.value.c }.collect{ it.value }[0]
-	return [t: (String)value.t, v: value.v]
+	return [t:(String)value.t, v:value.v]
 }
 
-/*** most returns the value that is most found a series of numeric values	***/
-/*** Usage: most(values)							***/
+/** most returns the value that is most found a series of numeric values	**/
+/** Usage: most(values)								**/
 private Map func_most(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| (params.size()<1)){
 		return [t:'error', v:'Expecting most(value1, value2, ..., valueN)']
@@ -6789,14 +6794,14 @@ private Map func_most(Map rtData, List params){
 	Map data=[:]
 	for (Map param in params){
 		Map value=evaluateExpression(rtData, param, 'dynamic')
-		data[value.v]=[t: (String)value.t, v: value.v, c: (data[value.v]?.c ?: 0)+1]
+		data[value.v]=[t:(String)value.t, v:value.v, c:(data[value.v]?.c ?: 0)+1]
 	}
 	def value=data.sort{ -it.value.c }.collect{ it.value }[0]
-	return [t: (String)value.t, v: value.v]
+	return [t:(String)value.t, v:value.v]
 }
 
-/*** sum calculates the sum of a series of numeric values			***/
-/*** Usage: sum(values)								***/
+/** sum calculates the sum of a series of numeric values			**/
+/** Usage: sum(values)								**/
 private Map func_sum(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| (params.size()<1)){
 		return [t:'error', v:'Expecting sum(value1, value2, ..., valueN)']
@@ -6808,8 +6813,8 @@ private Map func_sum(Map rtData, List params){
 	return [t:'decimal', v:sum]
 }
 
-/*** variance calculates the standard deviation of a series of numeric values */
-/*** Usage: stdev(values)							***/
+/** variance calculates the standard deviation of a series of numeric values 	**/
+/** Usage: stdev(values)							**/
 private Map func_variance(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting variance(value1, value2, ..., valueN)']
@@ -6829,8 +6834,8 @@ private Map func_variance(Map rtData, List params){
 	return [t:'decimal', v:sum/(Integer)values.size()]
 }
 
-/*** stdev calculates the standard deviation of a series of numeric values	***/
-/*** Usage: stdev(values)							***/
+/** stdev calculates the standard deviation of a series of numeric values	**/
+/** Usage: stdev(values)							**/
 private Map func_stdev(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
 		return [t:'error', v:'Expecting stdev(value1, value2, ..., valueN)']
@@ -6839,8 +6844,8 @@ private Map func_stdev(Map rtData, List params){
 	return [t:'decimal', v:Math.sqrt(result.v)]
 }
 
-/*** min calculates the minimum of a series of numeric values				***/
-/*** Usage: min(values)								***/
+/** min calculates the minimum of a series of numeric values			**/
+/** Usage: min(values)								**/
 private Map func_min(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)){
 		return [t:'error', v:'Expecting min(value1, value2, ..., valueN)']
@@ -6852,8 +6857,8 @@ private Map func_min(Map rtData, List params){
 	return [t:'dynamic', v:'']
 }
 
-/*** max calculates the maximum of a series of numeric values				***/
-/*** Usage: max(values)								***/
+/** max calculates the maximum of a series of numeric values			**/
+/** Usage: max(values)								**/
 private Map func_max(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| (params.size()<1)){
 		return [t:'error', v:'Expecting max(value1, value2, ..., valueN)']
@@ -6865,19 +6870,19 @@ private Map func_max(Map rtData, List params){
 	return [t:'dynamic', v:'']
 }
 
-/*** abs calculates the absolute value of a number							***/
-/*** Usage: abs(number)								***/
+/** abs calculates the absolute value of a number				**/
+/** Usage: abs(number)								**/
 private Map func_abs(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| (params.size()!=1)){
 		return [t:'error', v:'Expecting abs(value)']
 	}
 	Double value=(Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v
 	String dataType=(value==Math.round(value)? 'integer':'decimal')
-	return [t: dataType, v: (Double)cast(rtData, Math.abs(value), dataType, 'decimal')]
+	return [t:dataType, v:(Double)cast(rtData, Math.abs(value), dataType, 'decimal')]
 }
 
-/*** hslToHex converts a hue/saturation/level trio to it hex #rrggbb representation ***/
-/*** Usage: hslToHex(hue, saturation, level)								***/
+/** hslToHex converts a hue/saturation/level trio to it hex #rrggbb representation	**/
+/** Usage: hslToHex(hue, saturation, level)						**/
 private Map func_hsltohex(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| (params.size()!=3)){
 		return [t:'error', v:'Expecting hsl(hue, saturation, level)']
@@ -6888,8 +6893,8 @@ private Map func_hsltohex(Map rtData, List params){
 	return [t:'string', v:hslToHex(hue, saturation, level)]
 }
 
-/*** count calculates the number of true/non-zero/non-empty items in a series of numeric values		***/
-/*** Usage: count(values)								***/
+/** count calculates the number of true/non-zero/non-empty items in a series of numeric values		**/
+/** Usage: count(values)										**/
 private Map func_count(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| (params.size()<1)){
 		return [t:'integer', v:0]
@@ -6908,8 +6913,8 @@ private Map func_count(Map rtData, List params){
 	return [t:'integer', v:count]
 }
 
-/*** size returns the number of values provided								***/
-/*** Usage: size(values)							***/
+/** size returns the number of values provided				**/
+/** Usage: size(values)							**/
 private Map func_size(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| (params.size()<1)){
 		return [t:'integer', v:0]
@@ -6924,8 +6929,8 @@ private Map func_size(Map rtData, List params){
 	return [t:'integer', v:count]
 }
 
-/*** age returns the number of milliseconds an attribute had the current value*/
-/*** Usage: age([device:attribute])											***/
+/** age returns the number of milliseconds an attribute had the current value	**/
+/** Usage: age([device:attribute])						**/
 private Map func_age(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
 		return [t:'error', v:'Expecting age([device:attribute])']
@@ -6944,9 +6949,8 @@ private Map func_age(Map rtData, List params){
 	return [t:'error', v:'Invalid device']
 }
 
-/*** previousAge returns the number of milliseconds an attribute had the	***/
-/*** previous value								***/
-/*** Usage: previousAge([device:attribute])									***/
+/** previousAge returns the number of milliseconds an attribute had the  previous value		**/
+/** Usage: previousAge([device:attribute])							**/
 private Map func_previousage(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
 		return [t:'error', v:'Expecting previousAge([device:attribute])']
@@ -6970,14 +6974,14 @@ private Map func_previousage(Map rtData, List params){
 			return [t:'long', v:604800000]
 		}
 	}
-	return [t: 'error', v: 'Invalid device']
+	return [t:'error', v:'Invalid device']
 }
 
-/*** previousValue returns the previous value of the attribute				***/
-/*** Usage: previousValue([device:attribute])								***/
+/** previousValue returns the previous value of the attribute				**/
+/** Usage: previousValue([device:attribute])						**/
 private Map func_previousvalue(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
-		return [t: 'error', v: 'Expecting previousValue([device:attribute])']
+		return [t:'error', v:'Expecting previousValue([device:attribute])']
 	}
 	Map param=evaluateExpression(rtData, (Map)params[0], 'device')
 	if(((String)param.t=='device')&& ((String)param.a)&& (Integer)((List)param.v).size()){
@@ -6985,31 +6989,31 @@ private Map func_previousvalue(Map rtData, List params){
 		if(attribute){
 			def device=getDevice(rtData, (String)((List)param.v)[0])
 			if(device!=null && !isDeviceLocation(device)){
-				List states=device.statesSince((String)param.a, new Date(now()-604500000), [max: 5])
+				List states=device.statesSince((String)param.a, new Date(now()-604500000), [max:5])
 				if((Integer)states.size()>1){
 					def newValue=states[0].getValue()
 					//some events get duplicated, so we really want to look for the last "different valued" state
 					for(Integer i=1; i<(Integer)states.size(); i++){
 						def result=states[i].getValue()
 						if(result!=newValue){
-							return [t: (String)attribute.t, v: cast(rtData, result, (String)attribute.t)]
+							return [t:(String)attribute.t, v:cast(rtData, result, (String)attribute.t)]
 						}
 					}
 				}
 				//we're saying 7 days, though it may be wrong - but we have no data
-				return [t: 'string', v: '']
+				return [t:'string', v:'']
 			}
 		}
 	}
-	return [t: 'error', v: 'Invalid device']
+	return [t:'error', v:'Invalid device']
 }
 
-/*** newer returns the number of devices whose attribute had the current ***/
-/*** value for less than the specified number of milliseconds		***/
-/*** Usage: newer([device:attribute] [,.., [device:attribute]], threshold)***/
+/** newer returns the number of devices whose attribute had the current		**/
+/** value for less than the specified number of milliseconds			**/
+/** Usage: newer([device:attribute] [,.., [device:attribute]], threshold)	**/
 private Map func_newer(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
-		return [t: 'error', v: 'Expecting newer([device:attribute] [,.., [device:attribute]], threshold)']
+		return [t:'error', v:'Expecting newer([device:attribute] [,.., [device:attribute]], threshold)']
 	}
 	Integer threshold=(Integer)evaluateExpression(rtData, (Map)params[(Integer)params.size()-1], 'integer').v
 	Integer result=0
@@ -7017,15 +7021,15 @@ private Map func_newer(Map rtData, List params){
 		Map age=func_age(rtData, [params[i]])
 		if(((String)age.t!='error')&& (age.v<threshold))result++
 	}
-	return [t: 'integer', v: result]
+	return [t:'integer', v:result]
 }
 
-/*** older returns the number of devices whose attribute had the current ***/
-/*** value for more than the specified number of milliseconds		***/
-/*** Usage: older([device:attribute] [,.., [device:attribute]], threshold)	***/
+/** older returns the number of devices whose attribute had the current		**/
+/** value for more than the specified number of milliseconds			**/
+/** Usage: older([device:attribute] [,.., [device:attribute]], threshold)	**/
 private Map func_older(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
-		return [t: 'error', v: 'Expecting older([device:attribute] [,.., [device:attribute]], threshold)']
+		return [t:'error', v:'Expecting older([device:attribute] [,.., [device:attribute]], threshold)']
 	}
 	Integer threshold=(Integer)evaluateExpression(rtData, (Map)params[(Integer)params.size()-1], 'integer').v
 	Integer result=0
@@ -7033,36 +7037,36 @@ private Map func_older(Map rtData, List params){
 		Map age=func_age(rtData, [params[i]])
 		if(((String)age.t!='error')&& (age.v>=threshold))result++
 	}
-	return [t: 'integer', v: result]
+	return [t:'integer', v:result]
 }
 
-/*** startsWith returns true if a string starts with a substring			***/
-/*** Usage: startsWith(string, substring)									***/
+/** startsWith returns true if a string starts with a substring			**/
+/** Usage: startsWith(string, substring)					**/
 private Map func_startswith(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting startsWith(string, substring)']
+		return [t:'error', v:'Expecting startsWith(string, substring)']
 	}
 	String string=(String)evaluateExpression(rtData, (Map)params[0], 'string').v
 	String substring=(String)evaluateExpression(rtData, (Map)params[1], 'string').v
-	return [t: 'boolean', v: string.startsWith(substring)]
+	return [t:'boolean', v:string.startsWith(substring)]
 }
 
-/*** endsWith returns true if a string ends with a substring				***/
-/*** Usage: endsWith(string, substring)										***/
+/** endsWith returns true if a string ends with a substring				**/
+/** Usage: endsWith(string, substring)							**/
 private Map func_endswith(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting endsWith(string, substring)']
+		return [t:'error', v:'Expecting endsWith(string, substring)']
 	}
 	String string=(String)evaluateExpression(rtData, (Map)params[0], 'string').v
 	String substring=(String)evaluateExpression(rtData, (Map)params[1], 'string').v
-	return [t: 'boolean', v: string.endsWith(substring)]
+	return [t:'boolean', v:string.endsWith(substring)]
 }
 
-/*** contains returns true if a string contains a substring					***/
-/*** Usage: contains(string, substring)										***/
+/** contains returns true if a string contains a substring				**/
+/** Usage: contains(string, substring)							**/
 private Map func_contains(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)|| (((String)params[0].t!='device')&& ((Integer)params.size()!=2))){
-		return [t: 'error', v: 'Expecting contains(string, substring)']
+		return [t:'error', v:'Expecting contains(string, substring)']
 	}
 	if(((String)params[0].t=='device')&& ((Integer)params.size()>2)){
 		String item=evaluateExpression(rtData, (Map)params[(Integer)params.size()-1], 'string').v
@@ -7076,257 +7080,257 @@ private Map func_contains(Map rtData, List params){
 	}else{
 		String string=(String)evaluateExpression(rtData, (Map)params[0], 'string').v
 		String substring=(String)evaluateExpression(rtData, (Map)params[1], 'string').v
-		return [t: 'boolean', v: string.contains(substring)]
+		return [t:'boolean', v:string.contains(substring)]
 	}
 }
 
-/*** matches returns true if a string matches a pattern						***/
-/*** Usage: matches(string, pattern)										***/
+/** matches returns true if a string matches a pattern					**/
+/** Usage: matches(string, pattern)							**/
 private Map func_matches(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting matches(string, pattern)']
+		return [t:'error', v:'Expecting matches(string, pattern)']
 	}
 	String string=(String)evaluateExpression(rtData, (Map)params[0], 'string').v
 	String pattern=(String)evaluateExpression(rtData, (Map)params[1], 'string').v
 	if(((Integer)pattern.size()>2)&& pattern.startsWith('/')&& pattern.endsWith('/')){
 		pattern=~pattern.substring(1, (Integer)pattern.size()-1)
-		return [t: 'boolean', v: !!(string =~ pattern)]
+		return [t:'boolean', v: !!(string =~ pattern)]
 	}
-	return [t: 'boolean', v: string.contains(pattern)]
+	return [t:'boolean', v:string.contains(pattern)]
 }
 
-/*** eq returns true if two values are equal								***/
-/*** Usage: eq(value1, value2)							***/
+/** eq returns true if two values are equal					**/
+/** Usage: eq(value1, value2)							**/
 private Map func_eq(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting eq(value1, value2)']
+		return [t:'error', v:'Expecting eq(value1, value2)']
 	}
 	String t=(String)params[0].t=='device' ? (String)params[1].t:(String)params[0].t
 	Map value1=evaluateExpression(rtData, (Map)params[0], t)
 	Map value2=evaluateExpression(rtData, (Map)params[1], t)
-	return [t: 'boolean', v: value1.v==value2.v]
+	return [t:'boolean', v: value1.v==value2.v]
 }
 
-/*** lt returns true if value1<value2										***/
-/*** Usage: lt(value1, value2)							***/
+/** lt returns true if value1<value2						**/
+/** Usage: lt(value1, value2)							**/
 private Map func_lt(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting lt(value1, value2)']
+		return [t:'error', v:'Expecting lt(value1, value2)']
 	}
 	Map value1=evaluateExpression(rtData, (Map)params[0])
 	Map value2=evaluateExpression(rtData, (Map)params[1], (String)value1.t)
-	return [t: 'boolean', v: value1.v<value2.v]
+	return [t:'boolean', v: value1.v<value2.v]
 }
 
-/*** le returns true if value1<=value2									***/
-/*** Usage: le(value1, value2)							***/
+/** le returns true if value1<=value2						**/
+/** Usage: le(value1, value2)							**/
 private Map func_le(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting le(value1, value2)']
+		return [t:'error', v:'Expecting le(value1, value2)']
 	}
 	Map value1=evaluateExpression(rtData, (Map)params[0])
 	Map value2=evaluateExpression(rtData, (Map)params[1], (String)value1.t)
-	return [t: 'boolean', v: value1.v<=value2.v]
+	return [t:'boolean', v: value1.v<=value2.v]
 }
 
-/*** gt returns true if value1>value2									***/
-/*** Usage: gt(value1, value2)							***/
+/** gt returns true if value1>value2						**/
+/** Usage: gt(value1, value2)							**/
 private Map func_gt(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting gt(value1, value2)']
+		return [t:'error', v:'Expecting gt(value1, value2)']
 	}
 	Map value1=evaluateExpression(rtData, (Map)params[0])
 	Map value2=evaluateExpression(rtData, (Map)params[1], (String)value1.t)
-	return [t: 'boolean', v: value1.v>value2.v]
+	return [t:'boolean', v: value1.v>value2.v]
 }
 
-/*** ge returns true if value1>=value2									***/
-/*** Usage: ge(value1, value2)							***/
+/** ge returns true if value1>=value2						**/
+/** Usage: ge(value1, value2)							**/
 private Map func_ge(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=2)){
-		return [t: 'error', v: 'Expecting ge(value1, value2)']
+		return [t:'error', v:'Expecting ge(value1, value2)']
 	}
 	Map value1=evaluateExpression(rtData, (Map)params[0])
 	Map value2=evaluateExpression(rtData, (Map)params[1], (String)value1.t)
-	return [t: 'boolean', v: value1.v>=value2.v]
+	return [t:'boolean', v: value1.v>=value2.v]
 }
 
-/*** not returns the negative Boolean value								***/
-/*** Usage: not(value)								***/
+/** not returns the negative Boolean value					**/
+/** Usage: not(value)								**/
 private Map func_not(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
-		return [t: 'error', v: 'Expecting not(value)']
+		return [t:'error', v:'Expecting not(value)']
 	}
 	Boolean value=(Boolean)evaluateExpression(rtData, (Map)params[0], 'boolean').v
-	return [t: 'boolean', v: !value]
+	return [t:'boolean', v: !value]
 }
 
-/*** if evaluates a Boolean and returns value1 if true, or value2 otherwise ***/
-/*** Usage: if(condition, valueIfTrue, valueIfFalse)						***/
+/** if evaluates a Boolean and returns value1 if true, or value2 otherwise	**/
+/** Usage: if(condition, valueIfTrue, valueIfFalse)				**/
 private Map func_if(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=3)){
-		return [t: 'error', v: 'Expecting if(condition, valueIfTrue, valueIfFalse)']
+		return [t:'error', v:'Expecting if(condition, valueIfTrue, valueIfFalse)']
 	}
 	Boolean value=(Boolean)evaluateExpression(rtData, (Map)params[0], 'boolean').v
 	return value ? evaluateExpression(rtData, (Map)params[1]):evaluateExpression(rtData, (Map)params[2])
 }
 
-/*** isEmpty returns true if the value is empty								***/
-/*** Usage: isEmpty(value)							***/
+/** isEmpty returns true if the value is empty					**/
+/** Usage: isEmpty(value)							**/
 private Map func_isempty(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
-		return [t: 'error', v: 'Expecting isEmpty(value)']
+		return [t:'error', v:'Expecting isEmpty(value)']
 	}
 	Map value=evaluateExpression(rtData, (Map)params[0])
 	Boolean result=(value.v instanceof List ? (value.v==[null])|| (value.v==[])|| (value.v==['null']):false)|| (value.v==null)|| ((String)value.t=='error')|| (value.v=='null')|| ((String)cast(rtData, value.v, 'string')=='')|| ("$value.v".toString()=='')
-	return [t: 'boolean', v: result]
+	return [t:'boolean', v:result]
 }
 
-/*** datetime returns the value as a datetime type							***/
-/*** Usage: datetime([value])							***/
+/** datetime returns the value as a datetime type				**/
+/** Usage: datetime([value])							**/
 private Map func_datetime(Map rtData, List params){
 	if(!(params instanceof List)|| ((Integer)params.size()>1)){
-		return [t: 'error', v: 'Expecting datetime([value])']
+		return [t:'error', v:'Expecting datetime([value])']
 	}
 	Long value=(Integer)params.size()>0 ? (Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v:now()
-	return [t: 'datetime', v: value]
+	return [t:'datetime', v:value]
 }
 
-/*** date returns the value as a date type									***/
-/*** Usage: date([value])							***/
+/** date returns the value as a date type					**/
+/** Usage: date([value])							**/
 private Map func_date(Map rtData, List params){
 	if(!(params instanceof List)|| ((Integer)params.size()>1)){
-		return [t: 'error', v: 'Expecting date([value])']
+		return [t:'error', v:'Expecting date([value])']
 	}
 	Long value=(Integer)params.size()>0 ? (Long)evaluateExpression(rtData, (Map)params[0], 'date').v:(Long)cast(rtData, now(), 'date', 'datetime')
-	return [t: 'date', v: value]
+	return [t:'date', v:value]
 }
 
-/*** time returns the value as a time type									***/
-/*** Usage: time([value])							***/
+/** time returns the value as a time type					**/
+/** Usage: time([value])							**/
 private Map func_time(Map rtData, List params){
 	if(!(params instanceof List)|| ((Integer)params.size()>1)){
-		return [t: 'error', v: 'Expecting time([value])']
+		return [t:'error', v:'Expecting time([value])']
 	}
 	Long value=(Integer)params.size()>0 ? (Long)evaluateExpression(rtData, (Map)params[0], 'time').v:(Long)cast(rtData, now(), 'time', 'datetime')
-	return [t: 'time', v: value]
+	return [t:'time', v:value]
 }
 
-/*** addSeconds returns the value as a time type							***/
-/*** Usage: addSeconds([dateTime, ]seconds)									***/
+/** addSeconds returns the value as a time type						**/
+/** Usage: addSeconds([dateTime, ]seconds)						**/
 private Map func_addseconds(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>2)){
-		return [t: 'error', v: 'Expecting addSeconds([dateTime, ]seconds)']
+		return [t:'error', v:'Expecting addSeconds([dateTime, ]seconds)']
 	}
 	Long value=(Integer)params.size()==2 ? (Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v:now()
 	Long delta=(Long)evaluateExpression(rtData, ((Integer)params.size()==2 ? (Map)params[1]:(Map)params[0]), 'long').v*1000
-	return [t: 'datetime', v: value+delta]
+	return [t:'datetime', v: value+delta]
 }
 
-/*** addMinutes returns the value as a time type							***/
-/*** Usage: addMinutes([dateTime, ]minutes)									***/
+/** addMinutes returns the value as a time type						**/
+/** Usage: addMinutes([dateTime, ]minutes)						**/
 private Map func_addminutes(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>2)){
-		return [t: 'error', v: 'Expecting addMinutes([dateTime, ]minutes)']
+		return [t:'error', v:'Expecting addMinutes([dateTime, ]minutes)']
 	}
 	Long value=(Integer)params.size()==2 ? (Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v:now()
 	Long delta=(Long)evaluateExpression(rtData, ((Integer)params.size()==2 ? (Map)params[1]:(Map)params[0]), 'long').v*60000
-	return [t: 'datetime', v: value+delta]
+	return [t:'datetime', v: value+delta]
 }
 
-/*** addHours returns the value as a time type								***/
-/*** Usage: addHours([dateTime, ]hours)										***/
+/** addHours returns the value as a time type						**/
+/** Usage: addHours([dateTime, ]hours)							**/
 private Map func_addhours(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>2)){
-		return [t: 'error', v: 'Expecting addHours([dateTime, ]hours)']
+		return [t:'error', v: 'Expecting addHours([dateTime, ]hours)']
 	}
 	Long value=(Integer)params.size()==2 ? (Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v:now()
 	Long delta=(Long)evaluateExpression(rtData, ((Integer)params.size()==2 ? (Map)params[1]:(Map)params[0]), 'long').v*3600000
-	return [t: 'datetime', v: value+delta]
+	return [t:'datetime', v: value+delta]
 }
 
-/*** addDays returns the value as a time type								***/
-/*** Usage: addDays([dateTime, ]days)										***/
+/** addDays returns the value as a time type						**/
+/** Usage: addDays([dateTime, ]days)							**/
 private Map func_adddays(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>2)){
-		return [t: 'error', v: 'Expecting addDays([dateTime, ]days)']
+		return [t:'error', v:'Expecting addDays([dateTime, ]days)']
 	}
 	Long value=(Integer)params.size()==2 ? (Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v:now()
 	Long delta=(Long)evaluateExpression(rtData, ((Integer)params.size()==2 ? (Map)params[1]:(Map)params[0]), 'long').v*86400000
-	return [t: 'datetime', v: value+delta]
+	return [t:'datetime', v: value+delta]
 }
 
-/*** addWeeks returns the value as a time type								***/
-/*** Usage: addWeeks([dateTime, ]weeks)										***/
+/** addWeeks returns the value as a time type						**/
+/** Usage: addWeeks([dateTime, ]weeks)							**/
 private Map func_addweeks(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>2)){
-		return [t: 'error', v: 'Expecting addWeeks([dateTime, ]weeks)']
+		return [t:'error', v:'Expecting addWeeks([dateTime, ]weeks)']
 	}
 	Long value=(Integer)params.size()==2 ? (Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v:now()
 	Long delta=(Long)evaluateExpression(rtData, ((Integer)params.size()==2 ? (Map)params[1]:(Map)params[0]), 'long').v*604800000
-	return [t: 'datetime', v: value+delta]
+	return [t:'datetime', v: value+delta]
 }
 
-/*** weekDayName returns the name of the week day							***/
-/*** Usage: weekDayName(dateTimeOrWeekDayIndex)								***/
+/** weekDayName returns the name of the week day					**/
+/** Usage: weekDayName(dateTimeOrWeekDayIndex)						**/
 private Map func_weekdayname(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
-		return [t: 'error', v: 'Expecting weekDayName(dateTimeOrWeekDayIndex)']
+		return [t:'error', v:'Expecting weekDayName(dateTimeOrWeekDayIndex)']
 	}
 	Long value=(Long)evaluateExpression(rtData, (Map)params[0], 'long').v
 	Integer index=((value>=86400000)? (Integer)utcToLocalDate(value).day:value)%7
-	return [t: 'string', v: weekDays()[index]]
+	return [t:'string', v:weekDays()[index]]
 }
 
-/*** monthName returns the name of the month								***/
-/*** Usage: monthName(dateTimeOrMonthNumber)								***/
+/** monthName returns the name of the month						**/
+/** Usage: monthName(dateTimeOrMonthNumber)						**/
 private Map func_monthname(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
-		return [t: 'error', v: 'Expecting monthName(dateTimeOrMonthNumber)']
+		return [t:'error', v:'Expecting monthName(dateTimeOrMonthNumber)']
 	}
 	Long value=(Long)evaluateExpression(rtData, (Map)params[0], 'long').v
 	Integer index=((value>=86400000)? (Integer)utcToLocalDate(value).month:value-1)%12+1
-	return [t: 'string', v: yearMonths()[index]]
+	return [t:'string', v:yearMonths()[index]]
 }
 
-/*** arrayItem returns the nth item in the parameter list					***/
-/*** Usage: arrayItem(index, item0[, item1[, .., itemN]])					***/
+/** arrayItem returns the nth item in the parameter list				**/
+/** Usage: arrayItem(index, item0[, item1[, .., itemN]])				**/
 private Map func_arrayitem(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)){
-		return [t: 'error', v: 'Expecting arrayItem(index, item0[, item1[, .., itemN]])']
+		return [t:'error', v:'Expecting arrayItem(index, item0[, item1[, .., itemN]])']
 	}
 	Integer index=(Integer)evaluateExpression(rtData, (Map)params[0], 'integer').v
 	if(((Integer)params.size()==2)&& ((params[1].t=='string')|| (params[1].t=='dynamic'))){
 		List list=((String)evaluateExpression(rtData, (Map)params[1], 'string').v).split(',').toList()
 		if((index<0)|| (index>=(Integer)list.size())){
-			return [t: 'error', v: 'Array item index is outside of bounds.']
+			return [t:'error', v:'Array item index is outside of bounds.']
 		}
-		return [t: 'string', v: list[index]]
+		return [t:'string', v:list[index]]
 	}
 	Integer sz=(Integer)params.size()-1
 	if((index<0)|| (index>=sz)){
-		return [t: 'error', v: 'Array item index is outside of bounds.']
+		return [t:'error', v:'Array item index is outside of bounds.']
 	}
 	return params[index+1]
 }
 
-/*** isBetween returns true if value>=startValue and value<=endValue	***/
-/*** Usage: isBetween(value, startValue, endValue)							***/
+/** isBetween returns true if value>=startValue and value<=endValue		**/
+/** Usage: isBetween(value, startValue, endValue)				**/
 private Map func_isbetween(Map rtData, List params){
 	if(params==null || !(params instanceof List) || (Integer)params.size()!=3){
-		return [t: 'error', v: 'Expecting isBetween(value, startValue, endValue)']
+		return [t:'error', v:'Expecting isBetween(value, startValue, endValue)']
 	}
 	Map value=evaluateExpression(rtData, (Map)params[0])
 	Map startValue=evaluateExpression(rtData, (Map)params[1], (String)value.t)
 	Map endValue=evaluateExpression(rtData, (Map)params[2], (String)value.t)
-	return [t: 'boolean', v: value.v>=startValue.v && value.v<=endValue.v]
+	return [t:'boolean', v: value.v>=startValue.v && value.v<=endValue.v]
 }
 
-/*** formatDuration returns a duration in a readable format					***/
-/*** Usage: formatDuration(value[, friendly=false[, granularity='s'[, showAdverbs=false]]])	***/
+/** formatDuration returns a duration in a readable format					**/
+/** Usage: formatDuration(value[, friendly=false[, granularity='s'[, showAdverbs=false]]])	**/
 private Map func_formatduration(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>4)){
-		return [t: 'error', v: "Expecting formatDuration(value[, friendly=false[, granularity='s'[, showAdverbs=false]]])"]
+		return [t:'error', v:"Expecting formatDuration(value[, friendly=false[, granularity='s'[, showAdverbs=false]]])"]
 	}
 	Long value=(Long)evaluateExpression(rtData, (Map)params[0], 'long').v
 	Boolean friendly=(Integer)params.size()>1 ? (Boolean)evaluateExpression(rtData, (Map)params[1], 'boolean').v:false
@@ -7382,30 +7386,30 @@ private Map func_formatduration(Map rtData, List params){
 	}else{
 		result=(sign<0 ? '-':'')+(d>0 ? sprintf("%dd ", d):'')+sprintf("%02d:%02d", h, m)+(parts>3 ? sprintf(":%02d", s):'')+(parts>4 ? sprintf(".%03d", ms):'')
 	}
-	return [t: 'string', v: result]
+	return [t:'string', v:result]
 }
 
-/*** formatDateTime returns a datetime in a readable format					***/
-/*** Usage: formatDateTime(value[, format])									***/
+/** formatDateTime returns a datetime in a readable format				**/
+/** Usage: formatDateTime(value[, format])						**/
 private Map func_formatdatetime(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>2)){
-		return [t: 'error', v: 'Expecting formatDateTime(value[, format])']
+		return [t:'error', v:'Expecting formatDateTime(value[, format])']
 	}
 	Long value=(Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v
 	String format=(Integer)params.size()>1 ? (String)evaluateExpression(rtData, (Map)params[1], 'string').v:(String)null
-	return [t: 'string', v: (format ? formatLocalTime(value, format):formatLocalTime(value))]
+	return [t:'string', v:(format ? formatLocalTime(value, format):formatLocalTime(value))]
 }
 
-/*** random returns a random value											***/
-/*** Usage: random([range | value1, value2[, ..,valueN]])	***/
+/** random returns a random value						**/
+/** Usage: random([range | value1, value2[, ..,valueN]])			**/
 private Map func_random(Map rtData, List params){
 	Integer sz=params && (params instanceof List)? (Integer)params.size():0
 	switch (sz){
 		case 0:
-			return [t: 'decimal', v: Math.random()]
+			return [t:'decimal', v:Math.random()]
 		case 1:
 			Double range=(Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v
-			return [t: 'integer', v: (Integer)Math.round(range*Math.random())]
+			return [t:'integer', v:(Integer)Math.round(range*Math.random())]
 		case 2:
 			if((((String)params[0].t=='integer')|| ((String)params[0].t=='decimal'))&& (((String)params[1].t=='integer')|| ((String)params[1].t=='decimal'))){
 				Double min=(Double)evaluateExpression(rtData, (Map)params[0], 'decimal').v
@@ -7415,7 +7419,7 @@ private Map func_random(Map rtData, List params){
 				min=max
 				max=swap
 			}
-			return [t: 'integer', v: (Integer)Math.round(min+(max-min)*Math.random())]
+			return [t:'integer', v:(Integer)Math.round(min+(max-min)*Math.random())]
 		}
 	}
 	Integer choice=(Integer)Math.round((sz-1)*Math.random())
@@ -7424,11 +7428,11 @@ private Map func_random(Map rtData, List params){
 }
 
 
-/*** distance returns a distance measurement											***/
-/*** Usage: distance((device | latitude, longitude), (device | latitude, longitude)[, unit])	***/
+/** distance returns a distance measurement							**/
+/** Usage: distance((device | latitude, longitude), (device | latitude, longitude)[, unit])	**/
 private Map func_distance(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<2)|| ((Integer)params.size()>4)){
-		return [t: 'error', v: 'Expecting distance((device | latitude, longitude), (device | latitude, longitude)[, unit])']
+		return [t:'error', v:'Expecting distance((device | latitude, longitude), (device | latitude, longitude)[, unit])']
 	}
 	Double lat1, lng1, lat2, lng2
 	String unit
@@ -7483,8 +7487,8 @@ private Map func_distance(Map rtData, List params){
 		}
 		if(pidx==-1)break
 	}
-	if(errMsg!='')return [t: 'error', v: errMsg]
-	if((idx<4)|| (idx>5))return [t: 'error', v: 'Invalid parameter combination. Expecting either two devices, a device and two decimals, or four decimals, followed by an optional unit.']
+	if(errMsg!='')return [t:'error', v:errMsg]
+	if((idx<4)|| (idx>5))return [t:'error', v:'Invalid parameter combination. Expecting either two devices, a device and two decimals, or four decimals, followed by an optional unit.']
 	Double earthRadius=6371000.0D //meters
 	Double dLat=Math.toRadians(lat2-lat1)
 	Double dLng=Math.toRadians(lng2-lng1)
@@ -7514,34 +7518,34 @@ private Map func_distance(Map rtData, List params){
 	return [t:'decimal', v:dist]
 }
 
-/*** json encodes data as a JSON string					***/
-/*** Usage: json(value[, pretty])									***/
+/** json encodes data as a JSON string							**/
+/** Usage: json(value[, pretty])							**/
 private Map func_json(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()<1)|| ((Integer)params.size()>2)){
-		return [t: 'error', v: 'Expecting json(value[, format])']
+		return [t:'error', v:'Expecting json(value[, format])']
 	}
 	def builder=new groovy.json.JsonBuilder([params[0].v])
 	String op=params[1] ? 'toPrettyString':'toString'
 	String json=builder."${op}"()
-	return [t: 'string', v: json[1..-2].trim()]
+	return [t:'string', v:json[1..-2].trim()]
 }
 
-/*** percent encodes data for use in a URL					***/
-/*** Usage: urlencode(value)									***/
+/** urlencode encodes data for use in a URL						**/
+/** Usage: urlencode(value)								**/
 private Map func_urlencode(Map rtData, List params){
 	if(params==null || !(params instanceof List)|| ((Integer)params.size()!=1)){
-		return [t: 'error', v: 'Expecting urlencode(value])']
+		return [t:'error', v:'Expecting urlencode(value])']
 	}
 	// URLEncoder converts spaces to+which is then indistinguishable from any
 	// actual+characters in the value. Match encodeURIComponent in ECMAScript
 	// which encodes "a+b c" as "a+b%20c" rather than URLEncoder's "a+b+c"
 	String t0=(String)evaluateExpression(rtData, (Map)params[0], 'string').v
 	String value=(t0!=null ? t0:'').replaceAll('\\+', '__wc_plus__')
-	return [t: 'string', v: URLEncoder.encode(value, 'UTF-8').replaceAll('\\+', '%20').replaceAll('__wc_plus__', '+')]
+	return [t:'string', v:URLEncoder.encode(value, 'UTF-8').replaceAll('\\+', '%20').replaceAll('__wc_plus__', '+')]
 }
 private Map func_encodeuricomponent(Map rtData, List params){ return func_urlencode(rtData, params)}
 
-/*** COMMON PUBLISHED METHODS							***/
+/** COMMON PUBLISHED METHODS							**/
 
 private String mem(Boolean showBytes=true){
 	String mbytes=new groovy.json.JsonOutput().toJson(state)
@@ -7555,7 +7559,7 @@ private String runTimeHis(Map rtData){
 		'Last run details: '+(theCacheFLD[myId].runStats).toString()
 }
 
-/*** UTILITIES									***/
+/** UTILITIES									**/
 
 private String md5(String md5){
 	java.security.MessageDigest md=java.security.MessageDigest.getInstance('MD5')
@@ -7607,8 +7611,8 @@ private Long getTimeToday(Long time){
 	return Math.round(result+((Integer)location.timeZone.getOffset(t0)-(Integer)location.timeZone.getOffset(result))*1.0D)
 }
 
-@Field final List trueStrings=[  '1', 'true', "on", "open", "locked", "active", "wet", "detected", "present", "occupied", "muted", "sleeping"]
-@Field final List falseStrings=[ '0', 'false', "off", "closed", "unlocked", "inactive", "dry", "clear", "not detected", "not present", "not occupied", "unmuted", "not sleeping", "null"]
+@Field final List trueStrings= [ '1', 'true',  "on",  "open",   "locked",   "active",   "wet",             "detected",     "present",     "occupied",     "muted",   "sleeping"]
+@Field final List falseStrings=[ '0', 'false', "off", "closed", "unlocked", "inactive", "dry", "clear",    "not detected", "not present", "not occupied", "unmuted", "not sleeping", "null"]
 
 private cast(Map rtData, value, String dataType, String srcDataType=(String)null){
 	if(dataType=='dynamic')return value
@@ -7618,16 +7622,16 @@ private cast(Map rtData, value, String dataType, String srcDataType=(String)null
 	}
 	value=(value instanceof GString)? "$value".toString():value //get rid of GStrings
 	if(srcDataType==(String)null || (Integer)srcDataType.length()==0 || srcDataType=='boolean' || srcDataType=='dynamic'){
-		if(value instanceof List){ srcDataType='device' }else
-		if(value instanceof Boolean){ srcDataType='boolean' }else
-		if(value instanceof String){ srcDataType='string' }else
-		if(value instanceof Integer){ srcDataType='integer' }else
-		if(value instanceof BigInteger){ srcDataType='long' }else
-		if(value instanceof Long){ srcDataType='long' }else
-		if(value instanceof Double){ srcDataType='decimal' }else
-		if(value instanceof Float){ srcDataType='decimal' }else
-		if(value instanceof BigDecimal){ srcDataType='decimal' }else
-		if(value instanceof Map && value.x!=null && value.y!=null && value.z!=null){ srcDataType='vector3' }else{
+		if(value instanceof List){srcDataType='device'}else
+		if(value instanceof Boolean){srcDataType='boolean'}else
+		if(value instanceof String){srcDataType='string'}else
+		if(value instanceof Integer){srcDataType='integer'}else
+		if(value instanceof BigInteger){srcDataType='long'}else
+		if(value instanceof Long){srcDataType='long'}else
+		if(value instanceof Double){srcDataType='decimal'}else
+		if(value instanceof Float){srcDataType='decimal'}else
+		if(value instanceof BigDecimal){srcDataType='decimal'}else
+		if(value instanceof Map && value.x!=null && value.y!=null && value.z!=null){srcDataType='vector3'}else{
 			value="$value".toString()
 			srcDataType='string'
 		}
@@ -8021,23 +8025,23 @@ private Boolean isDeviceLocation(device){
 	return (String)device.id.toString()==(String)location.id.toString() && (device?.hubs?.size()?: 0)>0
 }
 
-/******************************************************************************/
-/*** DEBUG FUNCTIONS									***/
-/******************************************************************************/
+/**							**/
+/** DEBUG FUNCTIONS					**/
+/**							**/
 private void myDetail(Map rtData, String msg, Integer shift=-2){
 	if((Boolean)rtData.eric){ Map a=log(msg, rtData, shift, null, 'warn', true, false)}
 }
 
 private Map log(message, Map rtData, Integer shift=-2, err=null, String cmd=(String)null, Boolean force=false, Boolean svLog=true){
 	if(cmd=='timer'){
-		return [m:message, t:now(), s:shift, e:err]
+		return [m:message.toString(), t:now(), s:shift, e:err]
 	}
 	if(message instanceof Map){
 		shift=message.s
 		err=message.e
-		message=(String)message.m+" (${now()-(Long)message.t}ms)"
+		message=(String)message.m+" (${now()-(Long)message.t}ms)".toString()
 	}
-	String myMsg=(String)message
+	String myMsg=message.toString()
 	cmd=cmd ? cmd:'debug'
 	//shift is
 	// 0 - initialize level, level set to 1
@@ -8081,13 +8085,13 @@ private Map log(message, Map rtData, Integer shift=-2, err=null, String cmd=(Str
 		}
 		List msgs=!hasErr ? myMsg.tokenize("\r"):[myMsg]
 		for(msg in msgs){
-			Boolean a=((List)rtData.logs).push([o: now()-(Long)rtData.timestamp, p: prefix2, m: msg+(hasErr ? " $err":''), c: cmd])
+			Boolean a=((List)rtData.logs).push([o: now()-(Long)rtData.timestamp, p: prefix2, m: msg+(hasErr ? " $err".toString() : ''), c: cmd])
 		}
 	}
 	if(hasErr){
 		log."$cmd" "$prefix $myMsg $err"
 	}else{
-		if((cmd=='error' || cmd=='warn')|| force || !svLog || (Boolean)rtData.logsToHE || (Boolean)rtData.eric)log."$cmd" "$prefix $myMsg"
+		if((cmd=='error' || cmd=='warn')|| force || !svLog || (Boolean)rtData.logsToHE || (Boolean)rtData.eric)log."$cmd" "$prefix $myMsg".toString()
 	}
 	return [:]
 }
@@ -8584,8 +8588,8 @@ private Map VirtualCommands(){
 //uses c and r
 // the physical command r: is replaced with command c. If the VirtualCommand c exists and has o: true we will use that virtual command; otherwise it will be replaced with a physical command
 @Field final Map CommandsOverrides=[
-		push: [c:"push",	s:null, r:"pushMomentary"],
-		flash: [c:"flash",	s:null, r:"flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
+		push:[c:"push",	s:null, r:"pushMomentary"],
+		flash:[c:"flash",	s:null, r:"flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
 ]
 
 @Field static Map theVirtDevicesFLD
