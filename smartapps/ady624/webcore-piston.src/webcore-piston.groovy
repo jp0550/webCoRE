@@ -981,7 +981,7 @@ private Map getDSCache(){
 		t0=atomState.vars
 		t1.vars=t0 ? [:]+(Map)t0:[:]
 
-		t1.devices=(settings.dev && (settings.dev instanceof List)? settings.dev.collectEntries{[(hashId(it.id)): it]}:[:])
+		t1.devices= settings.dev && settings.dev instanceof List ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:]
 		result=[:]+t1
 
 		theCacheFLD[myId]=result
@@ -2264,7 +2264,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 		def p
 		switch ((String)param.vt){
 		case 'variable':
-			p=param.x instanceof List ? (List)param.x:((String)param.x+((String)param.xi!=(String)null ? '['+(String)param.xi+']':''))
+			p=param.x instanceof List ? (List)param.x : (String)param.x + ((String)param.xi!=(String)null ? '['+(String)param.xi+']':'')
 			break
 		default:
 			Map v=evaluateOperand(rtData, null, param)
@@ -2279,7 +2279,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 			p=(t0!=null)? (!match ? evaluateExpression(rtData, v, tt1).v:t0):null
 		}
 		//ensure value type is successfuly passed through
-		params.push p
+		def a=params.push(p)
 	}
 
 	//handle duplicate command "push" which was replaced with fake command "pushMomentary"
@@ -2398,7 +2398,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params=[
 						}
 					}else if((Integer)nparams.size()==1){
 						if(getDeviceAttributeValue(rtData, device, (String)cmd.a)==nparams[0]){
-							skip=(command in ['setLevel', 'setInfraredLevel'] ? getDeviceAttributeValue(rtData, device, 'switch')=='on':true)
+							skip=(command in ['setLevel', 'setInfraredLevel'] ? (String)getDeviceAttributeValue(rtData, device, 'switch')=='on':true)
 						}
 					}
 				}
@@ -2817,7 +2817,7 @@ private void requestWakeUp(Map rtData, Map statement, Map task, Long timeOrDelay
 private Long do_setLevel(Map rtData, device, List params, String attr, val=null){
 	Integer arg=val!=null ? (Integer)val:(Integer)params[0]
 	String mstate=(Integer)params.size()>1 ? (String)params[1]:(String)null
-	if(mstate!=(String)null && (getDeviceAttributeValue(rtData, device, 'switch')!=mstate)){
+	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
 	Integer delay=(Integer)params.size()>2 ? (Integer)params[2]:0
@@ -2876,7 +2876,7 @@ private Long cmd_setColor(Map rtData, device, List params){
 		return 0L
 	}
 	String mstate=(Integer)params.size()>1 ? (String)params[1]:(String)null
-	if(mstate!=(String)null && (getDeviceAttributeValue(rtData, device, 'switch')!=mstate)){
+	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
 	Integer delay=(Integer)params.size()>2 ? (Integer)params[2]:0
@@ -2892,7 +2892,7 @@ private Long cmd_setAdjustedColor(Map rtData, device, List params){
 	}
 	Long duration=(Long)cast(rtData, params[1], 'long')
 	String mstate=(Integer)params.size()>2 ? (String)params[2]:(String)null
-	if(mstate!=(String)null && ((String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate)){
+	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
 	Integer delay=(Integer)params.size()>3 ? (Integer)params[3]:0
@@ -2912,7 +2912,7 @@ private Long cmd_setAdjustedHSLColor(Map rtData, device, List params){
 	Long duration=(Long)cast(rtData, params[3], 'long')
 	String mstate=(Integer)params.size()>4 ? (String)params[4]:(String)null
 	Integer delay=(Integer)params.size()>5 ? (Integer)params[5]:0
-	if(mstate!=(String)null && ((String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate)){
+	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
 	executePhysicalCommand(rtData, device, 'setAdjustedColor', [color, duration], delay)
@@ -3137,7 +3137,7 @@ private Long do_adjustLevel(Map rtData, device, List params, String attr, String
 	Integer arg=val!=null ? (Integer)val:(Integer)cast(rtData, params[0], 'integer')
 	String mstate=(Integer)params.size()>1 ? (String)params[1]:(String)null
 	Integer delay=(Integer)params.size()>2 ? (Integer)params[2]:0
-	if(mstate!=(String)null && (getDeviceAttributeValue(rtData, device, 'switch')!=mstate)){
+	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
 	arg=arg+(Integer)cast(rtData, getDeviceAttributeValue(rtData, device, attr), 'integer')
@@ -3181,7 +3181,7 @@ private Long do_fadeLevel(Map rtData, device, List params, String attr, String a
 	}
 	Long duration=(Long)cast(rtData, params[2], 'long')
 	String mstate=(Integer)params.size()>3 ? (String)params[3]:(String)null
-	if(mstate!=(String)null && (getDeviceAttributeValue(rtData, device, 'switch')!=mstate)){
+	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
 	Integer low=big ? 1000:0
@@ -3263,7 +3263,7 @@ private Long vcmd_flash(Map rtData, device, List params){
 	Long offDuration=(Long)cast(rtData, params[1], 'long')
 	Integer cycles=(Integer)cast(rtData, params[2], 'integer')
 	String mstate=(Integer)params.size()>3 ? (String)params[3]:(String)null
-	String currentState=getDeviceAttributeValue(rtData, device, 'switch')
+	String currentState=(String)getDeviceAttributeValue(rtData, device, 'switch')
 	if(mstate!=(String)null && (currentState!=mstate)){
 		return 0L
 	}
@@ -3297,7 +3297,7 @@ private Long vcmd_flashLevel(Map rtData, device, List params){
 	Long duration2=(Long)cast(rtData, params[3], 'long')
 	Integer cycles=(Integer)cast(rtData, params[4], 'integer')
 	String mstate=(Integer)params.size()>5 ? (String)params[5]:(String)null
-	String currentState=getDeviceAttributeValue(rtData, device, 'switch')
+	String currentState=(String)getDeviceAttributeValue(rtData, device, 'switch')
 	if(mstate!=(String)null && (currentState!=mstate)){
 		return 0L
 	}
@@ -3328,7 +3328,7 @@ private Long vcmd_flashColor(Map rtData, device, List params){
 	Long duration2=cast(rtData, params[3], 'long')
 	Integer cycles=(Integer)cast(rtData, params[4], 'integer')
 	String mstate=(Integer)params.size()>5 ? (String)params[5]:(String)null
-	String currentState=getDeviceAttributeValue(rtData, device, 'switch')
+	String currentState=(String)getDeviceAttributeValue(rtData, device, 'switch')
 	if(mstate!=(String)null && (currentState!=mstate)){
 		return 0L
 	}
@@ -3491,7 +3491,7 @@ private Long vcmd_setHSLColor(Map rtData, device, List params){
 	]
 	String mstate=(Integer)params.size()>3 ? (String)params[3]:(String)null
 	Integer delay=(Integer)params.size()>4 ? params[4]:0
-	if(mstate!=(String)null && (getDeviceAttributeValue(rtData, device, 'switch')!=mstate)){
+	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
 	executePhysicalCommand(rtData, device, 'setColor', color, delay)
@@ -4094,16 +4094,16 @@ private evaluateOperand(Map rtData, Map node, Map operand, index=null, Boolean t
 	case 'x': //variable
 		if(ovt=='device' && operand.x instanceof List){
 			//we could have multiple devices selected
-			def sum=[]
-			for (String x in operand.x){
-				def var=getVariable(rtData, x)
+			List sum=[]
+			for (String x in (List)operand.x){
+				Map var=getVariable(rtData, x)
 				if(var.v instanceof List){
-					sum += var.v
+					sum += (List)var.v
 				}else{
 					Boolean a=sum.push(var.v)
 				}
-				values=[[i:nodeI, v:[t:'device', v:sum]+(ovt ? [vt:ovt]:[:])]]
 			}
+			values=[[i:nodeI, v:[t:'device', v:sum]+(ovt ? [vt:ovt]:[:])]]
 		}else{
 			values=[[i:nodeI, v:getVariable(rtData, (String)operand.x+((String)operand.xi!=(String)null ? '['+(String)operand.xi+']':''))+(ovt ? [vt:ovt]:[:])]]
 		}
@@ -4422,8 +4422,6 @@ private void cancelConditionSchedules(Map rtData, Integer conditionId){
 
 private static Boolean matchDeviceSubIndex(list, deviceSubIndex){
 	return true
-	//if(list==null || !(list instanceof List) || (Integer)list.size()==0)return true
-	//return list.collect{ "$it".toString()}.indexOf("$deviceSubIndex".toString())>=0
 }
 
 private static Boolean matchDeviceInteraction(String option, Boolean isPhysical){
@@ -4432,7 +4430,6 @@ private static Boolean matchDeviceInteraction(String option, Boolean isPhysical)
 
 private List listPreviousStates(device, String attribute, Long threshold, Boolean excludeLast){
 	List result=[]
-	//if(!(device instanceof DeviceWrapper))return result
 	List events=device.events([all: true, max: 100]).findAll{(String)it.name==attribute}
 	//if we got any events, let's go through them
 	//if we need to exclude last event, we start at the second event, as the first one is the event that triggered this function. The attribute's value has to be different from the current one to qualify for quiet
@@ -4617,7 +4614,7 @@ private void traverseStatements(node, closure, parentNode=null, Map data=null){
 	if(!node)return
 	//if a statements element, go through each item
 	if(node instanceof List){
-		for(def item in node){
+		for(def item in (List)node){
 			if(!item.di){
 				Boolean lastTimer=(data!=null && (Boolean)data.timer)
 				if(data!=null && ((String)item.t=='every')){
@@ -4639,10 +4636,10 @@ private void traverseStatements(node, closure, parentNode=null, Map data=null){
 
 	//if the statements has substatements, go through them
 	if(node.s instanceof List){
-		traverseStatements(node.s, closure, node, data)
+		traverseStatements((List)node.s, closure, node, data)
 	}
 	if(node.e instanceof List){
-		traverseStatements(node.e, closure, node, data)
+		traverseStatements((List)node.e, closure, node, data)
 	}
 }
 
@@ -4650,7 +4647,7 @@ private void traverseEvents(node, closure, parentNode=null){
 	if(!node)return
 	//if a statements element, go through each item
 	if(node instanceof List){
-		for(item in node){
+		for(item in (List)node){
 			traverseEvents(item, closure, parentNode)
 		}
 		return
@@ -4665,7 +4662,7 @@ private void traverseConditions(node, closure, parentNode=null){
 	if(!node)return
 	//if a statements element, go through each item
 	if(node instanceof List){
-		for(item in node){
+		for(item in (List)node){
 			traverseConditions(item, closure, parentNode)
 		}
 		return
@@ -4677,7 +4674,7 @@ private void traverseConditions(node, closure, parentNode=null){
 	//if the statements has substatements, go through them
 	if(node.c instanceof List){
 		if(closure instanceof Closure)closure(node, parentNode)
-		traverseConditions(node.c, closure, node)
+		traverseConditions((List)node.c, closure, node)
 	}
 }
 
@@ -4685,7 +4682,7 @@ private void traverseRestrictions(node, closure, parentNode=null){
 	if(!node)return
 	//if a statements element, go through each item
 	if(node instanceof List){
-		for(item in node){
+		for(item in (List)node){
 			traverseRestrictions(item, closure, parentNode)
 		}
 		return
@@ -4705,7 +4702,7 @@ private void traverseExpressions(node, closure, param, parentNode=null){
 	if(!node)return
 	//if a statements element, go through each item
 	if(node instanceof List){
-		for(item in node){
+		for(item in (List)node){
 			traverseExpressions(item, closure, param, parentNode)
 		}
 		return
@@ -4716,7 +4713,7 @@ private void traverseExpressions(node, closure, param, parentNode=null){
 	}
 	//if the statements has substatements, go through them
 	if(node.i instanceof List){
-		traverseExpressions(node.i, closure, param, node)
+		traverseExpressions((List)node.i, closure, param, node)
 	}
 }
 
@@ -5202,8 +5199,8 @@ private Map getDeviceAttribute(Map rtData, String deviceId, String attributeName
 		//x=eXclude - if a momentary attribute is looked for and the device does not match the current device, then we must ignore this during comparisons
 		def t0=(attributeName!=null ? getDeviceAttributeValue(rtData, device, attributeName):null)
 		String tt1=(String)attribute.t
-		Boolean match=t0!=null && ((t0 instanceof String && (tt1 in ['string', 'enum']))||
-				(t0 instanceof Integer && (tt1=='integer')))
+		Boolean match=t0!=null && ( (t0 instanceof String && tt1 in ['string', 'enum']) ||
+				(t0 instanceof Integer && tt1=='integer') )
 //	String tt2=myObj(t0)
 //if(attributeName)log.warn "attributeName $attributeName t0   $t0 of $tt2   tt1 $tt1    match $match }"
 		def value=(attributeName!=null ? (match ? t0:cast(rtData, t0, tt1)):"$device")
@@ -5222,11 +5219,11 @@ private Map getJsonData(Map rtData, data, String name, String feature=(String)nu
 	if(data!=null){
 	try{
 		List parts=name.replace('][', '].[').tokenize('.')
-		def args=(data instanceof Map ? [:]+data:(data instanceof List ? []+data:new groovy.json.JsonSlurper().parseText(data)))
+		def args=(data instanceof Map ? [:]+(Map)data:(data instanceof List ? []+(List)data : new groovy.json.JsonSlurper().parseText(data)))
 		Integer partIndex=-1
 		for(String part in parts){
 			partIndex=partIndex+1
-			if((args instanceof String)|| (args instanceof GString)){
+			if(args instanceof String || args instanceof GString){
 				if(args.startsWith('{') && args.endsWith('}')){
 					args=(LinkedHashMap)new groovy.json.JsonSlurper().parseText(args)
 				}else if(args.startsWith('[') && args.endsWith(']')){
@@ -5377,7 +5374,7 @@ private Map getJsonData(Map rtData, data, String name, String feature=(String)nu
 					if(idx.isInteger()){
 						idx=idx.toInteger()
 					}else{
-						Map var=getVariable(rtData, "$idx")
+						Map var=getVariable(rtData, "$idx".toString())
 						idx=(String)var.t!='error' ? var.v:idx
 					}
 				}
@@ -5429,7 +5426,7 @@ private Map getNFLDataFeature(String dataFeature){
 	httpGet(requestParams){ response ->
 		if(response.status==200 && response.data && !binary){
 			try{
-				return response.data instanceof Map ? response.data:(LinkedHashMap)new groovy.json.JsonSlurper().parseText(response.data)
+				return response.data instanceof Map ? response.data : (LinkedHashMap)new groovy.json.JsonSlurper().parseText(response.data)
 			} catch (all){
 				return null
 			}
@@ -5453,14 +5450,6 @@ private Map getNFL(Map rtData, String name){
 private Map getIncidents(rtData, String name){
 	return getJsonData(rtData, rtData.incidents, name)
 }
-
-/*
-private void initIncidents(rtData){
-	if(rtData.incidents instanceof List)return
-	def t0=parent.getIncidents()
-	rtData.incidents=t0!=null ? t0:[]
-}
-*/
 
 @Field static Boolean initGlobalFLD
 @Field static Map globalVarsFLD
@@ -6030,7 +6019,7 @@ private Map evaluateExpression(Map rtData, Map expression, String dataType=(Stri
 			if(t1=='device' && t2=='device' && ((o=='+')|| (o=='-'))){
 				v1=(v1 instanceof List)? v1:[v1]
 				v2=(v2 instanceof List)? v2:[v2]
-				v=(o=='+')? v1+v2:v1-v2
+				v=(o=='+') ? v1+v2 : v1-v2
 				//set the results
 				items[idx+1].t='device'
 				items[idx+1].v=v
@@ -6262,7 +6251,7 @@ private String buildDeviceList(Map rtData, devices, String suffix='and'){
 	if(!devices)return ''
 	if(!(devices instanceof List))devices=[devices]
 	List list=[]
-	for (String device in devices){
+	for (String device in (List)devices){
 		def dev=getDevice(rtData, device)
 		if(dev!=null)Boolean a=list.push(dev)
 	}
@@ -6273,7 +6262,7 @@ private String buildDeviceAttributeList(Map rtData, devices, String attribute, S
 	if(!devices)return ''
 	if(!(devices instanceof List))devices=[devices]
 	List list=[]
-	for (String device in devices){
+	for (String device in (List)devices){
 		def value=getDeviceAttribute(rtData, device, attribute).v
 		Boolean a=list.push(value)
 	}
