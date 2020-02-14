@@ -1537,12 +1537,12 @@ private Boolean executeEvent(Map rtData, event){
 				processSchedules rtData
 			}
 			if(!ended)tracePoint(rtData, 'break', 0L, 0)
-		} catch (all){
+		}catch (all){
 			error 'An error occurred while executing the event: ', rtData, -2, all
 		}
 		myDetail rtData, 'executeEvent Result: TRUE', -1
 		return true
-	} catch(all){
+	}catch(all){
 		error 'An error occurred within executeEvent: ', rtData, -2, all
 	}
 	processSchedules rtData
@@ -2294,7 +2294,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 			Map msg=timer "Executed [$device].${command}", rtData
 			try{
 				delay="cmd_${command}"(rtData, device, params)
-			} catch(all){
+			}catch(all){
 				executePhysicalCommand(rtData, device, command, params)
 			}
 			if((Integer)rtData.logging>1)trace msg, rtData
@@ -2351,7 +2351,7 @@ private Long executeVirtualCommand(Map rtData, devices, String command, List par
 	try{
 		delay="vcmd_${command}"(rtData, devices, params)
 		if((Integer)rtData.logging>1)trace msg, rtData
-	} catch(all){
+	}catch(all){
 		msg.m="Error executing virtual command ${devices instanceof List ? "$devices":"[$devices]"}.${command}:"
 		msg.e=all
 		error msg, rtData
@@ -2425,7 +2425,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params=[
 				}
 			}
 			if((Integer)rtData.logging>2)debug msg, rtData
-		} catch(all){
+		}catch(all){
 			error "Error while executing physical command $device.$command($nparams):", rtData, -2, all
 		}
 		Long t0=rtData.piston.o?.ced!=null ? (Integer)rtData.piston.o.ced:0L
@@ -3055,7 +3055,7 @@ private Long vcmd_sendEmail(Map rtData, device, List params){
 	try{
 		asynchttpPost('ahttpRequestHandler', requestParams, [command:'sendEmail', em: data])
 		return 24000
-	} catch (all){
+	}catch (all){
 		error "Error sending email to ${data.t}: $msg", rtData
 	}
 	return 0L
@@ -3239,7 +3239,7 @@ private Long vcmd_internal_fade(Map rtData, device, String command, Integer star
 		steps=Math.floor(1.0D*duration/minInterval)
 		interval=Math.round(1.0D*duration/steps)
 	}
-	String scheduleDevice=(duration>10000L)? hashId(device.id):(String)null
+	String scheduleDevice=(interval>1001L)? hashId(device.id):(String)null
 	Integer oldLevel=startLevel
 	executePhysicalCommand(rtData, device, command, startLevel)
 	for(Integer i=1; i<=steps; i++){
@@ -3251,7 +3251,7 @@ private Long vcmd_internal_fade(Map rtData, device, String command, Integer star
 	}
 	//for good measure, send a last command 100ms after the end of the interval
 	executePhysicalCommand(rtData, device, command, endLevel, duration+99L, scheduleDevice, true)
-	return duration+100L
+	return duration+300L
 }
 
 private Long vcmd_emulatedFlash(Map rtData, device, List params){
@@ -3277,7 +3277,7 @@ private Long vcmd_flash(Map rtData, device, List params){
 	Long firstDuration=firstCommand=='on' ? onDuration:offDuration
 	String secondCommand=firstCommand=='on' ? 'off':'on'
 	Long secondDuration=firstCommand=='on' ? offDuration:onDuration
-	String scheduleDevice=(duration>10000L)? hashId(device.id):(String)null
+	String scheduleDevice=(onDuration+offDuration>1001L)? hashId(device.id):(String)null
 	Long dur=0L
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtData, device, firstCommand, [], dur, scheduleDevice, true)
@@ -3287,7 +3287,7 @@ private Long vcmd_flash(Map rtData, device, List params){
 	}
 	//for good measure, send a last command 100ms after the end of the interval
 	executePhysicalCommand(rtData, device, currentState, [], duration+99L, scheduleDevice, true)
-	return duration+100L
+	return duration+300L
 }
 
 private Long vcmd_flashLevel(Map rtData, device, List params){
@@ -3307,7 +3307,7 @@ private Long vcmd_flashLevel(Map rtData, device, List params){
 		//if the flash is too fast, ignore it
 		return 0L
 	}
-	String scheduleDevice=(duration>10000L)? hashId(device.id):(String)null
+	String scheduleDevice=(duration1+duration2>1001L)? hashId(device.id):(String)null
 	Long dur=0L
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtData, device, 'setLevel', [level1], dur, scheduleDevice, true)
@@ -3318,7 +3318,7 @@ private Long vcmd_flashLevel(Map rtData, device, List params){
 	//for good measure, send a last command 100ms after the end of the interval
 	executePhysicalCommand(rtData, device, 'setLevel', [currentLevel], duration+98L, scheduleDevice, true)
 	executePhysicalCommand(rtData, device, currentState, [], duration+99L, scheduleDevice, true)
-	return duration+100L
+	return duration+300L
 }
 
 private Long vcmd_flashColor(Map rtData, device, List params){
@@ -3337,7 +3337,7 @@ private Long vcmd_flashColor(Map rtData, device, List params){
 		//if the flash is too fast, ignore it
 		return 0L
 	}
-	String scheduleDevice=(duration>10000L)? hashId(device.id):(String)null
+	String scheduleDevice=(duration1+duration2>1001L)? hashId(device.id):(String)null
 	Long dur=0
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtData, device, 'setColor', [color1], dur, scheduleDevice, true)
@@ -3347,7 +3347,7 @@ private Long vcmd_flashColor(Map rtData, device, List params){
 	}
 	//for good measure, send a last command 100ms after the end of the interval
 	executePhysicalCommand(rtData, device, currentState, [], duration+99L, scheduleDevice, true)
-	return duration+100L
+	return duration+300L
 }
 
 private Long vcmd_sendNotification(Map rtData, device, List params){
@@ -3366,7 +3366,7 @@ private Long vcmd_sendPushNotification(Map rtData, device, List params){
 	List t0=(List)rtData.pushDev
 	try{
 		t0*.deviceNotification(message)
-	} catch (all){
+	}catch (all){
 		message="Default push device not set properly in webCoRE "+params[0]
 		error message, rtData
 	}
@@ -3621,7 +3621,7 @@ private Long vcmd_httpRequest(Map rtData, device, List params){
 			"$func"('ahttpRequestHandler', requestParams, [command:'httpRequest'])
 			return 24000L
 		}
-	} catch (all){
+	}catch (all){
 		error "Error executing external web request: ", rtData, -2, all
 	}
 	return 0L
@@ -3858,7 +3858,7 @@ private Long vcmd_parseJson(Map rtData, device, List params){
 		}else{
 			rtData.json=[:]
 		}
-	} catch (all){
+	}catch (all){
 		error "Error parsing JSON data $data", rtData
 	}
 	return 0L
@@ -4014,7 +4014,7 @@ private evaluateOperand(Map rtData, Map node, Map operand, index=null, Boolean t
 			//if we have multiple values and a grouping other than any or all we need to apply that function
 			try{
 				values=[[i:nodeI, v:(Map)"func_${(String)operand.g}"(rtData, values*.v)+(ovt ? [vt:ovt]:[:])]]
-			} catch(all){
+			}catch(all){
 				error "Error applying grouping method ${(String)operand.g}", rtData
 			}
 		}
@@ -5088,7 +5088,7 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 		state.cache=rtData.cache
 	}
 
-	} catch (all){
+	}catch (all){
 		error "An error has occurred while subscribing: ", rtData, -2, all
 	}
 }
@@ -5169,7 +5169,7 @@ private getDeviceAttributeValue(Map rtData, device, String attributeName){
 		def result
 		try{
 			result=device.currentValue(attributeName, true)
-		} catch (all){
+		}catch (all){
 			error "Error reading current value for $device.$attributeName:", rtData, -2, all
 		}
 		return result!=null ? result:''
@@ -5386,7 +5386,7 @@ private Map getJsonData(Map rtData, data, String name, String feature=(String)nu
 			if(!overrideArgs)args=args[part]
 		}
 		return [t:'dynamic', v:"$args".toString()]
-	} catch (all){
+	}catch (all){
 		error "Error retrieving JSON data part $part", rtData, -2, all
 		return [t:'dynamic', v:'']
 	}
@@ -5427,7 +5427,7 @@ private Map getNFLDataFeature(String dataFeature){
 		if(response.status==200 && response.data && !binary){
 			try{
 				return response.data instanceof Map ? response.data : (LinkedHashMap)new groovy.json.JsonSlurper().parseText(response.data)
-			} catch (all){
+			}catch (all){
 				return null
 			}
 		}
@@ -5634,7 +5634,7 @@ public Map proxyEvaluateExpression(Map rtData, Map expression, String dataType=(
 			result=evaluateExpression(rtData, result, attr!=null && attr.t!=null ? (String)attr.t:'string')
 		}
 		return result
-	} catch (all){
+	}catch (all){
 		error 'An error occurred while executing the expression', rtData, -2, all
 	}
 	return [t:'error', v:'expression error']
@@ -5772,7 +5772,7 @@ private Map evaluateExpression(Map rtData, Map expression, String dataType=(Stri
 			myStr='calling function '+fn
 			myDetail rtData, myStr, 1
 			result=(Map)"$fn"(rtData, params)
-		} catch (all){
+		}catch (all){
 			error "Error executing $fn: ", rtData, -2, all
 			//log error
 			result=[t:'error', v:all]
@@ -6450,7 +6450,7 @@ private Map func_sprintf(Map rtData, List params){
 	}
 	try{
 		return [t:'string', v:sprintf(format, args)]
-	} catch(all){
+	}catch(all){
 		return [t:'error', v:"$all"]
 	}
 }
@@ -7672,7 +7672,7 @@ private cast(Map rtData, value, String dataType, String srcDataType=(String)null
 			Integer result=0
 			try{
 				result=(Integer)value
-			} catch(all){
+			}catch(all){
 				result=0
 			}
 			return result
@@ -7694,7 +7694,7 @@ private cast(Map rtData, value, String dataType, String srcDataType=(String)null
 			Long result=0L
 			try{
 				result=(Long)value
-			} catch(all){
+			}catch(all){
 				result=0L
 			}
 			return result
@@ -7718,7 +7718,7 @@ private cast(Map rtData, value, String dataType, String srcDataType=(String)null
 			Double result=0.0D
 			try{
 				result=(Double)value
-			} catch(all){
+			}catch(all){
 			}
 			return result
 		case 'boolean':
@@ -7826,7 +7826,7 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert something to t
 		try{
 			result=(new Date()).parse(dateOrTimeOrString)
 			return result
-		} catch (all0){
+		}catch (all0){
 		}
 
 		try{
@@ -7838,14 +7838,14 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert something to t
 			}
 			result=(new Date()).parse(dateOrTimeOrString)
 			return result
-		} catch (all){
+		}catch (all){
 		}
 
 		try{
 			Date tt1=toDateTime(dateOrTimeOrString)
 			result=(Long)tt1.getTime()
 			return result
-		} catch(all3){
+		}catch(all3){
 		}
 
 		try{
@@ -7854,7 +7854,7 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert something to t
 				try{
 					tz=TimeZone.getTimeZone(dateOrTimeOrString[-3..-1])
 					dateOrTimeOrString=dateOrTimeOrString.take((Integer)dateOrTimeOrString.size()-3).trim()
-				} catch (all4){
+				}catch (all4){
 				}
 			}
 
@@ -7889,7 +7889,7 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert something to t
 			}
 			result=time
 			return result
-		} catch (all5){
+		}catch (all5){
 		}
 
 		result=(new Date()).getTime()
