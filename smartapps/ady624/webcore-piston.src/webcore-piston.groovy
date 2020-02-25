@@ -2380,6 +2380,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params=[
 				p: params
 			]
 		]
+		if((Boolean)rtData.eric)trace "Requesting a physical command wake up for ${formatLocalTime(Math.round(now()*1.0D+delay))}", rtData
 		Boolean a=((List)rtData.schedules).push(schedule)
 	}else{
 		List nparams=(params instanceof List)? (List)params:(params!=null ? [params]:[])
@@ -2432,7 +2433,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params=[
 		if(t0!=0L){
 			if(t0>(Long)getPistonLimits.taskMaxDelay)t0=1000L
 			pauseExecution(t0)
-			if((Integer)rtData.logging>1)trace "Injected a ${t0}ms delay after [$device].$command(${nparams ? "$nparams":''})", rtData
+			if((Integer)rtData.logging>1)trace "Injected command execution delay ${t0}ms after [$device].$command(${nparams ? "$nparams":''})", rtData
 		}
 	}
 }
@@ -3239,7 +3240,7 @@ private Long vcmd_internal_fade(Map rtData, device, String command, Integer star
 		steps=Math.floor(1.0D*duration/minInterval)
 		interval=Math.round(1.0D*duration/steps)
 	}
-	String scheduleDevice=(interval>1001L)? hashId(device.id):(String)null
+	String scheduleDevice=hashId(device.id)
 	Integer oldLevel=startLevel
 	executePhysicalCommand(rtData, device, command, startLevel)
 	for(Integer i=1; i<=steps; i++){
@@ -3251,7 +3252,7 @@ private Long vcmd_internal_fade(Map rtData, device, String command, Integer star
 	}
 	//for good measure, send a last command 100ms after the end of the interval
 	executePhysicalCommand(rtData, device, command, endLevel, duration+99L, scheduleDevice, true)
-	return duration+300L
+	return duration+105L
 }
 
 private Long vcmd_emulatedFlash(Map rtData, device, List params){
@@ -3277,7 +3278,7 @@ private Long vcmd_flash(Map rtData, device, List params){
 	Long firstDuration=firstCommand=='on' ? onDuration:offDuration
 	String secondCommand=firstCommand=='on' ? 'off':'on'
 	Long secondDuration=firstCommand=='on' ? offDuration:onDuration
-	String scheduleDevice=(onDuration+offDuration>1001L)? hashId(device.id):(String)null
+	String scheduleDevice=hashId(device.id)
 	Long dur=0L
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtData, device, firstCommand, [], dur, scheduleDevice, true)
@@ -3286,8 +3287,8 @@ private Long vcmd_flash(Map rtData, device, List params){
 		dur += secondDuration
 	}
 	//for good measure, send a last command 100ms after the end of the interval
-	executePhysicalCommand(rtData, device, currentState, [], duration+99L, scheduleDevice, true)
-	return duration+300L
+	executePhysicalCommand(rtData, device, currentState, [], dur+100L, scheduleDevice, true)
+	return dur+105L
 }
 
 private Long vcmd_flashLevel(Map rtData, device, List params){
@@ -3307,7 +3308,7 @@ private Long vcmd_flashLevel(Map rtData, device, List params){
 		//if the flash is too fast, ignore it
 		return 0L
 	}
-	String scheduleDevice=(duration1+duration2>1001L)? hashId(device.id):(String)null
+	String scheduleDevice=hashId(device.id)
 	Long dur=0L
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtData, device, 'setLevel', [level1], dur, scheduleDevice, true)
@@ -3316,9 +3317,9 @@ private Long vcmd_flashLevel(Map rtData, device, List params){
 		dur += duration2
 	}
 	//for good measure, send a last command 100ms after the end of the interval
-	executePhysicalCommand(rtData, device, 'setLevel', [currentLevel], duration+98L, scheduleDevice, true)
-	executePhysicalCommand(rtData, device, currentState, [], duration+99L, scheduleDevice, true)
-	return duration+300L
+	executePhysicalCommand(rtData, device, 'setLevel', [currentLevel], dur+100L, scheduleDevice, true)
+	executePhysicalCommand(rtData, device, currentState, [], dur+101L, scheduleDevice, true)
+	return dur+105L
 }
 
 private Long vcmd_flashColor(Map rtData, device, List params){
@@ -3337,7 +3338,7 @@ private Long vcmd_flashColor(Map rtData, device, List params){
 		//if the flash is too fast, ignore it
 		return 0L
 	}
-	String scheduleDevice=(duration1+duration2>1001L)? hashId(device.id):(String)null
+	String scheduleDevice=hashId(device.id)
 	Long dur=0
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtData, device, 'setColor', [color1], dur, scheduleDevice, true)
@@ -3346,8 +3347,8 @@ private Long vcmd_flashColor(Map rtData, device, List params){
 		dur += duration2
 	}
 	//for good measure, send a last command 100ms after the end of the interval
-	executePhysicalCommand(rtData, device, currentState, [], duration+99L, scheduleDevice, true)
-	return duration+300L
+	executePhysicalCommand(rtData, device, currentState, [], dur+99L, scheduleDevice, true)
+	return dur+105L
 }
 
 private Long vcmd_sendNotification(Map rtData, device, List params){
