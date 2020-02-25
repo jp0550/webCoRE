@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated February 10, 2020 for Hubitat
+ * Last Updated February 24, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -36,6 +36,7 @@ definition(
 	description: "Tap to install ${handle()} ${version()}",
 	category: "Convenience",
 	singleInstance: false,
+	documentationLink:'https://wiki.webcore.co',
 	/* icons courtesy of @chauger - thank you */
 	iconUrl: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png",
 	iconX2Url: "https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png",
@@ -305,7 +306,7 @@ private pageSelectDevices() {
 }
 
 private pageFinishInstall() {
-	Boolean inst = state.installed
+	Boolean inst = !!state.installed
 	if(!inst) initTokens()
 	refreshDevices()
 	dynamicPage(name: "pageFinishInstall", title: "", install: true) {
@@ -974,7 +975,7 @@ private api_intf_dashboard_piston_create() {
 		if((String)params.author!=(String)null || (String)params.bin!=(String)null) {
 			piston.config([bin: (String)params.bin, author: (String)params.author, initialVersion: version()])
 		}
-		if(!piston.isInstalled()) piston.installed()
+		if(!(Boolean)piston.isInstalled()) piston.installed()
 		result = [status: "ST_SUCCESS", id: hashId(piston.id)]
 	} else {
 		result = api_get_error_result("ERR_INVALID_TOKEN")
@@ -1529,7 +1530,7 @@ private void resetFuelStreamList(){
 	state.remove("fuelStreams")
 }
 
-public void writeToFuelStream(req){
+public void writeToFuelStream(Map req){
 	String name = handle()+" Fuel Stream"
 	String streamName = "${(req.c ?: "")}||${req.n}"
 	

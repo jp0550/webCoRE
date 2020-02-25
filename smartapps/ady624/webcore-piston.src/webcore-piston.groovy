@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update February 13, 2020 for Hubitat
+ * Last update February 24, 2020 for Hubitat
 */
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
@@ -32,12 +32,12 @@ import hubitat.helper.RMUtils
 import groovy.transform.Field
 
 definition(
-	name:"${handle()} Piston",
+	name:handle()+' Piston',
 	namespace:'ady624',
 	author:'Adrian Caramaliu',
 	description:'Do not install this directly, use webCoRE instead',
 	category:'Convenience',
-	parent:"ady624:${handle()}",
+	parent:'ady624:'+handle(),
 	iconUrl:'https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png',
 	iconX2Url:'https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@2x.png',
 	iconX3Url:'https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE@3x.png',
@@ -59,7 +59,7 @@ private static Boolean eric(){ return false }
 
 def pageMain(){
 	return dynamicPage(name:'pageMain', title:'', install:true, uninstall: !!state.build){
-		if(parent==null || !parent.isInstalled()){
+		if(parent==null || !(Boolean)parent.isInstalled()){
 			section(){
 				paragraph 'Sorry you cannot install a piston directly from the HE console; please use the webCoRE dashboard (dashboard.webcore.co) instead.'
 			}
@@ -820,8 +820,8 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 	if(semaphore!=(String)null){
 		Long lastSemaphore
 		while (true){
-			def t0=theSemaphoresFLD[tsemaphoreName]
-			Long tt0=t0!=null ? (Long)t0.toLong():0L
+			Long t0=theSemaphoresFLD[tsemaphoreName]
+			Long tt0=t0!=null ? t0 : 0L
 			lastSemaphore=tt0
 			if(lastSemaphore==0L || tt1-lastSemaphore>100000L){
 				theSemaphoresFLD[tsemaphoreName]=tt1
@@ -1516,7 +1516,7 @@ private Boolean executeEvent(Map rtData, event){
 							if(device!=null){
 								//executing scheduled physical command
 								//used by fades, flashes, etc.
-								executePhysicalCommand(rtData, device, (String)data.c, data.p, 0, (String)null, true)
+								executePhysicalCommand(rtData, device, (String)data.c, data.p, 0L, (String)null, true)
 							}
 						}
 					}
@@ -2359,8 +2359,8 @@ private Long executeVirtualCommand(Map rtData, devices, String command, List par
 	return delay
 }
 
-private void executePhysicalCommand(Map rtData, device, String command, params=[], Integer delay=0, String scheduleDevice=(String)null, Boolean disableCommandOptimization=false){
-	if(delay!=0 && scheduleDevice!=(String)null){
+private void executePhysicalCommand(Map rtData, device, String command, params=[], Long delay=0L, String scheduleDevice=(String)null, Boolean disableCommandOptimization=false){
+	if(delay!=0L && scheduleDevice!=(String)null){
 		//delay without schedules is not supported in hubitat
 		//scheduleDevice=hashId(device.id)
 		//we're using schedules instead
@@ -2369,7 +2369,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params=[
 		Integer ps=((String)statement.tcp=='b')|| ((String)statement.tcp=='p')? 1:0
 		cs.removeAll{ it==0 }
 		Map schedule=[
-			t: Math.round(now()*1.0D+delay),
+			t: (Long)Math.round(now()*1.0D+delay),
 			s: (Integer)statement.$,
 			i: -3,
 			cs: cs,
@@ -2820,7 +2820,7 @@ private Long do_setLevel(Map rtData, device, List params, String attr, val=null)
 	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
-	Integer delay=(Integer)params.size()>2 ? (Integer)params[2]:0
+	Long delay=(Integer)params.size()>2 ? (Long)params[2]:0L
 	executePhysicalCommand(rtData, device, attr, arg, delay)
 	return 0L
 }
@@ -2879,7 +2879,7 @@ private Long cmd_setColor(Map rtData, device, List params){
 	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
-	Integer delay=(Integer)params.size()>2 ? (Integer)params[2]:0
+	Long delay=(Integer)params.size()>2 ? (Long)params[2]:0L
 	executePhysicalCommand(rtData, device, 'setColor', color, delay)
 	return 0L
 }
@@ -2895,7 +2895,7 @@ private Long cmd_setAdjustedColor(Map rtData, device, List params){
 	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
-	Integer delay=(Integer)params.size()>3 ? (Integer)params[3]:0
+	Long delay=(Integer)params.size()>3 ? (Long)params[3]:0L
 	executePhysicalCommand(rtData, device, 'setAdjustedColor', [color, duration], delay)
 	return 0L
 }
@@ -2911,7 +2911,7 @@ private Long cmd_setAdjustedHSLColor(Map rtData, device, List params){
 	]
 	Long duration=(Long)cast(rtData, params[3], 'long')
 	String mstate=(Integer)params.size()>4 ? (String)params[4]:(String)null
-	Integer delay=(Integer)params.size()>5 ? (Integer)params[5]:0
+	Long delay=(Integer)params.size()>5 ? (Long)params[5]:0L
 	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
@@ -3136,7 +3136,7 @@ private Long vcmd_toggleLevel(Map rtData, device, List params){
 private Long do_adjustLevel(Map rtData, device, List params, String attr, String attr1, val=null, Boolean big=false){
 	Integer arg=val!=null ? (Integer)val:(Integer)cast(rtData, params[0], 'integer')
 	String mstate=(Integer)params.size()>1 ? (String)params[1]:(String)null
-	Integer delay=(Integer)params.size()>2 ? (Integer)params[2]:0
+	Long delay=(Integer)params.size()>2 ? (Long)params[2]:0L
 	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
@@ -3490,7 +3490,7 @@ private Long vcmd_setHSLColor(Map rtData, device, List params){
 		level: level
 	]
 	String mstate=(Integer)params.size()>3 ? (String)params[3]:(String)null
-	Integer delay=(Integer)params.size()>4 ? params[4]:0
+	Long delay=(Integer)params.size()>4 ? (Long)params[4]:0L
 	if(mstate!=(String)null && (String)getDeviceAttributeValue(rtData, device, 'switch')!=mstate){
 		return 0L
 	}
@@ -3708,18 +3708,17 @@ private Long vcmd_writeToFuelStream(Map rtData, device, List params){
 		rtData.useLocalFuelStreams=(Boolean)parent.useLocalFuelStreams()
 	}
 
-	def req=[
-		c: canister,
-		n: name,
-		s: source,
-		d: data,
-		i: (String)rtData.instanceId
-	]
-
-	if((Boolean)rtData.useLocalFuelStreams){
+	if((Boolean)rtData.useLocalFuelStreams && name!=(String)null){
+		Map req=[
+			c: canister,
+			n: name,
+			s: source,
+			d: data,
+			i: (String)rtData.instanceId
+		]
 		parent.writeToFuelStream(req)
 	}else{
-		log.error "Fuel stream app is not installed. Install it to write to local fuel streams", rtData
+		log.error "Fuel stream app is not installed. Install it to write to local fuel streams "+name, rtData
 	}
 	return 0L
 }
