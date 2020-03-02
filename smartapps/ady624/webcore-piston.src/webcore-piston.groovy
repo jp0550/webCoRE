@@ -3528,10 +3528,12 @@ private Long vcmd_wolRequest(Map rtData, device, List params){
 }
 
 private Long vcmd_iftttMaker(Map rtData, device, List params){
+	String key
 	if(rtData.settings==null){
 		error "no settings", rtData
+	} else {
+		key=((String)rtData.settings.ifttt_url ?: '').trim().replace('https://', '').replace('http://', '').replace('maker.ifttt.com/use/', '')
 	}
-	String key=((String)rtData.settings.ifttt_url ?: '').trim().replace('https://', '').replace('http://', '').replace('maker.ifttt.com/use/', '')
 	if(!key){
 		error "Failed to send IFTTT event, because the IFTTT integration is not properly set up. Please visit Settings in your dashboard and configure the IFTTT integration.", rtData
 		return 0L

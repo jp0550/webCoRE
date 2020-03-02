@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated February 24, 2020 for Hubitat
+ * Last Updated March 1, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -806,7 +806,7 @@ private Map api_get_base_result(Boolean updateCache = false) {
 		location: [
 			//contactBookEnabled: location.getContactBookEnabled(),
 			hubs: location.getHubs().findAll{ !((String)it.name).contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: (String)it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
-			incidents: alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold },
+			incidents: alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold },
 			//incidents: isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold },
 			//incidents: [],
 			//id: hashId(location.id + (isHubitat() ? '-L' : ''), updateCache),
@@ -904,7 +904,7 @@ private api_intf_dashboard_load() {
 		if(result==null) result = api_get_error_result("ERR_INVALID_TOKEN")
 	}
 
-	if(settings.logging!='None' && settings.logging!=null) checkResultSize(result)
+	if((Boolean)getLogging().debug) checkResultSize(result)
 
 	//for accuracy, use the time as close as possible to the render
 	result.now = now()
@@ -1023,7 +1023,7 @@ private api_intf_dashboard_piston_get() {
 				result.dbVersion = serverDbVersion
 				result.db = theDb
 			}
-			if(settings.logging!='None' && settings.logging!=null) checkResultSize(result, requireDb)
+			if((Boolean)getLogging().debug) checkResultSize(result, requireDb)
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
 		}
@@ -1096,7 +1096,7 @@ private api_intf_dashboard_piston_backup() {
 	Map result = [pistons: []]
 	debug "Dashboard: Request received to backup pistons ${params?.ids}"
 	if(verifySecurityToken((String)params.token)) {
-		def pistonIds = ((String)params.ids ?: '').tokenize(',')
+		List pistonIds = ((String)params.ids ?: '').tokenize(',')
 		for(String pistonId in pistonIds) {
 			if(pistonId) {
 				def piston = getChildApps().find{ hashId(it.id) == pistonId }
@@ -1104,7 +1104,7 @@ private api_intf_dashboard_piston_backup() {
 					def pd = piston.get(true)
 					if(pd) {
 						pd.instance = [id: hashId(app.id), name: app.label]
-						result.pistons.push(pd)
+						Boolean a=result.pistons.push(pd)
 						if(!isCustomEndpoint() || customHubUrl.contains(hubUID)){
 							String jsonData = groovy.json.JsonOutput.toJson(result)
 							Integer responseLength = jsonData.getBytes("UTF-8").length
@@ -1194,14 +1194,14 @@ private api_intf_dashboard_piston_set_start() {
 
 private api_intf_dashboard_piston_set_chunk() {
 	Map result
-	def chunk = "${params?.chunk}"
+	def chunk = "${params?.chunk}".toString()
 	chunk = chunk.isInteger() ? chunk.toInteger() : -1
 	debug "Dashboard: Request received to set a piston chunk (#${1 + chunk}/${state.chunks?.count})"
 	if(verifySecurityToken((String)params.token)) {
 		String data = params?.data
 		def chunks = state.chunks
 		if(chunks && chunks.count && (chunk >= 0) && (chunk < chunks.count)) {
-			chunks["chunk:$chunk"] = data
+			chunks["chunk:$chunk".toString()] = data
 			atomicState.chunks = chunks
 			result = [status: "ST_READY"]
 		} else {
@@ -1224,7 +1224,7 @@ private api_intf_dashboard_piston_set_end() {
 			Integer i = 0
 			Integer count = chunks.count
 			while(i<count) {
-				String s = chunks["chunk:$i"]
+				String s = chunks["chunk:$i".toString()]
 				if(s) {
 					data += s
 				} else {
@@ -1708,7 +1708,7 @@ private api_execute() {
 }
 
 void recoveryHandler() {
-	if(state.version != version() || state.versionHE != HEversion()) {
+	if((String)state.version != version() || (String)state.versionHE != HEversion()) {
 		info "webCoRE software Updated to "+version()+" HE: "+HEversion()
 		atomicState.version = version()
 		atomicState.versionHE = HEversion()
@@ -1716,9 +1716,9 @@ void recoveryHandler() {
 	}
 
 	Long t = now()
-	Long lastRecovered = state.lastRecovered ?: 0L
+	Long lastRecovered = (Long)state.lastRecovered ?: 0L
 	Long recTime = 900000L  // 15 min in ms
-	if(lastRecovered && (t - lastRecovered < recTime)) return
+	if(lastRecovered && ((t - lastRecovered) < recTime)) return
 
 	state.lastRecovered = t
 	registerInstance(false)
@@ -1734,7 +1734,7 @@ void finishRecovery() {
 //ERS
 	def failedPistons = getChildApps().findAll{ (String)it.name == name }.collect {
 		String myId = hashId(it.id, updateCache)
-		[ id: myId, 'name': (String)it.label, 'meta': state[myId] ] }.findAll{ it.meta && it.meta.a && it.meta.n && ((long)it.meta.n < threshold) }
+		[ id: myId, 'name': (String)it.label, 'meta': state[myId] ] }.findAll{ it.meta!=null && (Boolean)it.meta.a && it.meta.n && (Long)it.meta.n < threshold }
 	if(failedPistons.size()) {
 		for (piston in failedPistons) {
 			warn "Piston $piston.name was sent a recovery signal because it was ${now() - piston.meta.n}ms late"
@@ -2036,17 +2036,6 @@ private void ping() {
 	sendLocationEvent( [name: handle(), value: 'ping', isStateChange: true, displayed: false, linkText: "${handle()} ping reply", descriptionText: "${handle()} has received a ping reply and is replying with a pong", data: [id: hashId(app.id), name: app.label]] )
 }
 
-private getLogging() {
-	String logging = settings?.logging
-	return [
-		error: true,
-		warn: true,
-		info: (logging != 'None' && logging != null),
-		trace: (logging == 'Medium') || (logging == 'Full'),
-		debug: (logging == 'Full')
-	]
-}
-
 private void startDashboard() {
 	//debug "startDashboard"
 	def dashboardApp = getDashboardApp()
@@ -2253,10 +2242,10 @@ public void updateRunTimeData(Map data) {
 	if(data.gvCache!=null) {
 		Map vars = atomicState.vars ?: [:]
 		Boolean modified = false
-		for(var in data.gvCache) {
+		for(var in (Map)data.gvCache) {
 			String varName=(String)var.key
 			if(varName!=(String)null && varName.startsWith('@') && (vars[varName]) && (var.value.v != vars[varName].v)) {
-				variableEvents.push([name: varName, oldValue: vars[varName].v, value: var.value.v, type: var.value.t])
+				Boolean a=variableEvents.push([name: varName, oldValue: vars[varName].v, value: var.value.v, type: var.value.t])
 				vars[varName].v = var.value.v
 				modified = true
 		/*		if(varName.startsWith('@@')) {
@@ -2271,7 +2260,7 @@ public void updateRunTimeData(Map data) {
 	if(data.gvStoreCache!=null) {
 		Map store = atomicState.store ?: [:]
 		Boolean modified = false
-		for(var in data.gvStoreCache) {
+		for(var in (Map)data.gvStoreCache) {
 			if(var.value == null) {
 				store.remove((String)var.key)
 			} else {
@@ -2283,9 +2272,9 @@ public void updateRunTimeData(Map data) {
 			atomicState.store = store
 		}
 	}
-	String id = data.id
+	String id = (String)data.id
 	//remove the old state as we don't need it
-	def st = [:] + data.state
+	def st = [:] + (Map)data.state
 	st.remove('old')
 	Map piston = [
 		a: (Boolean)data.active,
@@ -2498,7 +2487,7 @@ List t1=getLocationEventsSince('hsmAlert', new Date() - 10)
 
 	List alerts = atomicState.hsmAlerts
 	alerts = alerts ?: []
-	alerts.push(alert)
+	Boolean aa=alerts.push(alert)
 	if(locStat == 'allDisarmed' || evV == 'cancel') alerts = []
 	atomicState.hsmAlerts = alerts
 	//atomicState.hsmAlert = alert
@@ -2528,14 +2517,14 @@ public List getIncidents() {
 	Integer osz = (Integer)alerts.size()
 	if(osz == 0) return []
 	if(locStat == 'allDisarmed') { alerts = []; state.remove("hsmAlert") }
-	List newAlerts = alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold }
+	List newAlerts = alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold }
 	List new2Alerts = newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }.sort { it.date }
 	//return (state.vars ?: [:]).sort{ (String)it.key }
 			//for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }) {
 	List new3Alerts = []
 	for(myE in newAlerts2) {
 		if(myE.v=='cancel') new3Alerts=[]
-		else new3Alerts.push(myE)
+		else Boolean aa=new3Alerts.push(myE)
 	}
 	Integer nsz = new3Alerts.size()
 	if(osz!=nsz) atomicState.hsmAlerts = new3Alerts
@@ -2604,6 +2593,18 @@ private String temperatureUnit() {
 /******************************************************************************/
 /*** DEBUG FUNCTIONS														***/
 /******************************************************************************/
+
+private Map getLogging() {
+	String logging = settings?.logging
+	return [
+		error: true,
+		warn: true,
+		info: (logging != 'None' && logging != (String)null),
+		trace: (logging == 'Medium') || (logging == 'Full'),
+		debug: (logging == 'Full')
+	]
+}
+
 private Map log(message, Integer shift=-2, err = null, String cmd = (String)null) {
 	if(cmd == "timer") {
 		return [m: message, t: now(), s: shift, e: err]
@@ -2613,12 +2614,14 @@ private Map log(message, Integer shift=-2, err = null, String cmd = (String)null
 		err = message.e
 		message = (String)message.m + " (${now() - (Long)message.t}ms)"
 	}
-	if( (settings.logging!='None' && settings.logging!=null) && cmd != 'error' && cmd != 'warn') {
-		return [:]
-	}
 	String myMsg = (String)message
 	cmd = cmd ? cmd : 'debug'
-
+	Map myLog=getLogging()
+	if(cmd != 'error' && cmd != 'warn') {
+		if(!((Boolean)myLog.info) && cmd=='info') return [:]
+		if(!((Boolean)myLog.trace) && cmd=='trace') return [:]
+		if(!((Boolean)myLog.debug) && cmd=='debug') return [:]
+	}
 	String prefix = ""
 	Boolean debugging=false
 	if(debugging) {
@@ -2723,7 +2726,7 @@ private static Map capabilities() {
 		lockCodes			: [ n: "Lock Codes",			d: "locks lock codes",			a: "codeChanged",	c: ["deleteCode", "getCodes", "setCode", "setCodeLength"],		],
 		lockOnly			: [ n: "Lock Only",			d: "electronic locks (lock only)",	a: "lock",		c: ["lock"],								],
 		mediaController			: [ n: "Media Controller",		d: "media controllers",			a: "currentActivity",	c: ["startActivity", "getAllActivities", "getCurrentActivity"],		],
-//		momentary			: [ n: "Momentary",			d: "momentary switches",					c: ["push"],								],
+	//	momentary			: [ n: "Momentary",			d: "momentary switches",					c: ["push"],								],
 		motionSensor			: [ n: "Motion Sensor",			d: "motion sensors",			a: "motion",											],
 		musicPlayer			: [ n: "Music Player",			d: "music players",			a: "status",		c: ["mute", "nextTrack", "pause", "play", "playTrack", "previousTrack", "restoreTrack", "resumeTrack", "setLevel", "setTrack", "stop", "unmute"],		],
 		notification			: [ n: "Notification",			d: "notification devices",					c: ["deviceNotification"],						],
@@ -2903,14 +2906,14 @@ private static Map attributes() {
 		doubleTapped			: [ n: "double tapped button",		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
 		held				: [ n: "held button",			t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
 		released			: [ n: "released button",		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			],
-		pushed				: [ n: "pushed button",		t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			]
+		pushed				: [ n: "pushed button",			t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			]
 	]
 }
 
 /* Push command has multiple overloads in hubitat */
 private static Map commandOverrides(){
 	return ( [ //s: command signature
-//		push	: [c: "push",	s: null , r: "pushMomentary"],
+		push	: [c: "push",	s: null , r: "pushMomentary"],
 		flash	: [c: "flash",	s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
 	] ) as HashMap
 }
@@ -2974,7 +2977,7 @@ private static Map commands() {
 		poll				: [ n: "Poll",						i: 'question',											],
 //		presetPosition			: [ n: "Move to preset position",		a: "windowShade",		v: "partially open",	],
 		previousTrack			: [ n: "Previous track",										],
-		push				: [ n: "Push",																		],
+		//push				: [ n: "Push",																		],
 		refresh				: [ n: "Refresh",					i: 'sync',											],
 		restoreTrack			: [ n: "Restore track...",				d: "Restore track <uri>{0}</uri>",							p: [[n:"Track URL",t:"url"]],			],
 		resumeTrack			: [ n: "Resume track...",				d: "Resume track <uri>{0}</uri>",							p: [[n:"Track URL",t:"url"]],			],
@@ -3067,11 +3070,11 @@ private static Map commands() {
 //		med				: [ n: "Set to Medium",						a: "speed",	v: "medium",																																																									],
 //		high				: [ n: "Set to High",						a: "speed",	v: "high",																																																									],
 
-		flashNative			: [ n: "Flash",																						]
-//		doubleTap			: [ n: "Double Tap",				d: "Double tap button {0}",			a: "doubleTapped",			p:[[n: "Button #", t: "integer"]]	],
-//		hold				: [ n: "Hold",					d: "Hold Button {0}",				a: "held",				p: [[n:"Button #", t: "integer"]]	],
-//		push				: [ n: "Push",					d: "Push button {0}",				a: "pushed",				p:[[n: "Button #", t: "integer"]]	],
-//		pushMomentary			: [ n: "Push"																						]
+		flashNative			: [ n: "Flash",																						],
+		doubleTap			: [ n: "Double Tap",				d: "Double tap button {0}",			a: "doubleTapped",			p:[[n: "Button #", t: "integer"]]	],
+		hold				: [ n: "Hold",					d: "Hold Button {0}",				a: "held",				p: [[n:"Button #", t: "integer"]]	],
+		push				: [ n: "Push",					d: "Push button {0}",				a: "pushed",				p:[[n: "Button #", t: "integer"]]	],
+		pushMomentary			: [ n: "Push"																						]
 	]
 }
 
@@ -3387,7 +3390,7 @@ def getLifxToken() {
 private Map getLocationModeOptions(Boolean updateCache = false) {
 	Map result = [:]
 	for (mode in location.modes) {
-		if(mode) result[hashId((long)mode.getId(), updateCache)] = (String)mode.name
+		if(mode) result[hashId((Long)mode.getId(), updateCache)] = (String)mode.name
 	}
 	return result
 }
