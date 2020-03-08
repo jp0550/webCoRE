@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 1, 2020 for Hubitat
+ * Last update March 7, 2020 for Hubitat
 */
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
@@ -104,16 +104,16 @@ def pageMain(){
 
 			section(sectionTitleStr('Recovery')){
 				href 'pageRun', title:'Force-run this piston'
-				href 'pageClear', title:'Clear all data except local variables', description:'You will lose all logs, trace points, statistics, but no variables'
-				href 'pageClearAll', title:'Clear all data', description:'You will lose all data stored in any local variables'
+				href 'pageClear', title:'Clear logs', description:'This will remove all logs but no variables'
+				href 'pageClearAll', title:'Clear all data', description:'This will remove all data stored in local variables'
 			}
 
 			section(){
 				input 'dev', "capability.*", title:'Devices', description:'Piston devices', multiple:true
 				input 'logging', 'enum', title:'Logging Level', options:[0:"None", 1:"Minimal", 2:"Medium", 3:"Full"], description:'Piston logging', defaultValue:state.logging?:0
 				input 'logsToHE', 'bool', title:'Piston logs are also displayed in HE console logs?', description:"Logs are available in webCoRE console; also display in HE console 'Logs'?", defaultValue:false
-				input 'maxStats', 'number', title:'Max number of timing history stats', description:'Max number of stats', defaultValue:100
-				input 'maxLogs', 'number', title:'Max number of history logs', description:'Max number of logs', defaultValue:100
+				input 'maxStats', 'number', title:'Max number of timing history stats', description:'Max number of stats', range: '25..300', defaultValue:100
+				input 'maxLogs', 'number', title:'Max number of history logs', description:'Max number of logs', range: '25..300', defaultValue:100
 			}
 			if(eric()){
 				section('Debug'){
@@ -159,15 +159,20 @@ def pageClear(){
 	}
 }
 
-private void clear1(Boolean all=false){
+private void clear1(Boolean most=false, Boolean all=false){
+	String meth='clear1'
 	state.logs=[]
-	state.stats=[:]
-	state.trace=[:]
+	if(most){
+		state.stats=[:]
+		state.trace=[:]
+	}
 	if(all){
 		state.cache=[:]
 		state.vars=[:]
 		state.store=[:]
 		state.pauses=0L
+		clearMyPiston(meth)
+		Map rtData=getRunTimeData(null, null, true, true) //reinitializes cache variables
 	}
 
 	String appStr=(app.id).toString()
@@ -177,11 +182,11 @@ private void clear1(Boolean all=false){
 	if(theQueuesFLD!=null)theQueuesFLD[queueName]=[]
 
 	cleanState()
-	clearMyCache('clear1')
+	clearMyCache(meth)
 }
 
 def pageClearAll(){
-	clear1(true)
+	clear1(true, true)
 	return dynamicPage(name:'pageClearAll', title:'', uninstall:false){
 		section('Clear All'){
 			paragraph 'All local data has been cleared.'
@@ -307,12 +312,6 @@ def pageDumpPiston(){
 	}
 }
 
-/** PUBLIC METHODS					**/
-
-public Boolean isInstalled(){
-	return !!state.created
-}
-
 void installed(){
 	if(app.id==null)return
 	state.created=now()
@@ -329,9 +328,15 @@ void updated(){
 	initialize()
 }
 
+void uninstalled(){
+	Map a=deletePiston()
+}
+
 void initialize(){
-	if(settings.logging==null)Map a=setLoggingLevel(state.logging? state.logging.toString():'0')
-	else if(settings.logging!=state.logging)Map a=setLoggingLevel(settings.logging.toString())
+	Integer tt1=settings.logging
+	Integer tt2=state.logging
+	if(tt1==null)Map a=setLoggingLevel(tt2 ? tt2.toString():'0')
+	else if(tt1!=tt2)Map a=setLoggingLevel(tt1.toString())
 	cleanState()
 	clearMyCache('initialize')
 
@@ -357,6 +362,12 @@ private void cleanState(){
 	state.remove('debugLevel')
 }
 
+/** PUBLIC METHODS					**/
+
+public Boolean isInstalled(){
+	return !!state.created
+}
+
 public Map get(Boolean minimal=false){ // minimal is backup
 	Map rtData=getRunTimeData()
 	return [
@@ -376,7 +387,7 @@ public Map get(Boolean minimal=false){ // minimal is backup
 		systemVars: getSystemVariablesAndValues(rtData),
 		subscriptions: state.subscriptions,
 		state: state.state,
-		logging: (Integer)state.logging ?: 0,
+		logging: state.logging!=null ? (Integer)state.logging:0,
 		stats: state.stats,
 		logs: state.logs,
 		trace: state.trace,
@@ -399,7 +410,7 @@ public Map activity(lastLogTimestamp){
 	return [
 		name: (String)t0.name,
 		state: (Map)t0.state,
-		logs: index ? logs[0..index-1]:[],
+		logs: index>0 ? logs[0..index-1]:[],
 		trace: (Map)t0.trace,
 		localVars: (Map)t0.vars, // not reporting global or system variable changes
 		memory: (String)t0.mem,
@@ -427,9 +438,16 @@ private void clearMyPiston (String meth=(String)null){
 	if((Integer)pisName.length()==0)return
 	if(thePistonCacheFLD!=null){
 		Map pData=thePistonCacheFLD[pisName]
-		if(pData!=null)thePistonCacheFLD[pisName].pis=null
+		if(pData!=null){
+			LinkedHashMap t0=(LinkedHashMap)thePistonCacheFLD[pisName].pis
+			if(t0){
+				List data=t0.collect{ it.key }
+				for(item in data)t0.remove((String)item)
+				thePistonCacheFLD[pisName].pis=null
+				if(eric())log.debug 'clearing piston-code-cache '+meth
+			}
+		}
 	}
-	if(eric())log.debug 'clearing piston-code-cache '+meth
 }
 
 private LinkedHashMap recreatePiston(Boolean shorten=false, Boolean useCache=true){
@@ -445,7 +463,7 @@ private LinkedHashMap recreatePiston(Boolean shorten=false, Boolean useCache=tru
 		Integer myCnt=(Integer)pData.cnt+1
 		thePistonCacheFLD[pisName].cnt=myCnt
 		if(pData.pis!=null){
-			return [cache:true]+pData.pis
+			return [cached:true]+(LinkedHashMap)pData.pis
 		}
 	}
 
@@ -480,7 +498,6 @@ public Map setup(LinkedHashMap data, chunks){
 		log.error 'setup: no data'
 		return [:]
 	}
-	clear1(false)
 	state.modified=now()
 	state.build=(Integer)(state.build!=null ? (Integer)state.build+1:1)
 	LinkedHashMap piston=[
@@ -519,7 +536,9 @@ public Map setup(LinkedHashMap data, chunks){
 	state.schedules=[]
 	state.vars=state.vars ?: [:]
 	state.modifiedVersion=version()
-	clearMyCache(meth)
+
+	state.cache=[:]
+	clear1(true)
 
 	Map rtData=[:]
 	rtData.piston=piston
@@ -631,7 +650,7 @@ private void cleanCode(item){
 public Map deletePiston(){
 	String meth='deletePiston'
 	if(eric())log.debug meth
-	clear1(true)	// calls clearMyCache(meth)
+	clear1(true, true)	// calls clearMyCache(meth)
 	clearParentCache(meth)
 	clearMyPiston(meth)
 	return [:]
@@ -653,10 +672,10 @@ private void checkLabel(Map rtData=null){
 	if(rtData==null)rtData=getTemporaryRunTimeData(now())
 	Boolean act=(Boolean)rtData.active
 	Boolean dis=(Boolean)rtData.disabled
-	Boolean found=state.svLabel==null || state.svLabel==(String)null || match((String)app.label, '<span')
+	Boolean found=match((String)app.label, '<span')
 	String meth='checkLabel'
 	if(!act || dis){
-		if(!found){
+		if(!found && !state.svLabel){
 			state.svLabel=(String)app.label
 			rtData.svLabel=(String)app.label
 			String tstr=''
@@ -758,8 +777,7 @@ public Map resume(LinkedHashMap piston=null){
 
 public Map setLoggingLevel(String level){
 	Integer mlogging=level.isInteger()? level.toInteger():0
-	if(mlogging<0)mlogging=0
-	if(mlogging>3)mlogging=3
+	mlogging=Math.min(Math.max(0,mlogging),3)
 	app.updateSetting('logging', [type:'enum', value:mlogging])
 	state.logging=mlogging
 	if(mlogging==0)state.logs=[]
@@ -854,13 +872,13 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 							myEvent.device.hubs=[t:'tt']
 						}
 					}
-					def mt0=theQueuesFLD[queueName]
-					List eventlst=mt0!=null ? (List)mt0:[]
-					Boolean a=eventlst.push(myEvent)
-					theQueuesFLD[queueName]=eventlst
+					List evtQ=theQueuesFLD[queueName]
+					evtQ=evtQ!=null ? evtQ:[]
+					Boolean a=evtQ.push(myEvent)
+					theQueuesFLD[queueName]=evtQ
 					didQ=true
 
-					Integer qsize=(Integer)eventlst.size()
+					Integer qsize=(Integer)evtQ.size()
 					if(qsize>12){
 						log.error "large queue size ${qsize} clearing"
 						clear1()
@@ -902,9 +920,14 @@ private void clearMyCache(String meth=(String)null){
 	String myId=hashId(app.id)
 	if(!myId)return
 	if(theCacheFLD!=null){
-		theCacheFLD[myId]=null
+		Map t0=theCacheFLD[myId]
+		if(t0){
+			List data=t0.collect{ it.key }
+			for(item in data)t0.remove((String)item)
+			theCacheFLD[myId]=null
+			if(eric())log.debug 'clearing piston data cache '+meth
+		}
 	}
-	if(eric())log.debug 'clearing piston data cache '+meth
 }
 
 private Map getCachedMaps(Boolean retry=true){
@@ -960,7 +983,7 @@ private Map getDSCache(){
 			build: (Integer)state.build,
 			author: (String)state.author,
 			bin: (String)state.bin,
-			logsToHE: settings?.logsToHE ? true:false,
+			logsToHE: (Boolean)settings?.logsToHE ? true:false,
 		]
 //ERS trying to cache things used on every piston start, read by activity, or frequently updated with atomicState
 		Long stateEnd=now()
@@ -993,18 +1016,19 @@ private Map getDSCache(){
 		theCacheFLD[myId]=result
 		if(eric())log.debug 'creating my piston cache'
 	}
-/*	if(result==null){
-		log.error 'no result getDSCache'
-		return [:]
-	}*/
 	return [:]+result
 }
 
 @Field static Map theParentCacheFLD
 
 public void clearParentCache(String meth=(String)null){
-	theParentCacheFLD=null
-	if(eric())log.debug "clearing parent cache $meth"
+	Map t0=theParentCacheFLD
+	if(t0){
+		List data=t0.collect{ it.key }
+		for(item in data)t0.remove((String)item)
+		theParentCacheFLD=null
+		if(eric())log.debug "clearing parent cache $meth"
+	}
 }
 
 private Map getParentCache(){
@@ -1053,7 +1077,7 @@ private Map getRunTimeData(Map rtData=null, Map retSt=null, Boolean fetchWrapper
 	if(rtData!=null){
 		timestamp=(Long)rtData.timestamp
 		logs=rtData.logs!=null ? (List)rtData.logs:[]
-		piston=rtData.piston!=null ? rtData.piston:null
+		piston=rtData.piston!=null ? (LinkedHashMap)rtData.piston:null
 		lstarted=rtData.lstarted!=null ? (Long)rtData.lstarted:0L
 		lended=rtData.lended!=null ? (Long)rtData.lended:0L
 		dbgLevel=rtData.debugLevel!=null ? (Integer)rtData.debugLevel:0
@@ -1103,7 +1127,7 @@ private Map getRunTimeData(Map rtData=null, Map retSt=null, Boolean fetchWrapper
 	Boolean doSubScribe=false
 	if(piston==null){
 		piston=recreatePiston(shorten)
-		doSubScribe=!piston.cache
+		doSubScribe=!piston.cached
 	}
 	rtData.piston=piston
 	getLocalVariables(rtData, piston.v, atomState)
@@ -1114,19 +1138,19 @@ private Map getRunTimeData(Map rtData=null, Map retSt=null, Boolean fetchWrapper
 		if(thePistonCacheFLD==null)thePistonCacheFLD=[:]
 		Map pData=thePistonCacheFLD[pisName]
 		if(shorten && pisName!='' && pData!=null && pData.pis==null){
-			if(eric())log.debug 'creating piston-code-cache'
-			pData.pis=[:]+rtData.piston
+			pData.pis=[:]+(LinkedHashMap)rtData.piston
 
 			thePistonCacheFLD[pisName]=[:]+pData
 			if(eric()){
+				log.debug 'creating piston-code-cache'
 				Map pL=[:]+thePistonCacheFLD
 				Integer t0=(Integer)pL.size()
 				Integer t1=(Integer)"${pL}".size()
 				String mStr=" piston plist is ${t0} elements, and ${t1} bytes".toString()
-				if(eric())log.debug "saving"+mStr
+				log.debug "saving"+mStr
 				if(t1>40000000){
 					thePistonCacheFLD=[:]
-					if(eric())log.warn "clearing"+mStr
+					log.warn "clearing"+mStr
 				}
 			}
 		}
@@ -1169,16 +1193,6 @@ void timeHelper(event, Boolean recovery){
 	handleEvents([date:new Date((Long)event.t), device:location, name:'time', value:(Long)event.t, schedule:event, recovery:recovery], !recovery)
 }
 
-/*
-void timeRecoveryHandler(event){
-	if(event){
-		timeHelper(event, true)
-	}else{
-		timeHelper([t:now()], true)
-	}
-}
-*/
-
 void executeHandler(event){
 	pauseExecution(150L)
 	handleEvents([date:event.date, device:location, name:'execute', value:event.value, jsonData:event.jsonData])
@@ -1206,7 +1220,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false, LinkedHas
 	Long eventDelay=Math.round(1.0D*startTime-(Long)event.date.getTime())
 	if((Integer)tempRtData.logging!=0){
 		String devStr="${event?.device?.label ?: event?.device?.name ?: location}".toString()
-		String recStr=evntName=='time' && event.recovery ? '/recovery':''
+		String recStr=evntName=='time' && (Boolean)event.recovery ? '/recovery':''
 		String valStr=evntVal+(evntName=='hsmAlert' && evntVal=='rule' ? ', '+(String)event.descriptionText:'')
 		String mymsg='Received event ['+devStr+'].'+evntName+recStr+' = '+valStr+" with a delay of ${eventDelay}ms, canQueue: ${queue}, calledMyself: ${callMySelf}".toString()
 		info mymsg, tempRtData, 0
@@ -1516,7 +1530,7 @@ private Boolean executeEvent(Map rtData, event){
 		Boolean ended=false
 		try{
 			Boolean allowed=!rtData.piston.r || rtData.piston.r.length==0 || evaluateConditions(rtData, (Map)rtData.piston, 'r', true)
-			rtData.restricted=!rtData.piston.o?.aps && !allowed
+			rtData.restricted=!rtData.piston.o?.aps && !allowed //allowPreScheduled tasks to execute during restrictions
 			if(allowed || (Integer)rtData.fastForwardTo!=0){
 				if((Integer)rtData.fastForwardTo==-3){
 					//device related time schedules
@@ -1614,7 +1628,7 @@ private void finalizeEvent(Map rtData, Map initialMsg, Boolean success=true){
 
 	if(rtData.gvCache!=null || rtData.gvStoreCache!=null){
 		unschedule(finishUIupdate)
-		def tpiston=[:]+rtData.piston
+		LinkedHashMap tpiston=[:]+(LinkedHashMap)rtData.piston
 		rtData.piston=[:]
 		rtData.piston.z=(String)tpiston.z
 
@@ -1662,7 +1676,7 @@ private void finalizeEvent(Map rtData, Map initialMsg, Boolean success=true){
 
 	stats.timing=(List)stats.timing ?: []
 	Boolean a=((List)stats.timing).push([:]+(Map)rtData.stats.timing)
-	Integer t1=settings.maxStats!=null ? settings.maxStats: (Integer)getPistonLimits.maxStats
+	Integer t1=settings.maxStats!=null ? (Integer)settings.maxStats: (Integer)getPistonLimits.maxStats
 	if(t1<=0)t1=(Integer)getPistonLimits.maxStats
 	Integer t2=(Integer)((List)stats.timing).size()
 	if(t2>t1){
@@ -1774,7 +1788,7 @@ private void updateLogs(Map rtData, Long lastExecute=null){
 	if((Integer)((List)rtData.logs).size()<2)return
 
 	Boolean myPep=(Boolean)rtData.pep
-	Integer t1=settings.maxLogs!=null ? settings.maxLogs:(Integer)getPistonLimits.maxLogs
+	Integer t1=settings.maxLogs!=null ? (Integer)settings.maxLogs:(Integer)getPistonLimits.maxLogs
 	if(t1<=0)t1=(Integer)getPistonLimits.maxLogs
 
 	List t0
@@ -2205,10 +2219,10 @@ private Long doPause(String mstr, Long delay, Map rtData){
 		pauseExecution(delay)
 		Long t1=now()
 		actDelay=t1-t0
-		Long t2=rtData.tPause ? (Long)rtData.tPause : 0L
+		Long t2=rtData.tPause!=null ? (Long)rtData.tPause : 0L
 		rtData.tPause=t2+actDelay
 		rtData.lastPause=t1
-		t2=state.pauses ? (Long)state.pauses : 0L
+		t2=state.pauses!=null ? (Long)state.pauses : 0L
 		state.pauses=t2+1L
 	}
 	return actDelay
@@ -2219,7 +2233,7 @@ private Boolean executeAction(Map rtData, Map statement, Boolean async){
 	if((Boolean)rtData.eric) myDetail rtData, mySt, 1
 	def parentDevicesVar=rtData.systemVars['$devices'].v
 	//if override
-	if((Integer)rtData.fastForwardTo==0 && (String)statement.tsp!='a'){
+	if((Integer)rtData.fastForwardTo==0 && (String)statement.tsp!='a'){ // Task scheduling policy
 		cancelStatementSchedules(rtData, (Integer)statement.$)
 	}
 	Boolean result=true
@@ -2324,15 +2338,12 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 	//if we don't have to wait, we're home free
 
 	//negative delays force us to reschedule, no sleeping on this one
-	Boolean reschedule=(delay<0L)
+	Boolean reschedule= delay<0L
 	delay=reschedule ? -delay:delay
 
-	if(delay){
+	if(delay!=0L){
 		//get remaining piston time
-		if(delay>(Long)getPistonLimits.taskMaxDelay){
-			reschedule=true
-		}
-		if(reschedule || async){
+		if(reschedule || async || delay>(Long)getPistonLimits.taskMaxDelay){
 			//schedule a wake up
 			Long sec=Math.round(delay/1000.0D)
 			if((Integer)rtData.logging>1)trace "Requesting a wake up for ${formatLocalTime(Math.round(now()*1.0D+delay))} (in ${sec}s)", rtData
@@ -2362,7 +2373,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 
 private Long executeVirtualCommand(Map rtData, devices, String command, List params){
 	Map msg=timer "Executed virtual command ${devices ? (devices instanceof List ? "$devices.":"[$devices]."):""}${command}", rtData
-	Long delay=0
+	Long delay=0L
 	try{
 		delay="vcmd_${command}"(rtData, devices, params)
 		if((Integer)rtData.logging>1)trace msg, rtData
@@ -2380,7 +2391,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params=[
 		//scheduleDevice=hashId(device.id)
 		//we're using schedules instead
 		Map statement=(Map)rtData.currentAction
-		List cs=[]+ ((String)statement.tcp=='b' || (String)statement.tcp=='c' ? (rtData.stack?.cs ? (List)rtData.stack.cs:[]):[]) // task cancelation policy
+		List cs=[]+ ((String)statement.tcp=='b' || (String)statement.tcp=='c' ? (rtData.stack?.cs!=null ? (List)rtData.stack.cs:[]):[]) // task cancelation policy
 		Integer ps= (String)statement.tcp=='b' || (String)statement.tcp=='p' ? 1:0
 		Boolean a=cs.removeAll{ it==0 }
 		Map schedule=[
@@ -2443,7 +2454,7 @@ private void executePhysicalCommand(Map rtData, device, String command, params=[
 		}catch(all){
 			error "Error while executing physical command $device.$command($nparams):", rtData, -2, all
 		}
-		Long t0=rtData.piston.o?.ced!=null ? (Integer)rtData.piston.o.ced:0L
+		Long t0=rtData.piston.o?.ced ? (Integer)rtData.piston.o.ced:0L
 		if(t0!=0L){
 			if(t0>(Long)getPistonLimits.taskMaxDelay)t0=1000L
 			pauseExecution(t0)
@@ -2656,11 +2667,11 @@ private void scheduleTimeCondition(Map rtData, Map condition){
 	Map v1a=evaluateOperand(rtData, null, (Map)condition.ro)
 	Long tt0=(Long)v1a.v
 	Long v1b= (String)v1a.t=='time' && tt0<86400000L ? getTimeToday(tt0):tt0
-	Long v1c= tv1 ? ((String)tv1.t=='integer' && (Integer)tv1.v==0 ? 0L : (Long)evaluateExpression(rtData,[t:'duration',v:tv1.v,vt:(String)tv1.vt], 'long').v) :0L
+	Long v1c= tv1!=null ? ((String)tv1.t=='integer' && (Integer)tv1.v==0 ? 0L : (Long)evaluateExpression(rtData,[t:'duration',v:tv1.v,vt:(String)tv1.vt], 'long').v) :0L
 	Long v1=v1b+v1c
 
 	Map tv2=condition.ro2!=null && (String)condition.ro2.t!='c' && (Integer)comparison.p>1 ? evaluateOperand(rtData, null, (Map)condition.to2):null
-	Long v2=trigger ? v1 : ((Integer)comparison.p>1 ? ((Long)evaluateExpression(rtData, evaluateOperand(rtData, null, (Map)condition.ro2, null, false, true), 'datetime').v + (tv2 ? evaluateExpression(rtData, [t:'duration', v:tv2.v, vt:(String)tv2.vt]).v : 0)) : (String)condition.lo.v=='time' ? getMidnightTime():v1 )
+	Long v2=trigger ? v1 : ((Integer)comparison.p>1 ? ((Long)evaluateExpression(rtData, evaluateOperand(rtData, null, (Map)condition.ro2, null, false, true), 'datetime').v + (tv2!=null ? (Long)evaluateExpression(rtData, [t:'duration', v:tv2.v, vt:(String)tv2.vt]).v : 0L)) : (String)condition.lo.v=='time' ? getMidnightTime():v1 )
 	Long n=Math.round(1.0D*now()+2000L)
 	if((String)condition.lo.v=='time'){
 		v1=pushTimeAhead(v1, n)
@@ -2967,7 +2978,7 @@ private Long vcmd_setState(Map rtData, device, List params){
 
 private Long vcmd_setTileColor(Map rtData, device, List params){
 	Integer index=(Integer)cast(rtData, params[0], 'integer')
-	if((index<1)|| (index>16))return 0L
+	if(index<1 || index>16)return 0L
 	rtData.state["c$index".toString()]=(String)getColor(rtData, (String)params[1])?.hex
 	rtData.state["b$index".toString()]=(String)getColor(rtData, (String)params[2])?.hex
 	rtData.state["f$index".toString()]=!!params[3]
@@ -2992,14 +3003,14 @@ private Long vcmd_setTileOTitle(Map rtData, device, List params){
 
 private Long helper_setTile(Map rtData, String typ, List params){
 	Integer index=(Integer)cast(rtData, params[0], 'integer')
-	if((index<1)|| (index>16))return 0L
+	if(index<1 || index>16)return 0L
 	rtData.state["${typ}$index".toString()]=(String)params[1]
 	return 0L
 }
 
 private Long vcmd_setTile(Map rtData, device, List params){
 	Integer index=(Integer)cast(rtData, params[0], 'integer')
-	if((index<1)|| (index>16))return 0L
+	if(index<1 || index>16)return 0L
 	rtData.state["i$index".toString()]=(String)params[1]
 	rtData.state["t$index".toString()]=(String)params[2]
 	rtData.state["o$index".toString()]=(String)params[3]
@@ -3011,7 +3022,7 @@ private Long vcmd_setTile(Map rtData, device, List params){
 
 private Long vcmd_clearTile(Map rtData, device, List params){
 	Integer index=(Integer)cast(rtData, params[0], 'integer')
-	if((index<1)|| (index>16))return 0L
+	if(index<1 || index>16)return 0L
 	Map t0=rtData.state
 	t0.remove("i$index".toString())
 	t0.remove("t$index".toString())
@@ -3061,7 +3072,7 @@ private Long vcmd_sendEmail(Map rtData, device, List params){
 	Map requestParams=[
 		uri: "https://api.webcore.co/email/send/${(String)rtData.locationId}".toString(),
 		query: null,
-		headers: (auth ? [Authorization: auth]:[:]),
+		headers: [:], //(auth ? [Authorization: auth]:[:]),
 		requestContentType: "application/json",
 		body: data
 	]
@@ -3069,7 +3080,7 @@ private Long vcmd_sendEmail(Map rtData, device, List params){
 
 	try{
 		asynchttpPost('ahttpRequestHandler', requestParams, [command:'sendEmail', em: data])
-		return 24000
+		return 24000L
 	}catch (all){
 		error "Error sending email to ${data.t}: $msg", rtData
 	}
@@ -3106,7 +3117,7 @@ private Long vcmd_waitForTime(Map rtData, device, List params){
 private Long vcmd_waitForDateTime(Map rtData, device, List params){
 	Long time=(Long)cast(rtData, params[0], 'datetime')
 	Long rightNow=now()
-	return (time>rightNow)? time-rightNow:0
+	return (time>rightNow)? time-rightNow:0L
 }
 
 private Long vcmd_setSwitch(Map rtData, device, List params){
@@ -3340,7 +3351,7 @@ private Long vcmd_flashColor(Map rtData, device, List params){
 	def color1=getColor(rtData, (String)params[0])
 	Long duration1=(Long)cast(rtData, params[1], 'long')
 	def color2=getColor(rtData, (String)params[2])
-	Long duration2=cast(rtData, params[3], 'long')
+	Long duration2=(Long)cast(rtData, params[3], 'long')
 	Integer cycles=(Integer)cast(rtData, params[4], 'integer')
 	String mstate=(Integer)params.size()>5 ? (String)params[5]:(String)null
 	String currentState=(String)getDeviceAttributeValue(rtData, device, 'switch')
@@ -3647,7 +3658,7 @@ private Long vcmd_httpRequest(Map rtData, device, List params){
 public void ahttpRequestHandler(resp, Map callbackData){
 	Boolean binary=false
 	def t0=resp.getHeaders()
-	String t1=t0 && t0."Content-Type" ? t0."Content-Type":(String)null
+	String t1=t0!=null && (String)t0."Content-Type" ? (String)t0."Content-Type" : (String)null
 	String mediaType=t1 ? (String)(t1.toLowerCase()?.tokenize(';')[0]):(String)null
 	switch (mediaType){
 		case 'image/jpeg':
@@ -3897,9 +3908,9 @@ private Boolean evaluateConditions(Map rtData, Map conditions, String collection
 	Integer c=(Integer)rtData.stack.c
 	Integer myC=conditions.$!=null ? (Integer)conditions.$:0
 	rtData.stack.c=myC
-	Boolean not=(collection=='c')? !!conditions.n:!!conditions.rn
-	String grouping=(collection=='c')? (String)conditions.o:(String)conditions.rop
-	Boolean value=(grouping=='or' ? false:true)
+	Boolean not= collection=='c' ? !!conditions.n:!!conditions.rn
+	String grouping= collection=='c' ? (String)conditions.o:(String)conditions.rop
+	Boolean value= grouping=='or' ? false:true
 
 
 	if(grouping=='followed by' && collection=='c'){
@@ -3972,8 +3983,8 @@ private Boolean evaluateConditions(Map rtData, Map conditions, String collection
 	}else{
 		for(condition in conditions[collection]){
 			Boolean res=evaluateCondition(rtData, condition, collection, async)
-			value=(grouping=='or') ? value||res : value&&res
-			//condition traversal optimizations go here
+			value= grouping=='or' ? value||res : value&&res
+			//cto == disable condition traversal optimizations
 			if((Integer)rtData.fastForwardTo==0 && !rtData.piston.o?.cto && ((value && grouping=='or') || (!value && grouping=='and')))break
 		}
 	}
@@ -3997,7 +4008,7 @@ private Boolean evaluateConditions(Map rtData, Map conditions, String collection
 			if((!result || (Integer)rtData.fastForwardTo!=0) && conditions.fs!=null && (List)(conditions.fs).length)Boolean a=executeStatements(rtData, (List)conditions.fs, async)
 		}
 		if((Integer)rtData.fastForwardTo==0){
-			msg.m="Condition group #${myC} evaluated $result (state ${(Boolean)rtData.conditionStateChanged ? 'changed':'did not change'})"
+			msg.m="Condition group #${myC} evaluated $result (state ${(Boolean)rtData.conditionStateChanged ? 'changed':'did not change'})".toString()
 			if((Integer)rtData.logging>2)debug msg, rtData
 		}
 	}
@@ -4330,7 +4341,7 @@ private void updateCache(Map rtData, Map value){
 private Boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro=null, Map ro2=null, Map to=null, Map to2=null, options=[:]){
 	if((Boolean)rtData.eric) myDetail rtData, "evaluateComparison $comparison", 1
 	String fn="comp_"+comparison
-	Boolean result=((String)lo.operand.g=='any' ? false:true)
+	Boolean result= (String)lo.operand.g=='any' ? false:true
 	if(options?.matches){
 		options.devices=[matched: [], unmatched: []]
 	}
@@ -4352,7 +4363,7 @@ private Boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 					if((Integer)rtData.logging>2)debug msg, rtData
 				}else{
 					Boolean rres
-					res=((String)ro.operand.g=='any' ? false:true)
+					res= (String)ro.operand.g=='any' ? false:true
 					//if multiple right values, go through each
 					for (Map rvalue in (List)ro.values){
 						if(rvalue && ((String)rvalue.v.t=='device'))rvalue.v=evaluateExpression(rtData, (Map)rvalue.v, 'dynamic')
@@ -4372,11 +4383,11 @@ private Boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 //if((Boolean)rtData.eric) myDetail rtData, "$r2res  ${myObj(value?.v?.v)}    ${myObj(rvalue?.v?.v)}  $fn $value   $rvalue    $r2value    $tvalue   $tvalue2", -1
 								msg.m="Comparison (${value?.v?.t}) ${value?.v?.v} $comparison  (${rvalue?.v?.t}) ${rvalue?.v?.v} .. (${r2value?.v?.t}) ${r2value?.v?.v} = $r2res"
 								if((Integer)rtData.logging>2)debug msg, rtData
-								rres=((String)ro2.operand.g=='any' ? rres || r2res:rres && r2res)
+								rres= (String)ro2.operand.g=='any' ? rres||r2res : rres&&r2res
 								if(((String)ro2.operand.g=='any' && rres) || ((String)ro2.operand.g!='any' && !rres))break
 							}
 						}
-						res=((String)ro.operand.g=='any' ? res || rres:res && rres)
+						res=((String)ro.operand.g=='any' ? res||rres : res&&rres)
 						if(((String)ro.operand.g=='any'&& res) || ((String)ro.operand.g!='any' && !res))break
 					}
 				}
@@ -4396,7 +4407,7 @@ private Boolean evaluateComparison(Map rtData, String comparison, Map lo, Map ro
 				}
 			}
 		}
-		result=((String)lo.operand.g=='any' ? result||res : result&&res)
+		result= (String)lo.operand.g=='any' ? result||res : result&&res
 		if(options?.matches && (String)value.v.d){
 			if(res){
 				Boolean a=((List)options.devices.matched).push((String)value.v.d)
@@ -6577,7 +6588,7 @@ private Map func_substring(Map rtData, List params){
 			if(count<0){
 				//reverse
 				start=start<0 ? -start:(Integer)value.size()-start
-				count=- count
+				count=-count
 				value=value.reverse()
 			}
 			if(start>=0){
@@ -6586,9 +6597,9 @@ private Map func_substring(Map rtData, List params){
 				if(count>-start)count=-start
 			}
 		}
-		start=start>=0 ? start:(Integer)value.size()+start
+		start=start>=0 ? start : (Integer)value.size()+start
 		if(count>(Integer)value.size()-start)count=(Integer)value.size()-start
-		result=(count==null)? value.substring(start):value.substring(start, start+count)
+		result=(count==null) ? value.substring(start) : value.substring(start, start+count)
 	}
 	return [t:'string', v:result]
 }
@@ -7408,7 +7419,7 @@ private Map func_formatdatetime(Map rtData, List params){
 	}
 	Long value=(Long)evaluateExpression(rtData, (Map)params[0], 'datetime').v
 	String format=(Integer)params.size()>1 ? (String)evaluateExpression(rtData, (Map)params[1], 'string').v:(String)null
-	return [t:'string', v:(format ? formatLocalTime(value, format):formatLocalTime(value))]
+	return [t:'string', v:(format ? formatLocalTime(value, format) : formatLocalTime(value))]
 }
 
 /** random returns a random value						**/
