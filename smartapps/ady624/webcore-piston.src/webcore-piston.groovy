@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 7, 2020 for Hubitat
+ * Last update March 12, 2020 for Hubitat
 */
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
@@ -172,7 +172,10 @@ private void clear1(Boolean most=false, Boolean all=false){
 		state.store=[:]
 		state.pauses=0L
 		clearMyPiston(meth)
-		Map rtData=getRunTimeData(null, null, true, true) //reinitializes cache variables
+		Map tRtData=getTemporaryRunTimeData(now())
+		Boolean act=(Boolean)tRtData.active
+		Boolean dis=(Boolean)tRtData.disabled
+		if(act && !dis) Map rtData=getRunTimeData(tRtData, null, true, true) //reinitializes cache variables; caches piston
 	}
 
 	String appStr=(app.id).toString()
@@ -374,7 +377,7 @@ public Map get(Boolean minimal=false){ // minimal is backup
 		meta: [
 			id: (String)rtData.id,
 			author: (String)rtData.author,
-			name: (String)rtData.svLabel ?: (String)app.label,
+			name: (String)rtData.name,
 			created: (Long)rtData.created,
 			modified: (Long)rtData.modified,
 			build: (Integer)rtData.build,
@@ -526,7 +529,7 @@ public Map setup(LinkedHashMap data, chunks){
 	state.pep=piston.o?.pep ? true:false
 
 	if((String)data.n!=(String)null && (Integer)((String)data.n).length()>0){
-		if(state.svLabel!=null && state.svLabel!=(String)null){
+		if(state.svLabel!=(String)null){
 			String res=(String)state.svLabel
 			app.updateLabel(res)
 		}
@@ -650,6 +653,7 @@ private void cleanCode(item){
 public Map deletePiston(){
 	String meth='deletePiston'
 	if(eric())log.debug meth
+	state.active=false
 	clear1(true, true)	// calls clearMyCache(meth)
 	clearParentCache(meth)
 	clearMyPiston(meth)
@@ -672,29 +676,26 @@ private void checkLabel(Map rtData=null){
 	if(rtData==null)rtData=getTemporaryRunTimeData(now())
 	Boolean act=(Boolean)rtData.active
 	Boolean dis=(Boolean)rtData.disabled
-	Boolean found=match((String)app.label, '<span')
+	String appLbl=(String)app.label
+	Boolean found=match(appLbl, '<span')
 	String meth='checkLabel'
-	if(!act || dis){
-		if(!found && !state.svLabel){
-			state.svLabel=(String)app.label
-			rtData.svLabel=(String)app.label
-			String tstr=''
-			if(!act){
-				tstr='(Paused)'
-			}
-			if(dis){
-				tstr='(Disabled) Kill switch is active'
-			}
-			String res=(String)app.label+" <span style='color:orange'>${tstr}</span>"
-			app.updateLabel(res)
+	String savedLabel=(String)state.svLabel
+	if((act && !dis) || (!found && savedLabel!=(String)null)){
+		if(savedLabel!=(String)null){
+			app.updateLabel(savedLabel)
+			appLbl=savedLabel
+			rtData.svLabel=state.svLabel=savedLabel=(String)null
 			clearMyCache(meth)
 		}
-	}else{
-		if(found && state.svLabel!=null){
-			String res=(String)state.svLabel
+	}
+	if(!act || dis){
+		if(!found && savedLabel==(String)null){
+			rtData.svLabel=state.svLabel=appLbl
+			String tstr=''
+			if(!act) tstr='(Paused)'
+			if(dis) tstr='(Disabled) Kill switch is active'
+			String res=appLbl+" <span style='color:orange'>"+tstr+"</span>"
 			app.updateLabel(res)
-			state.svLabel=(String)null
-			rtData.svLabel=(String)null
 			clearMyCache(meth)
 		}
 	}
@@ -743,14 +744,16 @@ public Map pausePiston(){
 	state.nextSchedule=0L
 	unsubscribe()
 	unschedule()
-	app.clearSetting('dev')
 	state.trace=[:]
 	state.subscriptions=[:]
 	checkLabel(rtData)
 	if((Integer)rtData.logging>0)info msg, rtData
 	updateLogs(rtData)
 	state.active=false
-	clearMyCache('pauseP1')
+	state.remove('lastEvent')
+	clear1(true, true)	// calls clearMyCache(meth)
+	//app.removeSetting('dev')
+	clearMyPiston('pauseP')
 	return rtData
 }
 
@@ -763,7 +766,7 @@ public Map resume(LinkedHashMap piston=null){
 	Map tempRtData=getTemporaryRunTimeData(now())
 	Map msg=timer 'Piston successfully started', tempRtData, -1
 	if(piston!=null)tempRtData.piston=piston
-	Map rtData=getRunTimeData(tempRtData, null, true, false) //performs subscribeAll(rtData)
+	Map rtData=getRunTimeData(tempRtData, null, true, false) //performs subscribeAll(rtData); reinitializes cache variables
 	if((Integer)rtData.logging>0)info 'Starting piston... ('+HEversion()+')', rtData, 0
 	checkVersion(rtData)
 	checkLabel(rtData)
@@ -974,7 +977,7 @@ private Map getDSCache(){
 			id: appId,
 			logging: state.logging!=null ? (Integer)state.logging:0,
 			svLabel: (String)state.svLabel,
-			name: state.svLabel!=null ? (String)state.svLabel:(String)app.label,
+			name: (String)state.svLabel!=(String)null ? (String)state.svLabel:(String)app.label,
 			active: (Boolean)state.active,
 			category: state.category ?: 0,
 			pep: (Boolean)state.pep,
@@ -1206,7 +1209,7 @@ void executeHandler(event){
 	useBigDelay: 10000L, // transition from short delay to Long delay
 	taskShortDelay: 150L,
 	taskLongDelay: 500L,
-	taskMaxDelay: 2000L,
+	taskMaxDelay: 1000L,
 	maxStats: 100,
 	maxLogs: 100,
 ]
@@ -5083,7 +5086,7 @@ private void subscribeAll(Map rtData, Boolean doit=true){
 	//not using fake subscriptions for controlled devices - piston has device in settings
 	for (d in devices.findAll{ ((Integer)it.value.c<=0 || rtData.piston.o?.des) && (String)it.key!=(String)rtData.locationId }){
 		def device=((String)d.key).startsWith(':')? getDevice(rtData, (String)d.key):null
-		if(device!=null && (device!=location)){
+		if(device!=null && !isDeviceLocation(device)){
 			if((Integer)rtData.logging>1 && doit)trace "Piston controls $device...", rtData
 			ss.controls=(Integer)ss.controls+1
 			if(!dds[device.id]){
@@ -7510,7 +7513,7 @@ private Map func_distance(Map rtData, List params){
 		if(pidx==-1)break
 	}
 	if(errMsg!='')return [t:'error', v:errMsg]
-	if((idx<4)|| (idx>5))return [t:'error', v:'Invalid parameter combination. Expecting either two devices, a device and two decimals, or four decimals, followed by an optional unit.']
+	if(idx<4 || idx>5)return [t:'error', v:'Invalid parameter combination. Expecting either two devices, a device and two decimals, or four decimals, followed by an optional unit.']
 	Double earthRadius=6371000.0D //meters
 	Double dLat=Math.toRadians(lat2-lat1)
 	Double dLng=Math.toRadians(lng2-lng1)

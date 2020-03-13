@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 1, 2020 for Hubitat
+ * Last Updated March 12, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -59,6 +59,7 @@ preferences {
 	page(name: "pageChangePassword")
 	page(name: "pageSavePassword")
 	page(name: "pageRebuildCache")
+	page(name: "pageResetEndpoint")
 	page(name: "pageRemove")
 }
 
@@ -446,7 +447,13 @@ private pageSectionPIN() {
 		input "PIN", "password", title: "Choose a security password for your dashboard", required: true
 		input "expiry", "enum", options: ["Every hour", "Every day", "Every week", "Every month (recommended)", "Every three months", "Never (not recommended)"], defaultValue: "Every month (recommended)", title: "Choose how often the dashboard login expires", required: true
 	}
-
+	if(settings.PIN) {
+		section() {
+			paragraph "The webCoRE dashboard uses an access token to communicate with the webCoRE app on your Hubitat Hub. In some cases you may choose to invalidate it periodically for increased security.", required: false
+			paragraph "If your dashboard fails to load and no log messages appear in Hubitat console 'Logs' when you refresh the dashboard, resetting the access token may restore access to webCoRE.", required: false
+			href "pageResetEndpoint", title: "Reset access token", description: "WARNING: External URLs for triggering pistons or accessing piston URLs will need to be updated"
+		}
+	}
 }
 
 private pageSavePassword() {
@@ -467,6 +474,20 @@ def pageRebuildCache() {
 	}
 }
 
+def pageResetEndpoint() {
+	revokeAccessToken()
+	Boolean success = initializeWebCoREEndpoint()
+	state.lastRecovered = 0L
+	state.lastReg = 0L
+	updated()
+	dynamicPage(name: "pageResetEndpoint", title: "", install: false, uninstall: false) {
+		section() {
+			paragraph "Success: $success Please sign out and back in to the webCoRE dashboard."
+			paragraph "If you use external URLs to trigger pistons, these URLs must be updated. See the piston detail page for an updated external URL; all pistons will use the same new token."
+		}
+	}
+}
+
 def pageRemove() {
 	dynamicPage(name: "pageRemove", title: "", install: false, uninstall: true) {
 		section('CAUTION') {
@@ -477,7 +498,13 @@ def pageRemove() {
 	}
 }
 
-
+void revokeAccessToken() {
+	state.accessToken=null
+	state.endpoint = (String)null
+	state.endpointLocal = (String)null
+	resetFuelStreamList()
+	initTokens()
+}
 
 
 /******************************************************************************/
@@ -529,7 +556,7 @@ public Map getChildPstate() {
 		sHv: HEversion(),
 		stsettings: msettings,
 		powerSource: state.powerSource ?: 'mains',
-		region: state.endpoint.contains('graph-eu') ? 'eu' : 'us',
+		region: (String)(state.endpoint).contains('graph-eu') ? 'eu' : 'us',
 		instanceId: hashId(app.id),
 		locationId: getLocationSid(),
 		enabled: !disabled,
@@ -563,21 +590,19 @@ private void initialize() {
 	state.version = version()
 	state.versionHE = HEversion()
 	refreshDevices()
+
+	if(state.accessToken && !state.endpoint) updateEndpoint(state.accessToken)
 	registerInstance()
 
 	checkWeather()
 
+	state.lastRecovered = 0L
 	String recoveryMethod = (settings.recovery ?: 'Every 30 minutes').replace('Every ', 'Every').replace(' minute', 'Minute').replace(' hour', 'Hour')
 	if(recoveryMethod != 'Never') {
 		try {
 			"run$recoveryMethod"(recoveryHandler)
 		} catch (all) { }
 	}
-
-	if(state.accessToken){
-		updateEndpoint(state.accessToken)
-	}
-	state.lastRecovered = 0
 }
 
 private void checkWeather() {
@@ -1813,7 +1838,7 @@ private getStorageApp(Boolean install = false) {
 		for (item in settings.collect{ it.key.startsWith('dev:') ? it : null }) {
 			if(item && item.key) {
 				//app.updateSetting(item.key, [type: 'text', value: null])
-				app.clearSetting("${item.key}")
+				app.clearSetting("${item.key}".toString())
 			}
 		}
 		//app.updateSetting('contacts', [type: 'text', value: null])
@@ -2067,7 +2092,7 @@ private String getLocationSid() {
 
 private void registerInstance(Boolean force=true) {
 	if((Boolean)state.installed && settings.agreement && !isCustomEndpoint()) {
-		Long lastReg = state.lastReg ? (Long) state.lastReg : 0L
+		Long lastReg = state.lastReg ? (Long)state.lastReg : 0L
 		if(!force && lastReg && (now() - lastReg < 129600000L)) return // 36 hr in ms
 		Long lastRegTry = state.lastRegTry ? (Long) state.lastRegTry : 0L
 		if(!force && lastRegTry && (now() - lastRegTry < 1800000L)) return // 30 min in ms
@@ -2077,7 +2102,7 @@ private void registerInstance(Boolean force=true) {
 		//String locationId = hashId(location.id + (isHubitat() ? '-L' : ''))
 		String locationId = getLocationSid()
 		String instanceId = hashId(app.id)
-		String endpoint = state.endpoint
+		String endpoint = (String)state.endpoint
 		String region = endpoint.contains('graph-eu') ? 'eu' : 'us'
 		String name = handle() + ' Piston'
 		def pistons = getChildApps().findAll{ (String)it.name == name }.collect{ String t0 = hashId(it.id, true); [ id: t0, a: state[t0]?.a ] }
@@ -2112,7 +2137,7 @@ private void registerInstance(Boolean force=true) {
 }
 
 public void myDone(resp, data) {
-	String endpoint = state.endpoint
+	String endpoint = (String)state.endpoint
 	String region = endpoint.contains('graph-eu') ? 'eu' : 'us'
 	String instanceId = hashId(app.id)
 	debug "register resp: ${resp?.status} using api-${region}-${instanceId[32]}.webcore.co:9247"
@@ -2537,8 +2562,8 @@ def modeHandler(evt){
 
 def startHandler(evt){
 	debug "startHandler called"
-	state.lastRecovered = 0
-	state.lastReg = 0
+	state.lastRecovered = 0L
+	state.lastReg = 0L
 	runIn(20, startWork)
 }
 
