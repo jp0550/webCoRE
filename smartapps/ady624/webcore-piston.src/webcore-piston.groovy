@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 12, 2020 for Hubitat
+ * Last update March 14, 2020 for Hubitat
 */
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
@@ -2296,6 +2296,7 @@ private Boolean executeTask(Map rtData, List devices, Map statement, Map task, B
 		def p
 		switch ((String)param.vt){
 		case 'variable':
+			if((String)param.t!='x')continue
 			p=param.x instanceof List ? (List)param.x : (String)param.x + ((String)param.xi!=(String)null ? '['+(String)param.xi+']':'')
 			break
 		default:
