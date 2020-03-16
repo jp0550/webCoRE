@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 14, 2020 for Hubitat
+ * Last update March 15, 2020 for Hubitat
 */
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
@@ -1275,6 +1275,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false, LinkedHas
 		Long stStart=now()
 		Long b=(Long)state.nextSchedule
 		def a=state.schedules
+		Map pEvt=state.lastEvent
 		Long stEnd=now()
 		stAccess=stEnd-stStart
 	}else stAccess=(Long)tempRtData.stateAccess
@@ -1450,8 +1451,9 @@ private Boolean executeEvent(Map rtData, event){
 	if((Boolean)rtData.eric) myDetail rtData, myS, 1
 	try{
 		rtData.event=event
-		rtData.previousEvent=state.lastEvent
-		if(rtData.previousEvent==null)rtData.previousEvent=[:]
+		Map pEvt=state.lastEvent
+		if(pEvt==null)pEvt=[:]
+		rtData.previousEvent=pEvt
 		String evntName=(String)event.name
 		Integer index=0 //event?.index ?: 0
 		if(event.jsonData!=null){
@@ -1464,40 +1466,55 @@ private Boolean executeEvent(Map rtData, event){
 		}
 		Map srcEvent=null
 		rtData.args=[:]
+		Map sysV=(Map)rtData.systemVars
 		if(event!=null){
 			rtData.args= evntName=='time' && event.schedule!=null && event.schedule.args!=null && event.schedule.args instanceof Map ? event.schedule.args:(event.jsonData!=null ? event.jsonData:[:])
 			if(evntName=='time' && event.schedule!=null){
 				srcEvent=event.schedule.evt!=null ? event.schedule.evt:null
 				Map tMap=event.schedule.stack
 				if(tMap!=null){
-					rtData.systemVars['$index'].v=tMap.index
-					rtData.systemVars['$device'].v=tMap.device
-					rtData.systemVars['$devices'].v=tMap.devices
+					sysV['$index'].v=tMap.index
+					sysV['$device'].v=tMap.device
+					sysV['$devices'].v=tMap.devices
 					rtData.json=tMap.json!=null ? tMap.json:[:]
 					rtData.response=tMap.response!=null ? tMap.response:[:]
 					index=srcEvent?.index!=null ? srcEvent.index:0
 // more to restore here?
+					rtData.systemVars=sysV
 				}
 			}
 		}
+		rtData.systemVars=sysV
 		setSystemVariableValue(rtData, '$args', rtData.args)
 
-		def theDevice=srcEvent!=null ? srcEvent.device:null
-		def theDevice1=theDevice==null && event.device ? event.device.id:null
-		String theDevice2=theDevice1==null ? (String)rtData.locationId:null
-		def theFinalDevice=theDevice!=null ? theDevice : (theDevice1!=null ? (!isDeviceLocation(event.device) ? hashId(theDevice1) : (String)rtData.locationId) : (theDevice2!=(String)null ? theDevice2 : null))
-		rtData.currentEvent=[
+		String theDevice=srcEvent!=null ? (String)srcEvent.device:(String)null
+		def theDevice1=theDevice==(String)null && event.device ? event.device.id:null
+		String theFinalDevice=theDevice!=(String)null ? theDevice : (theDevice1!=null ? (!isDeviceLocation(event.device) ? hashId(theDevice1) : (String)rtData.locationId) : (String)rtData.locationId)
+		Map myEvt=[
 			date:(Long)event.date.getTime(),
 			delay:rtData.stats?.timing?.d ? (Long)rtData.stats.timing.d : 0L,
 			device:theFinalDevice,
-			name:srcEvent!=null ? (String)srcEvent.name:evntName,
-			value:srcEvent!=null ? srcEvent.value:event.value,
-			descriptionText:srcEvent!=null ? (String)srcEvent.descriptionText : (String)event.descriptionText,
-			unit:srcEvent!=null ? srcEvent.unit:event.unit,
-			physical:srcEvent!=null ? (Boolean)srcEvent.physical : !!event.physical,
 			index:index
 		]
-		state.lastEvent=rtData.currentEvent
+		if(srcEvent!=null) {
+			myEvt=myEvt + [
+				name:(String)srcEvent.name,
+				value:srcEvent.value,
+				descriptionText:(String)srcEvent.descriptionText,
+				unit:srcEvent.unit,
+				physical:(Boolean)srcEvent.physical,
+			]
+		} else {
+			myEvt=myEvt + [
+				name:evntName,
+				value:event.value,
+				descriptionText:(String)event.descriptionText,
+				unit:event.unit,
+				physical:!!event.physical,
+			]
+		}
+		rtData.currentEvent=myEvt
+		state.lastEvent=myEvt
 
 		rtData.conditionStateChanged=false
 		rtData.pistonStateChanged=false
@@ -1509,25 +1526,27 @@ private Boolean executeEvent(Map rtData, event){
 		if(evntName=='time'){
 			rtData.fastForwardTo=(Integer)event.schedule.i
 		}
-		rtData.systemVars['$previousEventDate'].v=rtData.previousEvent?.date ?: now()
-		rtData.systemVars['$previousEventDelay'].v=rtData.previousEvent?.delay ?: 0L
-		rtData.systemVars['$previousEventDevice'].v=[rtData.previousEvent?.device]
-		rtData.systemVars['$previousEventDeviceIndex'].v=rtData.previousEvent?.index ?: 0
-		rtData.systemVars['$previousEventAttribute'].v=(String)rtData.previousEvent?.name ?: ''
-		rtData.systemVars['$previousEventDescription'].v=(String)rtData.previousEvent?.descriptionText ?: ''
-		rtData.systemVars['$previousEventValue'].v=rtData.previousEvent?.value ?: ''
-		rtData.systemVars['$previousEventUnit'].v=rtData.previousEvent?.unit ?: ''
-		rtData.systemVars['$previousEventDevicePhysical'].v=!!rtData.previousEvent?.physical
+		sysV=(Map)rtData.systemVars
+		sysV['$previousEventDate'].v=pEvt.date ?: now()
+		sysV['$previousEventDelay'].v=pEvt.delay ?: 0L
+		sysV['$previousEventDevice'].v=[pEvt.device]
+		sysV['$previousEventDeviceIndex'].v=pEvt.index ?: 0
+		sysV['$previousEventAttribute'].v=pEvt.name ?: ''
+		sysV['$previousEventDescription'].v=pEvt.descriptionText ?: ''
+		sysV['$previousEventValue'].v=pEvt.value ?: ''
+		sysV['$previousEventUnit'].v=pEvt.unit ?: ''
+		sysV['$previousEventDevicePhysical'].v=!!pEvt.physical
 
-		rtData.systemVars['$currentEventDate'].v=(Long)rtData.currentEvent.date
-		rtData.systemVars['$currentEventDelay'].v=(Long)rtData.currentEvent.delay
-		rtData.systemVars['$currentEventDevice'].v=[rtData.currentEvent?.device]
-		rtData.systemVars['$currentEventDeviceIndex'].v=rtData.currentEvent.index!='' && rtData.currentEvent.index!=null? (Integer)rtData.currentEvent.index:0
-		rtData.systemVars['$currentEventAttribute'].v=(String)rtData.currentEvent.name
-		rtData.systemVars['$currentEventDescription'].v=(String)rtData.currentEvent.descriptionText
-		rtData.systemVars['$currentEventValue'].v=rtData.currentEvent.value
-		rtData.systemVars['$currentEventUnit'].v=rtData.currentEvent.unit
-		rtData.systemVars['$currentEventDevicePhysical'].v=(Boolean)rtData.currentEvent.physical
+		sysV['$currentEventDate'].v=(Long)myEvt.date
+		sysV['$currentEventDelay'].v=(Long)myEvt.delay
+		sysV['$currentEventDevice'].v=[myEvt.device]
+		sysV['$currentEventDeviceIndex'].v=myEvt.index!='' && myEvt.index!=null? (Integer)myEvt.index:0
+		sysV['$currentEventAttribute'].v=(String)myEvt.name
+		sysV['$currentEventDescription'].v=(String)myEvt.descriptionText
+		sysV['$currentEventValue'].v=myEvt.value
+		sysV['$currentEventUnit'].v=myEvt.unit
+		sysV['$currentEventDevicePhysical'].v=(Boolean)myEvt.physical
+		rtData.systemVars=sysV
 
 		rtData.stack=[c: 0, s: 0, cs:[], ss:[]]
 		Boolean ended=false
