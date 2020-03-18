@@ -1484,8 +1484,8 @@ private Boolean executeEvent(Map rtData, event){
 				}
 			}
 		}
-		rtData.systemVars=sysV
 		setSystemVariableValue(rtData, '$args', rtData.args)
+		sysV=(Map)rtData.systemVars
 
 		String theDevice=srcEvent!=null ? (String)srcEvent.device:(String)null
 		def theDevice1=theDevice==(String)null && event.device ? event.device.id:null
@@ -1526,7 +1526,6 @@ private Boolean executeEvent(Map rtData, event){
 		if(evntName=='time'){
 			rtData.fastForwardTo=(Integer)event.schedule.i
 		}
-		sysV=(Map)rtData.systemVars
 		sysV['$previousEventDate'].v=pEvt.date ?: now()
 		sysV['$previousEventDelay'].v=pEvt.delay ?: 0L
 		sysV['$previousEventDevice'].v=[pEvt.device]
