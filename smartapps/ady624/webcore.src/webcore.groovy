@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 12, 2020 for Hubitat
+ * Last Updated March 18, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -1536,8 +1536,10 @@ private api_intf_variable_set() {
 			if(piston) {
 				localVars = piston.setLocalVariable(name, value.v)
 				clearBaseResult('api_intf_variable_set')
+				result = [status: "ST_SUCCESS"] + [id: pid, localVars: localVars]
+			} else {
+				result = api_get_error_result("ERR_INVALID_ID")
 			}
-			result = [status: "ST_SUCCESS"] + [id: pid, localVars: localVars]
 		}
 	} else {
 		result = api_get_error_result("ERR_INVALID_TOKEN")
@@ -2190,7 +2192,7 @@ public void refreshDevices() {
 	//testLifx()
 }
 
-public String getWikiUrl() {
+public static String getWikiUrl() {
 	return "https://wiki.${domain()}/"
 }
 
