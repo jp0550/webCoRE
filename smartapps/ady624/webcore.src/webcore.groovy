@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 18, 2020 for Hubitat
+ * Last Updated March 30, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -46,7 +46,7 @@ definition(
 
 import groovy.transform.Field
 
-preferences {
+preferences{
 	//UI pages
 	page(name: "pageMain")
 	page(name: "pageDisclaimer")
@@ -2262,7 +2262,18 @@ public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
 	] : [:])
 }
 */
-public void updateRunTimeData(Map data) {
+
+@Field static Map p_executionFLD
+
+public void pCallupdateRunTimeData(Map data){
+	if(p_executionFLD==null) p_executionFLD=[:]
+	Long cnt=p_executionFLD[(String)data.id]!=null ? (Long)p_executionFLD[(String)data.id] : 0L
+	cnt +=1
+	p_executionFLD[(String)data.id]=cnt
+	updateRunTimeData(data)
+}
+
+void updateRunTimeData(Map data){
 	if(!data || !data.id) return
 //	Boolean superGlobal = false
 	List variableEvents = []
