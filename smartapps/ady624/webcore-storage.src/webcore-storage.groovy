@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update December 9, 2019 for Hubitat
+ * Last update April 4, 2020 for Hubitat
  */
 public static String version() { return "v0.3.110.20191009" }
 public static String HEversion() { return "v0.3.110.20191209_HE" }
@@ -442,14 +442,15 @@ public void initData(devices, contacts) {
 }
 
 public Map listAvailableDevices(boolean raw = false, int offset = 0) {
-	def time = now()
-	def response = [:]
-	def devices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
-	def deviceCount = devices.size()
-	def overrides = commandOverrides()
+	Long time = now()
+	Map response = [:]
+	def myDevices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
+	def devices = myDevices.unique{ it.id }
 	if (raw) {
 		response = devices.collectEntries{ dev -> [(hashId(dev.id)): dev]}
 	} else {
+		Integer deviceCount = devices.size()
+		Map overrides = commandOverrides()
 		devices = devices[offset..-1]
 		response.devices = [:]
 		response.complete = !devices.indexed().find{ idx, dev ->
@@ -467,25 +468,26 @@ public Map listAvailableDevices(boolean raw = false, int offset = 0) {
 					p: it.getArguments()
 				]} 
 			]
-			boolean stop = false
+			Boolean stop = false
 			def jsonData = groovy.json.JsonOutput.toJson(response)
-			int responseLength = jsonData.getBytes("UTF-8").length
-			if(responseLength > (70 * 1024)){
+			Integer responseLength = jsonData.getBytes("UTF-8").length
+			if(responseLength > (50 * 1024)){
 				stop = true // Stop if large
 			}
+			if(now() - time > 4000) stop = true
 			if (idx < devices.size() - 1 && stop) {
 				response.nextOffset = offset + idx + 1
 				return true
 			}
 			false
 		}
+		log.debug "Generated list of ${offset}-${offset + devices.size()} of ${deviceCount} devices in ${now() - time}ms. Data size is ${response.toString().size()}"
 	}
-	log.debug "Generated list of ${offset}-${offset + devices.size()} of ${deviceCount} devices in ${now() - time}ms. Data size is ${response.toString().size()}"
 	return response
 }
 
-private def transformCommand(command, overrides){
-	def override = overrides[command.getName()]
+private static String transformCommand(command, Map overrides){
+	Map override = overrides[command.getName()]
 	if(override && override.s == command.getArguments()?.toString()){
 		return override.r
 	}

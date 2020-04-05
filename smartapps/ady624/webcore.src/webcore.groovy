@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated March 30, 2020 for Hubitat
+ * Last Updated April 4, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -1919,7 +1919,8 @@ public Map listAvailableDevices(Boolean raw = false, Boolean updateCache = false
 	if(storageApp) {
 		result = storageApp.listAvailableDevices(raw, offset)
 	} else {
-		def devices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
+		def myDevices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
+		def devices = myDevices.unique{ it.id }
 		if(raw) {
 			result = devices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
 		} else {
