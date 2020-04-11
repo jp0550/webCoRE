@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update March 31, 2020 for Hubitat
+ * Last update April 10, 2020 for Hubitat
 */
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
@@ -104,7 +104,7 @@ def pageMain(){
 
 			section(){
 				input 'dev', "capability.*", title:'Devices', description:'Piston devices', multiple:true
-				input 'logging', 'enum', title:'Logging Level', options:[0:"None", 1:"Minimal", 2:"Medium", 3:"Full"], description:'Piston logging', defaultValue:state.logging?:0
+				input 'logging', 'enum', title:'Logging Level', options:[0:"None", 1:"Minimal", 2:"Medium", 3:"Full"], description:'Piston logging', defaultValue:state.logging? state.logging.toString() : '0'
 				input 'logsToHE', 'bool', title:'Piston logs are also displayed in HE console logs?', description:"Logs are available in webCoRE console; also display in HE console 'Logs'?", defaultValue:false
 				input 'maxStats', 'number', title:'Max number of timing history stats', description:'Max number of stats', range: '25..300', defaultValue:100
 				input 'maxLogs', 'number', title:'Max number of history logs', description:'Max number of logs', range: '25..300', defaultValue:100
@@ -330,10 +330,10 @@ void uninstalled(){
 }
 
 void initialize(){
-	Integer tt1=settings.logging
-	Integer tt2=state.logging
+	String tt1=(String)settings.logging
+	Integer tt2=(Integer)state.logging
 	if(tt1==null)Map a=setLoggingLevel(tt2 ? tt2.toString():'0')
-	else if(tt1!=tt2)Map a=setLoggingLevel(tt1.toString())
+	else if(tt1!=tt2)Map a=setLoggingLevel(tt1)
 	cleanState()
 	clearMyCache('initialize')
 	if((Boolean)state.active) Map b=resume()
@@ -761,7 +761,7 @@ Map shortRtd(Map rtD){
 public Map setLoggingLevel(String level){
 	Integer mlogging=level.isInteger()? level.toInteger():0
 	mlogging=Math.min(Math.max(0,mlogging),3)
-	app.updateSetting('logging', [type:'enum', value:mlogging])
+	app.updateSetting('logging', [type:'enum', value:mlogging.toString()])
 	state.logging=mlogging
 	if(mlogging==0)state.logs=[]
 	cleanState()
@@ -4849,8 +4849,8 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 					if(allowAval && ((String)node.co=='receives' || (String)node.co=='gets') && value && (String)value.t=='c' && value.c){
 						attrVal=(String)value.c
 						msgVal='Attempting Attribute value'
+						avals=subscriptions[subsId]?.avals ?: []
 					}else allowAval=false
-					avals=subscriptions[subsId]?.avals ?: []
 					if(allowAval && attrVal!=(String)null){
 						if(! (attrVal in avals)) avals << attrVal
 						msgVal='Attempting Attribute value '+avals

@@ -16,14 +16,14 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 4, 2020 for Hubitat
+ * Last update April 10, 2020 for Hubitat
  */
-public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191209_HE" }
+public static String version(){ return "v0.3.110.20191009" }
+public static String HEversion(){ return "v0.3.110.20191209_HE" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
-private static String handle() { return "webCoRE" }
+private static String handle(){ return "webCoRE" }
 definition(
 	name: "${handle()} Storage",
 	namespace: "ady624",
@@ -51,75 +51,77 @@ import groovy.transform.Field
 /*** CONFIGURATION PAGES													***/
 /*** 																		***/
 /******************************************************************************/
-def pageSettings() {
+def pageSettings(){
 	//clear devices cache
-	if (!parent || !parent.isInstalled()) {
-		return dynamicPage(name: "pageSettings", title: "", install: false, uninstall: false) {
-			section() {
+	if(!parent || !parent.isInstalled()){
+		return dynamicPage(name: "pageSettings", title: "", install: false, uninstall: false){
+			section(){
 				paragraph "Sorry, you cannot install a piston directly from the Dashboard, please use the webCoRE App instead."
 			}
-			section(sectionTitleStr("Installing webCoRE")) {
+			section(sectionTitleStr("Installing webCoRE")){
 				paragraph "If you are trying to install webCoRE, please go back one step and choose webCoRE, not webCoRE Piston. You can also visit wiki.webcore.co for more information on how to install and use webCoRE"
-				if (parent) {
+				if(parent){
 					def t0 = parent.getWikiUrl()
 					href "", title: imgTitle("https://cdn.rawgit.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("More information")), description: t0, style: "external", url: t0, required: false
 				}
 			}
 		}
 	}
-	dynamicPage(name: "pageSettings", title: "", install: true, uninstall: false) {
+	dynamicPage(name: "pageSettings", title: "", install: true, uninstall: false){
 /*
-		section("Available devices") {
+		section("Available devices"){
 			href "pageSelectDevices", title: "Available devices", description: "Tap here to select which devices are available to pistons"
 		}
-		section(sectionTitleStr('enable \$weather via ApiXU.com')) {
+		section(sectionTitleStr('enable \$weather via ApiXU.com')){
 			input "apixuKey", "text", title: "ApiXU key?", description: "ApiXU key", required: false
 			input "zipCode", "text", title: "Override Zip code or set city name or latitude,longitude? (Default: ${location.zipCode})", defaultValue: null, required: false
 		}
 */
-		section() {
+		section(){
 			paragraph "Under Construction, managed by webCoRE App."
 		}
 	}
 }
 
-private pageSelectDevices() {
+private pageSelectDevices(){
 	parent.refreshDevices()
-	dynamicPage(name: "pageSelectDevices", title: "") {
-		section() {
+	dynamicPage(name: "pageSelectDevices", title: ""){
+		section(){
 			paragraph "Select the devices you want ${handle()} to have access to."
 			paragraph "It is a good idea to only select the devices you plan on using with ${handle()} pistons. Pistons will only have access to the devices you selected."
 		}
 
-		section ('Select devices by type') {
+		section ('Select devices by type'){
 			paragraph "Most devices should fall into one of these two categories"
 				input "dev:actuator", "capability.actuator", multiple: true, title: "Which actuators", required: false, submitOnChange: true
 				input "dev:sensor", "capability.sensor", multiple: true, title: "Which sensors", required: false, submitOnChange: true
 				input "dev:all", "capability.*", multiple: true, title: "Devices", required: false
 			}
 
-		section ('Select devices by capability') {
+		section ('Select devices by capability'){
 			paragraph "If you cannot find a device by type, you may try looking for it by category below"
 			def d
-			for (capability in parent.capabilities().findAll{ (!(it.value.d in [null, 'actuators', 'sensors'])) }.sort{ it.value.d }) {
-				if (capability.value.d != d) input "dev:${capability.key}", "capability.${capability.key}", multiple: true, title: "Which ${capability.value.d}", required: false, submitOnChange: true
+			for (capability in parent.capabilities().findAll{ (!(it.value.d in [null, 'actuators', 'sensors'])) }.sort{ it.value.d }){
+				if(capability.value.d != d) input "dev:${capability.key}", "capability.${capability.key}", multiple: true, title: "Which ${capability.value.d}", required: false, submitOnChange: true
 				d = capability.value.d
 			}
 		}
 	}
 }
 
-private String sectionTitleStr(title)	{ return "<h3>$title</h3>" }
-private String inputTitleStr(title)	{ return "<u>$title</u>" }
-private String pageTitleStr(title)	{ return "<h1>$title</h1>" }
-private String paraTitleStr(title)	{ return "<b>$title</b>" }
+private static String sectionTitleStr(String title)     { return '<h3>'+title+'</h3>' }
+private static String inputTitleStr(String title)       { return '<u>'+title+'</u>' }
+private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
+private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
 
-private String imgTitle(String imgSrc, String titleStr, String color=(String)null, imgWidth=30, imgHeight=null) {
-	def imgStyle = ""
+private static String imgTitle(String imgSrc, String titleStr, String color=(String)null, Integer imgWidth=30, Integer imgHeight=0){
+	String imgStyle = ''
 	imgStyle += imgWidth ? "width: ${imgWidth}px !important;" : ""
 	imgStyle += imgHeight ? "${imgWidth ? " " : ""}height: ${imgHeight}px !important;" : ""
-	if(color) { return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""" }
-	else { return """<img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img>""" }
+	if(color!=(String)null){ return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""".toString()
+	}
+	else { return """<img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img>""".toString()
+	}
 }
 
 /******************************************************************************/
@@ -129,88 +131,81 @@ private String imgTitle(String imgSrc, String titleStr, String color=(String)nul
 /******************************************************************************/
 
 
-void installed() {
+void installed(){
 	initialize()
-	return// true
 }
 
-void updated() {
+void updated(){
 	unsubscribe()
 	unschedule()
 	initialize()
 	startWeather()
-	return// true
 }
 
-public void startWeather() {
+public void startWeather(){
 	String myKey = state.apixuKey ?: null
 	String weatherType = state.weatherType ?: null
-	if(myKey && weatherType) {
+	if(myKey && weatherType){
 		unschedule()
 		runEvery30Minutes(updateAPIXUdata)
 		updateAPIXUdata()
 	}
 }
 
-public void stopWeather() {
+public void stopWeather(){
 	state.apixuKey = null
 	unschedule()
 	stateRemove("obs")
 }
 
-private void initialize() {
+private void initialize(){
 	//update parent if this is managed devices.
 	//parent.refreshDevices()
 	stateRemove("obs")
 }
 
 
-public void updateAPIXUdata() {
+public void updateAPIXUdata(){
 	String myKey = state.apixuKey ?: null
 	String weatherType = state.weatherType ?: null
 	String myZip = state.zipCode
-	if(state.zipCode==null || state.zipCode == '') {
+	if(state.zipCode==null || state.zipCode == ''){
 		myZip = weatherType == 'DarkSky' ? location.latitude+','+location.longitude : location.zipCode
 	}
-	if(myKey && myZip && weatherType) {
+	if(myKey && myZip && weatherType){
 		String myUri
 		if(weatherType == 'apiXU') myUri = "https://api.apixu.com/v1/forecast.json?key=${myKey}&q=${myZip}&days=7"
 		if(weatherType == 'DarkSky') myUri = "https://api.darksky.net/forecast/${myKey}/" + "${myZip}" + "?units=us&exclude=minutely,flags"
-		if(myUri) {
-			def params = [ uri: myUri ]
+		if(myUri){
+			Map params = [ uri: myUri ]
 			try {
 				asynchttpGet('ahttpRequestHandler', params, [tt: 'finishPoll'])
-			} catch (e) {
+			} catch (e){
 				log.error "http call failed for $weatherType weather api: $e"
-				return //false
 			}
-			return //true
-		} else {
-			log.error "no weather URI found $weatherType"
-		}
-	} else { log.error "missing some parameter" }
-	return //false
+		}else{ log.error "no weather URI found $weatherType" }
+	}else{ log.error "missing some parameter" }
 }
 
 @Field static Map theObsFLD
 
-public void ahttpRequestHandler(resp, callbackData) {
+public void ahttpRequestHandler(resp, callbackData){
 	def json = [:]
 	def obs = [:]
 //	def err
 	String weatherType = state.weatherType ?: null
-	if ((resp.status == 200) && resp.data) {
+	if((resp.status == 200) && resp.data){
 		try {
 			json = resp.getJson()
-		} catch (all) {
+		} catch (all){
 			json = [:]
 			return
 		}
 
 		if(!json) return
-		if(weatherType == 'apiXU') {
-			if(json.forecast && json.forecast.forecastday) {
-				for(int i = 0; i <= 6; i++) {
+		if(weatherType == 'apiXU'){
+			if(json.forecast && json.forecast.forecastday){
+				for(Integer i = 0; i <= 6; i++){
 					def t0 = json.forecast.forecastday[i]?.day?.condition?.code
 					if(!t0) continue
 					String t1 = getWUIconName(t0,1)
@@ -219,28 +214,28 @@ public void ahttpRequestHandler(resp, callbackData) {
 					json.forecast.forecastday[i].day.condition.wuicon = t2
 				}
 			}
-			int tt0 = json.current.condition.code
+			Integer tt0 = json.current.condition.code
 			String tt1 = getWUIconName(tt0,1)
 			json.current.condition.wuicon_name = tt1
 			String tt2 = getWUIconNum(tt0)
 			json.current.condition.wuicon = tt2
-		} else if(weatherType == 'DarkSky') {
+		} else if(weatherType == 'DarkSky'){
 
 			def sunTimes = app.getSunriseAndSunset()
-			long sunrise = sunTimes.sunrise.time
-			long sunset = sunTimes.sunset.time
-			long time = now()
+			Long sunrise = sunTimes.sunrise.time
+			Long sunset = sunTimes.sunset.time
+			Long time = now()
 
-			boolean is_day = true
-			if(sunrise <= time && sunset >= time) {
+			Boolean is_day = true
+			if(sunrise <= time && sunset >= time){
 				;
-			} else {
+			}else{
 				is_day = false
 			}
 
 			json.name = location.name
 			json.zipCode = location.zipCode
-			if(json.currently) {
+			if(json.currently){
 				def t0 = json.currently
 				String c_code = getdsIconCode(t0.icon, t0.summary, !is_day)
 				json.currently.condition_code = c_code
@@ -248,7 +243,7 @@ public void ahttpRequestHandler(resp, callbackData) {
 
 				c_code = getdsIconCode(t0.icon, t0.summary)
 				String c1 = getStdIcon(c_code)
-				int wuCode = getWUConditionCode(c1)
+				Integer wuCode = getWUConditionCode(c1)
 				String tt2 = getWUIconNum(wuCode)
 				json.currently.code = wuCode
 				json.currently.wuicon = tt2
@@ -267,10 +262,10 @@ public void ahttpRequestHandler(resp, callbackData) {
 				//json.currently.wuicon_name = tt1
 				json.currently.fwuicon = tt2
 			}
-			if(json.hourly && json.hourly.data) {
-				int hr = new Date(now()).hours
-				int indx = 0
-				for(int i = 0; i <= 50; i++) {
+			if(json.hourly && json.hourly.data){
+				Integer hr = new Date(now()).hours
+				Integer indx = 0
+				for(Integer i = 0; i <= 50; i++){
 					def t0 = json.hourly.data[i]
 					if(!t0) continue
 
@@ -280,9 +275,9 @@ public void ahttpRequestHandler(resp, callbackData) {
 					sunset = t1.sunsetTime
 					time = t0.time
 					is_day = true
-					if(sunrise <= time && sunset >= time) {
+					if(sunrise <= time && sunset >= time){
 						;
-					} else {
+					}else{
 						is_day = false
 					}
 
@@ -292,7 +287,7 @@ public void ahttpRequestHandler(resp, callbackData) {
 
 					c_code = getdsIconCode(t0.icon, t0.summary)
 					String c1 = getStdIcon(c_code)
-					int wuCode = getWUConditionCode(c1)
+					Integer wuCode = getWUConditionCode(c1)
 					String tt2 = getWUIconNum(wuCode)
 					json.hourly.data[i].code = wuCode
 					json.hourly.data[i].wuicon = tt2
@@ -309,14 +304,14 @@ public void ahttpRequestHandler(resp, callbackData) {
 					json.hourly.data[i].fwuicon = tt2
 
 					hr+=1
-					if(hr != hr%24) {
+					if(hr != hr%24){
 						hr %= 24
 						indx += 1
 					}
 				}
 			}
-			if(json.daily && json.daily.data) {
-				for(int i = 0; i <= 31; i++) {
+			if(json.daily && json.daily.data){
+				for(Integer i = 0; i <= 31; i++){
 					def t0 = json.daily.data[i]
 					if(!t0) continue
 					String c_code = getdsIconCode(t0.icon, t0.summary)
@@ -324,7 +319,7 @@ public void ahttpRequestHandler(resp, callbackData) {
 					json.daily.data[i].condition_text = getcondText(c_code)
 
 					String c1 = getStdIcon(c_code)
-					int wuCode = getWUConditionCode(c1)
+					Integer wuCode = getWUConditionCode(c1)
 					String tt2 = getWUIconNum(wuCode)
 					json.daily.data[i].code = wuCode
 					json.daily.data[i].wuicon = tt2
@@ -334,8 +329,8 @@ public void ahttpRequestHandler(resp, callbackData) {
 //			String jsonData = groovy.json.JsonOutput.toJson(json)
 //log.debug jsonData
 		}
-	} else {
-		if(resp.hasError()) {
+	}else{
+		if(resp.hasError()){
 			log.error "$weatherType http Response Status: ${resp.status}   error Message: ${resp.getErrorMessage()}"
 			return
 		}
@@ -344,79 +339,75 @@ public void ahttpRequestHandler(resp, callbackData) {
 	}
 	theObsFLD = json
 //	state.obs = json
-	return //null
 	//log.debug "$json"
 }
 
-public Map getWData() {
-	def obs = [:]
-	//if(state.obs) {
+public Map getWData(){
+	Map obs = [:]
+	//if(state.obs){
 	String weatherType = state.weatherType ?: null
-	if(theObsFLD && weatherType == 'apiXU') {
+	if(theObsFLD && weatherType == 'apiXU'){
 		obs = theObsFLD //state.obs
 		String t0 = "${obs.current.last_updated}"
-		def t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
-		int s = GetTimeDiffSeconds(t1, null, "getApiXUData").toInteger()
-		if(s > (60*60*6)) { // if really old
+		String t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
+		Integer s = GetTimeDiffSeconds(t1, null, "getApiXUData").toInteger()
+		if(s > (60*60*6)){ // if really old
 			//stateRemove("obs")
 			log.warn "removing very old weather data $t0   $s"
 			theObsFLD = null
 			obs = [:]
 		} else return obs
 	}
-	if(theObsFLD && weatherType == 'DarkSky') {
+	if(theObsFLD && weatherType == 'DarkSky'){
 		obs = theObsFLD //state.obs
 		return obs
 	}
 	return obs
 }
 
-def getTimeZone() {
+def getTimeZone(){
 	def tz = null
-	if(location?.timeZone) { tz = location?.timeZone }
-	if(!tz) { log.error "getTimeZone: Hub or Nest TimeZone not found" }
+	if(location?.timeZone){ tz = location?.timeZone }
+	if(!tz){ log.error "getTimeZone: Hub or Nest TimeZone not found" }
 	return tz
 }
 
-String getDtNow() {
-	def now = new Date()
+String getDtNow(){
+	Date now = new Date()
 	return formatDt(now)
 }
 
 import java.text.SimpleDateFormat
 //import groovy.time.*
 
-String formatDt(dt) {
+String formatDt(dt){
 	def tf = new SimpleDateFormat("E MMM dd HH:mm:ss z yyyy")
-	if(getTimeZone()) { tf.setTimeZone(getTimeZone()) }
-	else {
-		log.error "HE TimeZone is not set; Please open your location and Press Save"
-	}
+	if(getTimeZone()){ tf.setTimeZone(getTimeZone()) }
+	else { log.error "HE TimeZone is not set; Please open your location and Press Save" }
 	return tf.format(dt)
 }
 
-def GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=null) {
-	if((strtDate && !stpDate) || (strtDate && stpDate)) {
-		//if(strtDate?.contains("dtNow")) { return 10000 }
-		def now = new Date()
+def GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=null){
+	if((strtDate && !stpDate) || (strtDate && stpDate)){
+		//if(strtDate?.contains("dtNow")){ return 10000 }
+		Date now = new Date()
 		String stopVal = stpDate ? stpDate.toString() : formatDt(now)
-		long start = Date.parse("E MMM dd HH:mm:ss z yyyy", strtDate).getTime()
-		long stop = Date.parse("E MMM dd HH:mm:ss z yyyy", stopVal).getTime()
-		long diff = (int) (long) (stop - start) / 1000
+		Long start = Date.parse("E MMM dd HH:mm:ss z yyyy", strtDate).getTime()
+		Long stop = Date.parse("E MMM dd HH:mm:ss z yyyy", stopVal).getTime()
+		Long diff = (Integer) (Long) (stop - start) / 1000
 		return diff
-	} else { return null }
+	}else{ return null }
 }
 
-public void settingsToState(myKey, setval) {
-	if(setval) {
+public void settingsToState(myKey, setval){
+	if(setval){
 		atomicState."${myKey}" = setval
 		state."${myKey}" = setval
 	} else state.remove("${myKey}" as String)
 }
 
-void stateRemove(key) {
+void stateRemove(key){
 	state.remove(key?.toString())
-	return //true
 }
 
 /******************************************************************************/
@@ -429,10 +420,10 @@ public getStorageSettings(){
  	settings
 }
 
-public void initData(devices, contacts) {
-	if (devices) {
-		for(item in devices) {
-			if (item) {
+public void initData(devices, contacts){
+	if(devices){
+		for(item in devices){
+			if(item){
 				def deviceType = item.key.replace('dev:', 'capability.')
 				def deviceIdList = item.value.collect{ it.id }
 				app.updateSetting(item.key, [type: deviceType, value: deviceIdList])
@@ -441,14 +432,14 @@ public void initData(devices, contacts) {
 	}
 }
 
-public Map listAvailableDevices(boolean raw = false, int offset = 0) {
+public Map listAvailableDevices(Boolean raw = false, Integer offset = 0){
 	Long time = now()
 	Map response = [:]
 	def myDevices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
 	def devices = myDevices.unique{ it.id }
-	if (raw) {
+	if(raw){
 		response = devices.collectEntries{ dev -> [(hashId(dev.id)): dev]}
-	} else {
+	}else{
 		Integer deviceCount = devices.size()
 		Map overrides = commandOverrides()
 		devices = devices[offset..-1]
@@ -475,7 +466,7 @@ public Map listAvailableDevices(boolean raw = false, int offset = 0) {
 				stop = true // Stop if large
 			}
 			if(now() - time > 4000) stop = true
-			if (idx < devices.size() - 1 && stop) {
+			if(idx < devices.size() - 1 && stop){
 				response.nextOffset = offset + idx + 1
 				return true
 			}
@@ -494,28 +485,28 @@ private static String transformCommand(command, Map overrides){
 	return command.getName()
 }
 
-public Map getDashboardData() {
+public Map getDashboardData(){
 	def value
 //	def start = now()
 	return settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev ->
 		[ (id): dev.getSupportedAttributes().collect{ it.name }.unique().collectEntries{
-			try { value = dev.currentValue(it); } catch (all) { value = null};
+			try { value = dev.currentValue(it) } catch (all){ value = null}
 			return [ (it) : value]
 		}]
 	}
 }
 
-public String mem(showBytes = true) {
+public String mem(showBytes = true){
 	def bytes = state.toString().length()
 	return Math.round(100.00 * (bytes/ 100000.00)) + "%${showBytes ? " ($bytes bytes)" : ""}"
 }
 
 /* Push command has multiple overloads in hubitat */
-private Map commandOverrides(){
-	return (isHubitat() ? [
-//		push : [c: "push", s: null , r: "pushMomentary"],
-		flash : [c: "flash", s: null , r: "flashNative"],//s: command signature
-	] : [:])
+private static Map commandOverrides(){
+        return ( [ //s: command signature
+                push    : [c: "push",   s: null , r: "pushMomentary"],
+                flash   : [c: "flash",  s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
+        ] ) as HashMap
 }
 
 /******************************************************************************/
@@ -523,27 +514,28 @@ private Map commandOverrides(){
 /*** SECURITY METHODS														***/
 /***																		***/
 /******************************************************************************/
-private String md5(String md5) {
+private String md5(String md5){
 	try {
 		java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
 		byte[] array = md.digest(md5.getBytes())
 		String result = ""
-		for (int i = 0; i < array.length; ++i) {
+		for (Integer i = 0; i < array.length; ++i){
 			result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
 		}
 		return result
-	} catch (java.security.NoSuchAlgorithmException e) {
+	} catch (java.security.NoSuchAlgorithmException e){
 	}
-	return null;
+	return (String)null
 }
 
-private String hashId(id) {
+private String hashId(id){
 	//enabled hash caching for faster processing
-	String result = state.hash ? state.hash[id] : null
-	if (!result) {
-		result = ":${md5("core." + id)}:"
+	String myId=id.toString()
+	String result = state.hash ? state.hash[myId] : (String)null
+	if(result==(String)null){
+		result=':'+md5('core.'+myId)+':'
 		def hash = state.hash ?: [:]
-		hash[id] = result
+		hash[myId] = result
 		state.hash = hash
 		}
 	return result
@@ -553,21 +545,21 @@ private isHubitat(){
  	return hubUID != null
 }
 
-String getWUIconName(condition_code, int is_day=0)	 {
+String getWUIconName(condition_code, Integer is_day=0)	 {
 	def cC = condition_code
 	String wuIcon = (conditionFactor[cC] ? conditionFactor[cC][2] : '')
-	if (is_day != 1 && wuIcon)	wuIcon = 'nt_' + wuIcon;
+	if(is_day != 1 && wuIcon) wuIcon = 'nt_' + wuIcon
 	return wuIcon
 }
 
-int getWUConditionCode(String code) {
-	for (myMap in conditionFactor) {
+Integer getWUConditionCode(String code){
+	for (myMap in conditionFactor){
 		if(myMap.value[2] == code) return myMap.key
 	}
 	return 0
 }
 
-String getWUIconNum(int wCode)	 {
+String getWUIconNum(Integer wCode)	 {
 	def imgItem = imgNames.find{ it.code == wCode }
 	return (imgItem ? imgItem.img : '44')
 }
@@ -599,7 +591,7 @@ String getWUIconNum(int wCode)	 {
 	1279: ['Patchy light snow with thunder', 0.5, 'tstorms'],		1282: ['Moderate or heavy snow with thunder', 0.3, 'tstorms']
 ]
 
-private getImgName(wCode, is_day) {
+private getImgName(wCode, is_day){
 	def url = "https://cdn.rawgit.com/adey/bangali/master/resources/icons/weather/"
 	def imgItem = imgNames.find{ it.code == wCode && it.day == is_day }
 	return (url + (imgItem ? imgItem.img : 'na') + '.png')
@@ -705,89 +697,89 @@ private getImgName(wCode, is_day) {
 ]
 
 // From Darksky.net driver for HE https://community.hubitat.com/t/release-darksky-net-weather-driver-no-pws-required/22699 
-String getdsIconCode(String icon='unknown', String dcs='unknown', boolean isNight=false) {
-	switch(icon) {
+String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean isNight=false){
+	switch(icon){
 		case 'rain':
 		// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
 		//       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
-			if (dcs == 'Drizzle') {
+			if(dcs == 'Drizzle'){
 				icon = 'drizzle'
-			} else if       (dcs.startsWith('Light Rain')) {
+			} else if       (dcs.startsWith('Light Rain')){
 				icon = 'lightrain'
-				if (dcs.contains('Breezy')) icon += 'breezy'
-				else if (dcs.contains('Windy')) icon += 'windy'
-			} else if       (dcs.startsWith('Heavy Rain')) {
+				if(dcs.contains('Breezy')) icon += 'breezy'
+				else if(dcs.contains('Windy')) icon += 'windy'
+			} else if       (dcs.startsWith('Heavy Rain')){
 				icon = 'heavyrain'
 				if	(dcs.contains('Breezy')) icon += 'breezy'
-				else if (dcs.contains('Windy')) icon += 'windy'
-			} else if       (dcs == 'Possible Light Rain') {
+				else if(dcs.contains('Windy')) icon += 'windy'
+			} else if       (dcs == 'Possible Light Rain'){
 				icon = 'chancelightrain'
-			} else if       (dcs.startsWith('Possible')) {
+			} else if       (dcs.startsWith('Possible')){
 				icon = 'chancerain'
-			} else if       (dcs.startsWith('Rain')) {
+			} else if       (dcs.startsWith('Rain')){
 				if	(dcs.contains('Breezy')) icon += 'breezy'
-				else if (dcs.contains('Windy')) icon += 'windy'
+				else if(dcs.contains('Windy')) icon += 'windy'
 			}
-			break;
+			break
 		case 'snow':
 			if      (dcs == 'Light Snow') icon = 'lightsnow'
-			else if (dcs == 'Flurries') icon = 'flurries'
-			else if (dcs == 'Possible Light Snow') icon = 'chancelightsnow'
-			else if (dcs.startsWith('Possible Light Snow')) {
+			else if(dcs == 'Flurries') icon = 'flurries'
+			else if(dcs == 'Possible Light Snow') icon = 'chancelightsnow'
+			else if(dcs.startsWith('Possible Light Snow')){
 				if      (dcs.contains('Breezy')) icon = 'chancelightsnowbreezy'
-				else if (dcs.contains('Windy')) icon = 'chancelightsnowwindy'
-			} else if (dcs.startsWith('Possible')) icon = 'chancesnow'
-			break;
+				else if(dcs.contains('Windy')) icon = 'chancelightsnowwindy'
+			} else if(dcs.startsWith('Possible')) icon = 'chancesnow'
+			break
 		case 'sleet':
-			if (dcs.startsWith('Possible')) icon = 'chancesleet'
-			else if (dcs.startsWith('Light')) icon = 'lightsleet'
-			break;
+			if(dcs.startsWith('Possible')) icon = 'chancesleet'
+			else if(dcs.startsWith('Light')) icon = 'lightsleet'
+			break
 		case 'thunderstorm':
-			if (dcs.startsWith('Possible')) icon = 'chancetstorms'
-			break;
+			if(dcs.startsWith('Possible')) icon = 'chancetstorms'
+			break
 		case 'partly-cloudy-night':
-			if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
+			if(dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
 			else icon = 'partlycloudy'
-			break;
+			break
 		case 'partly-cloudy-day':
-			if (dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
+			if(dcs.contains('Mostly Cloudy')) icon = 'mostlycloudy'
 			else icon = 'partlycloudy'
-			break;
+			break
 		case 'cloudy-night':
 			icon = 'cloudy'
-			break;
+			break
 		case 'cloudy':
 		case 'cloudy-day':
 			icon = 'cloudy'
-			break;
+			break
 		case 'clear-night':
 			icon = 'clear'
-			break;
+			break
 		case 'clear':
 		case 'clear-day':
 			icon = 'clear'
-			break;
+			break
 		case 'fog':
 		case 'wind':
 			// wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
 			// Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy, Breezy and Foggy]}
-			if (dcs.contains('Windy')) {
+			if(dcs.contains('Windy')){
 				// icon = 'wind'
 				if	(dcs.contains('Overcast'))	icon = 'windovercast'
-				else if (dcs.contains('Mostly Cloudy')) icon = 'windmostlycloudy'
-				else if (dcs.contains('Partly Cloudy')) icon = 'windpartlycloudy'
-				else if (dcs.contains('Foggy'))	   icon = 'windfoggy'
-			} else if (dcs.contains('Breezy')) {
+				else if(dcs.contains('Mostly Cloudy')) icon = 'windmostlycloudy'
+				else if(dcs.contains('Partly Cloudy')) icon = 'windpartlycloudy'
+				else if(dcs.contains('Foggy'))	   icon = 'windfoggy'
+			} else if(dcs.contains('Breezy')){
 				icon = 'breezy'
 				if	(dcs.contains('Overcast'))	icon = 'breezyovercast'
-				else if (dcs.summary.contains('Mostly Cloudy')) icon = 'breezymostlycloudy'
-				else if (dcs.contains('Partly Cloudy')) icon = 'breezypartlycloudy'
-				else if (dcs.contains('Foggy'))		icon = 'breezyfoggy'
+				else if(dcs.summary.contains('Mostly Cloudy')) icon = 'breezymostlycloudy'
+				else if(dcs.contains('Partly Cloudy')) icon = 'breezypartlycloudy'
+				else if(dcs.contains('Foggy'))		icon = 'breezyfoggy'
 			}
-			break;
+			break
 		case '':
 			icon = 'unknown'
-			break;
+			break
 		default:
 			icon = 'unknown'
 	}
@@ -802,7 +794,7 @@ String getcondText(String wCode){
 	return (LUitem ? LUitem.ctext : '')
 }
 
-String getStdIcon(String code) {
+String getStdIcon(String code){
 	LUitem = LUTable.find{ it.ccode == code }
 	return (LUitem ? LUitem.stdIcon : '')
 }
