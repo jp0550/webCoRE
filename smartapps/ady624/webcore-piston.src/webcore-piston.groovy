@@ -18,8 +18,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 10, 2020 for Hubitat
+ * Last update April 14, 2020 for Hubitat
 */
+
 private static String version(){ return 'v0.3.110.20191009' }
 private static String HEversion(){ return 'v0.3.110.20200210_HE' }
 
@@ -138,7 +139,7 @@ private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
 
 private static String imgTitle(String imgSrc, String titleStr, String color=(String)null, Integer imgWidth=30, Integer imgHeight=0){
 	String imgStyle=''
-	imgStyle += imgWidth>0 ? 'width: '+imgWidth.toString()+'}px !important;':''
+	imgStyle += imgWidth>0 ? 'width: '+imgWidth.toString()+'px !important;':''
 	imgStyle += imgHeight>0 ? imgWidth!=0 ? ' ':''+'height: '+imgHeight.toString()+'px !important;':''
 	if(color!=(String)null){ return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""" }
 	else{ return """<img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img>""" }
@@ -332,8 +333,9 @@ void uninstalled(){
 void initialize(){
 	String tt1=(String)settings.logging
 	Integer tt2=(Integer)state.logging
-	if(tt1==null)Map a=setLoggingLevel(tt2 ? tt2.toString():'0')
-	else if(tt1!=tt2)Map a=setLoggingLevel(tt1)
+	String tt3=tt2.toString()
+	if(tt1==(String)null)Map a=setLoggingLevel(tt2 ? tt3:'0')
+	else if(tt1!=tt3)Map a=setLoggingLevel(tt1)
 	cleanState()
 	clearMyCache('initialize')
 	if((Boolean)state.active) Map b=resume()
@@ -1079,9 +1081,6 @@ private Map getRunTimeData(Map rtD=null, Map retSt=null, Boolean fetchWrappers=f
 	}
 	rtD=rtD+m1
 
-	def mode=location.getCurrentMode()
-	rtD.locationModeId=mode!=null ? hashId((Long)mode.getId()):null
-
 	rtD.timestamp=timestamp
 	rtD.lstarted=lstarted
 	rtD.lended=lended
@@ -1352,7 +1351,6 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false, LinkedHas
 		}else{
 			Integer responseCode=408
 			Boolean statOk=false
-			String eMsg
 			String ttyp=(String)event.schedule.d
 			Boolean found=false
 			switch(ttyp){
@@ -1374,7 +1372,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false, LinkedHas
 				break
 			}
 			if(found){
-				error eMsg+"Timeout Error "+ttyp, rtD
+				error "Timeout Error "+ttyp, rtD
 				syncTime=true
 			}
 		}
@@ -1567,7 +1565,7 @@ private Boolean executeEvent(Map rtD, event){
 					processSchedules rtD
 				}
 			}else{
-				warn 'Piston execution aborted due to restrictions in effect', rtD
+				if((Integer)rtD.logging>2)debug 'Piston execution aborted due to restrictions in effect', rtD
 				//we need to run through all to update stuff
 				rtD.fastForwardTo=-9
 				Boolean a=executeStatements(rtD, (List)rtD.piston.s)
@@ -2283,6 +2281,10 @@ private Boolean executeTask(Map rtD, List devices, Map statement, Map task, Bool
 		return true
 	}
 	if(task.m!=null && task.m instanceof List && (Integer)((List)task.m).size()>0){
+		if(rtD.locationModeId==null){
+			def mode=location.getCurrentMode()
+			rtD.locationModeId=mode!=null ? hashId((Long)mode.getId()):null
+		}
 		if(!((String)rtD.locationModeId in (List)task.m)){
 			if((Integer)rtD.logging>2)debug "Skipping task ${(Integer)task.$} because of mode restrictions", rtD
 			return true
@@ -2396,7 +2398,7 @@ private void executePhysicalCommand(Map rtD, device, String command, params=[], 
 		//scheduleDevice=hashId(device.id)
 		//we're using schedules instead
 		Map statement=(Map)rtD.currentAction
-		List cs=[]+ ((String)statement.tcp=='b' || (String)statement.tcp=='c' ? (rtD.stack?.cs!=null ? (List)rtD.stack.cs:[]):[]) // task cancelation policy
+		List<Integer> cs=[]+ ((String)statement.tcp=='b' || (String)statement.tcp=='c' ? (rtD.stack?.cs!=null ? (List)rtD.stack.cs:[]):[]) // task cancelation policy
 		Integer ps= (String)statement.tcp=='b' || (String)statement.tcp=='p' ? 1:0
 		Boolean a=cs.removeAll{ it==0 }
 		Map schedule=[
@@ -2819,7 +2821,7 @@ private Integer getWeekOfMonth(date=null, Boolean backwards=false){
 
 private void requestWakeUp(Map rtD, Map statement, Map task, Long timeOrDelay, String data=(String)null){
 	Long time=timeOrDelay>9999999999L ? timeOrDelay:now()+timeOrDelay
-	List cs=[]+ ((String)statement.tcp=='b' || (String)statement.tcp=='c' ? (rtD.stack?.cs!=null ? (List)rtD.stack.cs:[]):[]) // task cancelation policy
+	List<Integer> cs=[]+ ((String)statement.tcp=='b' || (String)statement.tcp=='c' ? (rtD.stack?.cs!=null ? (List)rtD.stack.cs:[]):[]) // task cancelation policy
 	Integer ps= (String)statement.tcp=='b' || (String)statement.tcp=='p' ? 1:0
 	Boolean a=cs.removeAll{ it==0 }
 // state to save across a sleep
@@ -3089,7 +3091,7 @@ private Long vcmd_sendEmail(Map rtD, device, List params){
 	return 0L
 }
 
-private Long vcmd_noop(Map rtD, device, List params){
+private static Long vcmd_noop(Map rtD, device, List params){
 	return 0L
 }
 
@@ -3909,10 +3911,6 @@ private Long vcmd_parseJson(Map rtD, device, List params){
 private Long vcmd_cancelTasks(Map rtD, device, List params){
 	rtD.cancelations.all=true
 	return 0L
-}
-
-private Boolean evaluateFollowedByCondition(Map rtD, Map condition, String collection, Boolean async, ladderUpdated){
-	Boolean result=evaluateCondition(rtD, condition, collection, async)
 }
 
 private Boolean evaluateConditions(Map rtD, Map conditions, String collection, Boolean async){
@@ -4830,7 +4828,8 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 		if(!operand)return
 		switch ((String)operand.t){
 		case 'p': //physical device
-			for(String deviceId in expandDeviceList(rtD, (List)operand.d, true)){
+			for(String mdeviceId in expandDeviceList(rtD, (List)operand.d, true)){
+				String deviceId=mdeviceId
 				if(deviceId==(String)rtD.oldLocationId)deviceId=(String)rtD.locationId
 				devices[deviceId]=[c: (comparisonType ? 1:0)+(devices[deviceId]?.c ? (Integer)devices[deviceId].c:0)]
 				String attribute=(String)operand.a
@@ -4999,7 +4998,8 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 	statementTraverser={ Map node, parentNode, Map data ->
 		downgradeTriggers=data!=null && (Boolean)data.timer
 		if(node.r)traverseRestrictions(node.r, restrictionTraverser)
-		for(String deviceId in node.d){
+		for(String mdeviceId in node.d){
+			String deviceId=mdeviceId
 			if(deviceId==(String)rtD.oldLocationId)deviceId=(String)rtD.locationId
 			devices[deviceId]=devices[deviceId] ?: [c: 0]
 			if(deviceId!=(String)rtD.locationId && deviceId.startsWith(':')){
@@ -5046,7 +5046,8 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 	if(rtD.piston.s)traverseStatements((List)rtD.piston.s, statementTraverser, null, statementData)
 	//device variables
 	for(variable in rtD.piston.v.findAll{ (String)it.t=='device' && it.v!=null && it.v.d!=null && it.v.d instanceof List}){
-		for (String deviceId in (List)variable.v.d){
+		for (String mdeviceId in (List)variable.v.d){
+			String deviceId=mdeviceId
 			if(deviceId==(String)rtD.oldLocationId)deviceId=(String)rtD.locationId
 			devices[deviceId]=[c: 0+(devices[deviceId]?.c ? (Integer)devices[deviceId].c:0)]
 			if(deviceId!=(String)rtD.locationId){
@@ -5430,12 +5431,13 @@ private Map getJsonData(Map rtD, data, String name, String feature=(String)null)
 				}
 			}
 			def idx=0
+			String newPart=part
 			if(part.endsWith(']')){
 				//array index
 				Integer start=part.indexOf('[')
 				if(start>=0){
 					idx=part.substring(start+1, (Integer)part.size()-1)
-					part=part.substring(0, start)
+					newPart=part.substring(0, start)
 					if(idx.isInteger()){
 						idx=idx.toInteger()
 					}else{
@@ -5443,12 +5445,12 @@ private Map getJsonData(Map rtD, data, String name, String feature=(String)null)
 						idx=(String)var.t!='error' ? var.v:idx
 					}
 				}
-				if(!overrideArgs && !!part)args=args[part]
+				if(!overrideArgs && !!newPart)args=args[newPart]
 				if(args instanceof List)idx=cast(rtD, idx, 'integer')
 				args=args[idx]
 				continue
 			}
-			if(!overrideArgs)args=args[part]
+			if(!overrideArgs)args=args[newPart]
 		}
 		return [t:'dynamic', v:"$args".toString()]
 	}catch (all){
@@ -5812,7 +5814,7 @@ private Map evaluateExpression(Map rtD, Map expression, String dataType=(String)
 	case 'function':
 		String fn='func_'+(String)expression.n
 		//in a function, we look for device parameters, they may be lists - we need to reformat all parameters to send them to the function properly
-		String myStr
+		String myStr='calling function '+fn
 		try{
 			List params=[]
 			if(expression.i && (Integer)expression.i.size()!=0){
@@ -5835,12 +5837,10 @@ private Map evaluateExpression(Map rtD, Map expression, String dataType=(String)
 					}
 				}
 			}
-			myStr='calling function '+fn
 			if((Boolean)rtD.eric) myDetail rtD, myStr, 1
 			result=(Map)"$fn"(rtD, params)
 		}catch (all){
 			error "Error executing $fn: ", rtD, -2, all
-			//log error
 			result=[t:'error', v:all]
 		}
 		if((Boolean)rtD.eric) myDetail rtD, myStr+' '+"${result}".toString(), -1
@@ -7009,7 +7009,7 @@ private Map func_age(Map rtD, List params){
 	return [t:'error', v:'Invalid device']
 }
 
-/** previousAge returns the number of milliseconds an attribute had the  previous value		**/
+/** previousAge returns the number of milliseconds an attribute had the previous value		**/
 /** Usage: previousAge([device:attribute])							**/
 private Map func_previousage(Map rtD, List params){
 	if(!checkParams(rtD, params,1)){
@@ -8312,7 +8312,7 @@ private Map getSystemVariablesAndValues(Map rtD){
 	}
 	return result
 }
-// UI will not display anything that starts with $current or $previous;  variables without d: true will not display variable value
+// UI will not display anything that starts with $current or $previous; variables without d: true will not display variable value
 @Field final Map getSystemVariables=[
 		'$args':[t:'dynamic', v:null],
 		'$json':[t:'dynamic', d:true],
