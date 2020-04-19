@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated April 4, 2020 for Hubitat
+ * Last Updated April 17, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -966,7 +966,7 @@ private api_intf_dashboard_refresh() {
 private Map getDashboardData() {
 	def value
 //	def start = now()
-	Map result = [:]
+	Map result
 	def storageApp //= getStorageApp()
 	if(storageApp!=null) {
 		result = storageApp.getDashboardData()
@@ -1593,7 +1593,7 @@ public void writeToFuelStream(Map req){
 }
 
 private api_intf_fuelstreams_list() {
-	def result = []
+	def result
 	debug "Dashboard: Request received to list fuelstreams"
 	//if(verifySecurityToken((String)params.token)) {
 	String name = handle()+" Fuel Stream"
@@ -1603,7 +1603,7 @@ private api_intf_fuelstreams_list() {
 }
 
 private api_intf_fuelstreams_get() {
-	def result = []
+	def result
 	String id = (String)params.id
 	debug "Dashboard: Request received to get fuelstream data $id"
 	

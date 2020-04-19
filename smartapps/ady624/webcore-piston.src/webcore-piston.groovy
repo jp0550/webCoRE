@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 14, 2020 for Hubitat
+ * Last update April 17, 2020 for Hubitat
 */
 
 private static String version(){ return 'v0.3.110.20191009' }
@@ -78,7 +78,7 @@ def pageMain(){
 			section(sectionTitleStr('Dashboard')){
 				String dashboardUrl=(String)parent.getDashboardUrl()
 				if(dashboardUrl!=(String)null){
-					dashboardUrl=dashboardUrl+'piston/'+hashId(app.id)
+					dashboardUrl=dashboardUrl+'piston/'+hashId(app.id.toString())
 					href '', title:imgTitle('https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/dashboard.png', inputTitleStr('View piston in dashboard')), style:'external', url:dashboardUrl, required:false
 				}else paragraph 'Sorry your webCoRE dashboard does not seem to be enabled; please go to the parent app and enable the dashboard.'
 			}
@@ -125,7 +125,7 @@ def pageRun(){
 		section('Run'){
 			paragraph 'Piston tested'
 			Map t0=(Map)parent.getWCendpoints()
-			String t1="/execute/${hashId(app.id)}?access_token=${t0.at}".toString()
+			String t1="/execute/${hashId(app.id.toString())}?access_token=${t0.at}".toString()
 			paragraph "Cloud Execute endpoint ${t0.ep}${t1}".toString()
 			paragraph "Local Execute endpoint ${t0.epl}${t1}".toString()
 		}
@@ -902,7 +902,7 @@ private Map getTemporaryRunTimeData(Long startTime){
 @Field static Map theCacheFLD // each piston has a map in here
 
 private void clearMyCache(String meth=(String)null){
-	String myId=hashId(app.id)
+	String myId=hashId(app.id.toString())
 	if(!myId)return
 	if(theCacheFLD!=null){
 		Map t0=theCacheFLD[myId]
@@ -917,7 +917,7 @@ private void clearMyCache(String meth=(String)null){
 
 private Map getCachedMaps(Boolean retry=true){
 	Map result=null
-	String myId=hashId(app.id)
+	String myId=hashId(app.id.toString())
 	if(theCacheFLD!=null && theCacheFLD[myId]!=null){
 		result=theCacheFLD[myId]
 		if(result.cache instanceof Map && result.state instanceof Map)return (Map)theCacheFLD[myId]
@@ -932,7 +932,7 @@ private Map getCachedMaps(Boolean retry=true){
 
 private Map getDSCache(){
 	Map result=null
-	String appId=hashId(app.id)
+	String appId=hashId(app.id.toString())
 	String myId=appId
 	if(myId.length()<8){
 		log.error 'getDSCache: no id '+myId
@@ -997,7 +997,7 @@ private Map getDSCache(){
 		t0=atomState.vars
 		t1.vars=t0 ? [:]+(Map)t0:[:]
 
-		t1.devices= settings.dev && settings.dev instanceof List ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:]
+		t1.devices= settings.dev && settings.dev instanceof List ? settings.dev.collectEntries{[(hashId(it.id.toString())): it]} : [:]
 		result=[:]+t1
 
 		theCacheFLD[myId]=result
@@ -1038,7 +1038,7 @@ private Map getParentCache(){
 				disabled: !t0.enabled,
 				logPExec: !!t0.logPExec,
 				locationId: (String)t0.locationId,
-				oldLocationId: hashId(location.id+'L'), //backwards compatibility
+				oldLocationId: hashId(location.id.toString()+'L'), //backwards compatibility
 				incidents: (List)t0.incidents
 			]
 			result=[:]+t1
@@ -1287,6 +1287,11 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false, LinkedHas
 		success=executeEvent(rtD, event)
 		firstTime=false
 	}
+	if(evntName=='time' && !(Boolean)event.recovery){
+		rtD.stats.nextSchedule=0L
+		rtD.nextSchedule=0L
+		state.nextSchedule=0L
+	}
 
 	Boolean syncTime=true
 	String myId=(String)rtD.id
@@ -1315,6 +1320,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false, LinkedHas
 		else state.schedules=schedules
 
 		if(evntName=='wc_async_reply'){
+			if((Boolean)rtD.eric) myDetail rtD, "async reply EVENT $event"
 			Integer responseCode=(Integer)event.responseCode
 			Boolean statOk=responseCode>=200 && responseCode<=299
 			String eMsg
@@ -1460,15 +1466,15 @@ private Boolean executeEvent(Map rtD, event){
 		if(event!=null){
 			rtD.args= evntName=='time' && event.schedule!=null && event.schedule.args!=null && event.schedule.args instanceof Map ? event.schedule.args:(event.jsonData!=null ? event.jsonData:[:])
 			if(evntName=='time' && event.schedule!=null){
-				srcEvent=event.schedule.evt!=null ? event.schedule.evt:null
+				srcEvent=event.schedule.evt
 				Map tMap=event.schedule.stack
 				if(tMap!=null){
 					sysV['$index'].v=tMap.index
 					sysV['$device'].v=tMap.device
 					sysV['$devices'].v=tMap.devices
-					rtD.json=tMap.json!=null ? tMap.json:[:]
-					rtD.response=tMap.response!=null ? tMap.response:[:]
-					index=srcEvent?.index!=null ? srcEvent.index:0
+					rtD.json=tMap.json ?: [:]
+					rtD.response=tMap.response ?: [:]
+					index=srcEvent?.index ?: 0
 // more to restore here?
 					rtD.systemVars=sysV
 				}
@@ -1479,7 +1485,7 @@ private Boolean executeEvent(Map rtD, event){
 
 		String theDevice=srcEvent!=null ? (String)srcEvent.device:(String)null
 		def theDevice1=theDevice==(String)null && event.device ? event.device.id:null
-		String theFinalDevice=theDevice!=(String)null ? theDevice : (theDevice1!=null ? (!isDeviceLocation(event.device) ? hashId(theDevice1) : (String)rtD.locationId) : (String)rtD.locationId)
+		String theFinalDevice=theDevice!=(String)null ? theDevice : (theDevice1!=null ? (!isDeviceLocation(event.device) ? hashId(theDevice1.toString()) : (String)rtD.locationId) : (String)rtD.locationId)
 		Map myEvt=[
 			date:(Long)event.date.getTime(),
 			delay:rtD.stats?.timing?.d ? (Long)rtD.stats.timing.d : 0L,
@@ -1765,9 +1771,9 @@ private void processSchedules(Map rtD, Boolean scheduleJob=false){
 		}
 		if(nextT==0L && (Long)rtD.nextSchedule!=0L){
 			unschedule(timeHandler)
-			rtD.nextSchedule=0L
 		}
 
+		rtD.nextSchedule=nextT
 		rtD.stats.nextSchedule=nextT
 		if(t0!=null)theCacheFLD[myId].nextSchedule=nextT
 		state.nextSchedule=nextT
@@ -1925,7 +1931,7 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 				perform=false
 				if((Integer)rtD.fastForwardTo==0){
 					//look to see if any of the event matches
-					String deviceId= rtD.event.device!=null ? hashId(rtD.event.device.id):(String)null
+					String deviceId= rtD.event.device!=null ? hashId(rtD.event.device.id.toString()):(String)null
 					for (event in statement.c){
 						def operand=event.lo
 						if(operand!=null && (String)operand.t){
@@ -2283,7 +2289,7 @@ private Boolean executeTask(Map rtD, List devices, Map statement, Map task, Bool
 	if(task.m!=null && task.m instanceof List && (Integer)((List)task.m).size()>0){
 		if(rtD.locationModeId==null){
 			def mode=location.getCurrentMode()
-			rtD.locationModeId=mode!=null ? hashId((Long)mode.getId()):null
+			rtD.locationModeId=mode!=null ? hashId(mode.getId().toString()):null
 		}
 		if(!((String)rtD.locationModeId in (List)task.m)){
 			if((Integer)rtD.logging>2)debug "Skipping task ${(Integer)task.$} because of mode restrictions", rtD
@@ -3044,7 +3050,7 @@ private Long vcmd_clearTile(Map rtD, device, List params){
 
 private Long vcmd_setLocationMode(Map rtD, device, List params){
 	String modeIdOrName=(String)params[0]
-	def mode=location.getModes()?.find{ (hashId((Long)it.id)==modeIdOrName)|| ((String)it.name==modeIdOrName)}
+	def mode=location.getModes()?.find{ (hashId(it.id.toString())==modeIdOrName)|| ((String)it.name==modeIdOrName)}
 	if(mode) location.setMode((String)mode.name)
 	else error "Error setting location mode. Mode '$modeIdOrName' does not exist.", rtD
 	return 0L
@@ -3074,7 +3080,7 @@ private Long vcmd_sendEmail(Map rtD, device, List params){
 	]
 
 	Map requestParams=[
-		uri: "https://api.webcore.co/email/send/${(String)rtD.locationId}".toString(),
+		uri: 'https://api.webcore.co/email/send/'+(String)rtD.locationId,
 		query: null,
 		headers: [:], //(auth ? [Authorization: auth]:[:]),
 		requestContentType: "application/json",
@@ -3269,7 +3275,7 @@ private Long vcmd_internal_fade(Map rtD, device, String command, Integer startLe
 		steps=Math.floor(1.0D*duration/minInterval)
 		interval=Math.round(1.0D*duration/steps)
 	}
-	String scheduleDevice=hashId(device.id)
+	String scheduleDevice=hashId(device.id.toString())
 	Integer oldLevel=startLevel
 	executePhysicalCommand(rtD, device, command, startLevel)
 	for(Integer i=1; i<=steps; i++){
@@ -3307,7 +3313,7 @@ private Long vcmd_flash(Map rtD, device, List params){
 	Long firstDuration=firstCommand=='on' ? onDuration:offDuration
 	String secondCommand=firstCommand=='on' ? 'off':'on'
 	Long secondDuration=firstCommand=='on' ? offDuration:onDuration
-	String scheduleDevice=hashId(device.id)
+	String scheduleDevice=hashId(device.id.toString())
 	Long dur=0L
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtD, device, firstCommand, [], dur, scheduleDevice, true)
@@ -3337,7 +3343,7 @@ private Long vcmd_flashLevel(Map rtD, device, List params){
 		//if the flash is too fast, ignore it
 		return 0L
 	}
-	String scheduleDevice=hashId(device.id)
+	String scheduleDevice=hashId(device.id.toString())
 	Long dur=0L
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtD, device, 'setLevel', [level1], dur, scheduleDevice, true)
@@ -3367,7 +3373,7 @@ private Long vcmd_flashColor(Map rtD, device, List params){
 		//if the flash is too fast, ignore it
 		return 0L
 	}
-	String scheduleDevice=hashId(device.id)
+	String scheduleDevice=hashId(device.id.toString())
 	Long dur=0
 	for(Integer i=1; i<=cycles; i++){
 		executePhysicalCommand(rtD, device, 'setColor', [color1], dur, scheduleDevice, true)
@@ -3397,7 +3403,7 @@ private Long vcmd_sendPushNotification(Map rtD, device, List params){
 	try{
 		t0*.deviceNotification(message)
 	}catch (all){
-		message="Default push device not set properly in webCoRE "+params[0]
+		message="Default push device not set properly in webCoRE "+(String)params[0]
 		error message, rtD
 	}
 	return 0L
@@ -3405,7 +3411,7 @@ private Long vcmd_sendPushNotification(Map rtD, device, List params){
 
 private Long vcmd_sendSMSNotification(Map rtD, device, List params){
 	String message=(String)params[0]
-	String msg="HE SMS notifications are being removed, please convert to a notification device "+params[0]
+	String msg="HE SMS notifications are being removed, please convert to a notification device "+message
 	warn msg, rtD
 	return 0L
 }
@@ -3413,7 +3419,7 @@ private Long vcmd_sendSMSNotification(Map rtD, device, List params){
 private Long vcmd_sendNotificationToContacts(Map rtD, device, List params){
 	// Contact Book has been disabled and we're falling back onto PUSH notifications, if the option is on
 	String message=(String)params[0]
-	def save=!!params[2]
+	Boolean save=!!params[2]
 	return vcmd_sendPushNotification(rtD, devices, [message, save])
 }
 
@@ -3438,7 +3444,11 @@ private Long vcmd_setVariable(Map rtD, device, List params){
 	String name=(String)params[0]
 	def value=params[1]
 	if((Boolean)rtD.eric) myDetail rtD, "setVariable $name  $value"
-	def t0=setVariable(rtD, name, value)
+	Map t0=setVariable(rtD, name, value)
+	if((String)t0.t=='error') {
+		String message = (String)t0.v + ' ' + name
+		error message, rtD
+	}
 	return 0L
 }
 
@@ -3466,7 +3476,7 @@ private Long vcmd_pausePiston(Map rtD, device, List params){
 	String selfId=(String)rtD.id
 	String pistonId=(String)params[0]
 	if(!(Boolean)parent.pausePiston(pistonId)){
-		message="Piston not found "+pistonId
+		String message="Piston not found "+pistonId
 		error message, rtD
 	}
 	return 0L
@@ -3476,7 +3486,7 @@ private Long vcmd_resumePiston(Map rtD, device, List params){
 	String selfId=(String)rtD.id
 	String pistonId=(String)params[0]
 	if(!(Boolean)parent.resumePiston(pistonId)){
-		message="Piston not found "+pistonId
+		String message="Piston not found "+pistonId
 		error message, rtD
 	}
 	return 0L
@@ -3681,11 +3691,17 @@ public void ahttpRequestHandler(resp, Map callbackData){
 	def json
 	Map setRtData=[mediaData:null, mediaType:null, mediaUrl:null]
 	String callBackC=(String)callbackData?.command
+	Integer responseCode=resp.status
 	Boolean success=false
+	String erMsg
+	if(resp.hasError()){
+		erMsg=" Response Status: ${resp.status}  error Message: ${resp.getErrorMessage()}".toString()
+		if(!responseCode) responseCode=500
+	}
 	if(callBackC=='sendEmail'){
 		String msg='Unknown error'
 		def em=callbackData?.em
-		if(resp.status==200){
+		if(responseCode==200){
 			data=resp.getJson()
 			if(data!=null){
 				if((String)data.result=='OK'){
@@ -3696,29 +3712,24 @@ public void ahttpRequestHandler(resp, Map callbackData){
 			}
 		}
 		if(!success){
-			error "Error sending email to ${em?.t}: ${msg}", [:]
+			erMsg="Error sending email to ${em?.t}: ${msg}".toString()
+			//error "Error sending email to ${em?.t}: ${msg}".toString(), [:]
 		}
 	}else if(callBackC=='httpRequest'){
-		if(resp.status==204){
+		if(responseCode==204){
 			mediaType=''
 		}else{
-			if(resp.status>=200 && resp.status<300 && resp.data){
+			if(responseCode>=200 && responseCode<300 && resp.data){
 				if(!binary){
-					def theData
-					try{
-						theData=resp.getData()
-						data=theData
-						if(data!=null && data instanceof Map){
-						}else{
-							try{
-								json=resp.getJson()
-								if(json!=null) data=json
-							}catch (all1){
-								json=[:]
-							}
+					data=resp.data
+					//log.error "RESP ${data}"
+					if(data!=null && data instanceof Map){
+					}else{
+						try{
+							data=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(resp.data)
+						}catch (all){
+							data=resp.data
 						}
-					}catch (all){
-						data=resp.data
 					}
 				}else{
 					if(resp.data!=null && resp.data instanceof java.io.ByteArrayInputStream){
@@ -3728,21 +3739,22 @@ public void ahttpRequestHandler(resp, Map callbackData){
 				}
 			}else{
 				if(resp.hasError()){
-					error "http Response Status: ${resp.status}  error Message: ${resp.getErrorMessage()}", [:]
+					erMsg='http'+erMsg
 				}
 			}
 		}
 	}else if(callBackC=='iftttMaker'){
 		def em=callbackData?.em
-		if(resp.status>=200 && resp.status<300) success=true
+		if(responseCode>=200 && responseCode<300) success=true
 		if(!success){
-			String eMsg=''
-			if(resp.hasError())eMsg="http Response Status: ${resp.status}  error Message: ${resp.getErrorMessage()}".toString()
-			error "Error iftttMaker to ${em?.t}: ${em?.p1}, ${em?.p2}, ${em?.p3}  ".toString()+eMsg, [:]
+			if(resp.hasError()) erMsg='ifttt'+erMsg
+			//error "Error iftttMaker to ${em?.t}: ${em?.p1}, ${em?.p2}, ${em?.p3}  ".toString(), [:]
+			erMsg="Error iftttMaker to ${em?.t}: ${em?.p1}, ${em?.p2}, ${em?.p3}  ".toString()+erMsg
 		}
 	}
+	if(erMsg) error erMsg, [:]
 
-	handleEvents([date: new Date(), device: location, name:'wc_async_reply', value: callBackC, contentType: mediaType, responseData: data, jsonData:[:], responseCode: resp.status, setRtData: setRtData])
+	handleEvents([date: new Date(), device: location, name:'wc_async_reply', value: callBackC, contentType: mediaType, responseData: data, jsonData: json, responseCode: responseCode, setRtData: setRtData])
 }
 
 private Long vcmd_writeToFuelStream(Map rtD, device, List params){
@@ -3809,7 +3821,7 @@ public void asyncHttpRequestHandler(response, Map callbackData){
 
 private Long vcmd_saveStateLocally(Map rtD, device, List params, Boolean global=false){
 	List attributes=((String)cast(rtD, params[0], 'string')).tokenize(',')
-	String canister=((Integer)params.size()>1 ? (String)cast(rtD, params[1], 'string')+':':'')+hashId(device.id)+':'
+	String canister=((Integer)params.size()>1 ? (String)cast(rtD, params[1], 'string')+':':'')+hashId(device.id.toString())+':'
 	Boolean overwrite=!((Integer)params.size()>2 ? (Boolean)cast(rtD, params[2], 'boolean'):false)
 	for (String attr in attributes){
 		String n=canister+attr
@@ -3839,7 +3851,7 @@ private Long vcmd_saveStateGlobally(Map rtD, device, List params){
 
 private Long vcmd_loadStateLocally(Map rtD, device, List params, Boolean global=false){
 	List attributes=((String)cast(rtD, params[0], 'string')).tokenize(',')
-	String canister=((Integer)params.size()>1 ? (String)cast(rtD, params[1], 'string')+':':'')+hashId(device.id)+':'
+	String canister=((Integer)params.size()>1 ? (String)cast(rtD, params[1], 'string')+':':'')+hashId(device.id.toString())+':'
 	Boolean empty=(Integer)params.size()>2 ? (Boolean)cast(rtD, params[2], 'boolean'):false
 	for (String attr in attributes){
 		String n=canister+attr
@@ -5175,7 +5187,7 @@ private List expandDeviceList(Map rtD, List devices, Boolean localVarsOnly=false
 				if((String)var.t=='device' && var.v instanceof List && (Integer)((List)var.v).size()!=0)result += (List)var.v
 				if((String)var.t!='device'){
 					def device=getDevice(rtD, (String)cast(rtD, var.v, 'string'))
-					if(device!=null)result += [hashId(device.id)]
+					if(device!=null)result += [hashId(device.id.toString())]
 				}
 			}
 		}
@@ -5224,7 +5236,7 @@ private getDeviceAttributeValue(Map rtD, device, String attributeName){
 		case '$status':
 			return device.getStatus()
 		case 'orientation':
-			return getThreeAxisOrientation(rtD.event && rtDEvN=='threeAxis' && rtDEdID ? rtD.event.xyzValue:device.currentValue('threeAxis', true))
+			return getThreeAxisOrientation(rtD.event && rtDEvN=='threeAxis' && rtDEdID ? rtD.event.xyzValue : device.currentValue('threeAxis', true))
 		case 'axisX':
 			return rtD.event!=null && rtDEvN=='threeAxis' && rtDEdID ? rtD.event.xyzValue.x:device.currentValue('threeAxis', true).x
 		case 'axisY':
@@ -5248,7 +5260,7 @@ private Map getDeviceAttribute(Map rtD, String deviceId, String attributeName, s
 		switch (attributeName){
 		case 'mode':
 			def mode=location.getCurrentMode()
-			return [t:'string', v:hashId((Long)mode.getId()), n:(String)mode.getName()]
+			return [t:'string', v:hashId(mode.getId().toString()), n:(String)mode.getName()]
 		case 'alarmSystemStatus':
 			String v=location.hsmStatus
 			String n=VirtualDevices()['alarmSystemStatus']?.o[v]
@@ -5802,7 +5814,7 @@ private Map evaluateExpression(Map rtD, Map expression, String dataType=(String)
 					deviceIds=(List)var.v
 				}else{
 					def device=getDevice(rtD, (String)var.v)
-					if(device!=null)deviceIds=[hashId(device.id)]
+					if(device!=null)deviceIds=[hashId(device.id.toString())]
 				}
 			}
 			result=[t:'device', v:deviceIds, a:(String)expression.a]
@@ -6393,14 +6405,15 @@ private Map func_converttemperatureifneeded(Map rtD, List params){
 	if(!checkParams(rtD, params,2)){
 		return [t:'error', v:'Expecting convertTemperatureIfNeeded(temperature, unit)']
 	}
-	Double t=(Double)evaluateExpression(rtD, (Map)params[0], 'decimal').v
 	String u=((String)evaluateExpression(rtD, (Map)params[1], 'string').v).toUpperCase()
-	//convert temperature to Fahrenheit
 	switch ((String)location.temperatureScale){
-		case u: return [t:'decimal', v:t]
+		case u: // matches, return value
+			Double t=(Double)evaluateExpression(rtD, (Map)params[0], 'decimal').v
+			return [t:'decimal', v:t]
 		case 'F': return func_celsius(rtD, [params[0]])
 		case 'C': return func_fahrenheit(rtD, [params[0]])
 	}
+	return [:]
 }
 
 /** integer converts a decimal to integer value			**/
@@ -7625,9 +7638,9 @@ private String md5(String md5){
 
 @Field static Map theHashMapFLD
 
-private String hashId(id, Boolean updateCache=true){
+private String hashId(String id, Boolean updateCache=true){
 	String result
-	String myId=id.toString()
+	String myId=id
 	if(theHashMapFLD!=null) result=(String)theHashMapFLD[myId]
 	else theHashMapFLD=[:]
 	if(result==(String)null){
@@ -8077,6 +8090,7 @@ private Boolean isDeviceLocation(device){
 /**							**/
 /** DEBUG FUNCTIONS					**/
 /**							**/
+
 private void myDetail(Map rtD, String msg, Integer shift=-2){
 	Map a=log(msg, rtD, shift, null, 'warn', true, false)
 }
@@ -8091,7 +8105,7 @@ private Map log(message, Map rtD, Integer shift=-2, err=null, String cmd=(String
 		message=(String)message.m+" (${now()-(Long)message.t}ms)".toString()
 	}
 	String myMsg=message.toString()
-	cmd=cmd ? cmd:'debug'
+	cmd=cmd!=(String)null ? cmd:'debug'
 	//shift is
 	// 0 - initialize level, level set to 1
 	// 1 - start of routine, level up
@@ -8569,7 +8583,7 @@ private static Class HubProtocolClass(){
 }
 
 private Boolean isHubitat(){
-	return hubUID!=null
+	return hubUID!=(String)null
 }
 
 @Field static Map theAttributesFLD
