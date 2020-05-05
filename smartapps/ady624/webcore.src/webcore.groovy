@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated April 17, 2020 for Hubitat
+ * Last Updated May 2, 2020 for Hubitat
 */
 static String version() { return "v0.3.110.20191009" }
 static String HEversion() { return "v0.3.110.20200210_HE" }
@@ -221,7 +221,7 @@ private pageInitializeDashboard() {
 	Boolean success = initializeWebCoREEndpoint()
 	Boolean hasTZ = location.getTimeZone() != null
 	dynamicPage(name: "pageInitializeDashboard", title: "", nextPage: success && hasTZ ? "pageSelectDevices" : null) {
-		if(!state.installed) {
+		if(!(Boolean)state.installed) {
 			if(success) {
 				if(hasTZ) {
 					section() {
@@ -236,7 +236,7 @@ private pageInitializeDashboard() {
 					pageSectionDisclaimer()
 
 					section() {
-						paragraph "${state.installed ? "Tap Done to continue." : "Next, choose a security password for your webCoRE dashboard. You will need to enter this password when accessing your dashboard for the first time, and possibly from time to time, depending on your settings."}", required: false
+						paragraph "${(Boolean)state.installed ? "Tap Done to continue." : "Next, choose a security password for your webCoRE dashboard. You will need to enter this password when accessing your dashboard for the first time, and possibly from time to time, depending on your settings."}", required: false
 					}
 				} else {
 					section() {
@@ -275,11 +275,11 @@ private pageEngineBlock() {
 private pageSelectDevices() {
 	dynamicPage(name: "pageSelectDevices", title: "", nextPage: "pageFinishInstall") {
 		section() {
-			paragraph "${state.installed ? "Select the devices you want webCoRE to have access to." : "Great, now let's select some devices."}"
+			paragraph "${(Boolean)state.installed ? "Select the devices you want webCoRE to have access to." : "Great, now let's select some devices."}"
 			paragraph "A DEVICE ONLY NEEDS TO BE SELECTED ONCE, THE CATEGORIES BELOW ARE TO MAKE THEM EASIER TO FIND."
 			paragraph "It is a good idea to only select the devices you plan on using with webCoRE pistons. Pistons will only have access to the devices you selected."
 		}
-		if(!state.installed) {
+		if(!(Boolean)state.installed) {
 			section (Note) {
 				paragraph "Remember, you can always come back to webCoRE and add or remove devices as needed.", required: true
 			}
@@ -307,7 +307,7 @@ private pageSelectDevices() {
 }
 
 private pageFinishInstall() {
-	Boolean inst = !!state.installed
+	Boolean inst = (Boolean)state.installed
 	if(!inst) initTokens()
 	refreshDevices()
 	dynamicPage(name: "pageFinishInstall", title: "", install: true) {
@@ -529,15 +529,15 @@ void updated() {
 	Boolean chg2 = false
 	Boolean chg3 = false
 
-	if(state.disabled != disabled) {
-		state.disabled = disabled
+	if((Boolean)state.disabled != (Boolean)settings.disabled) {
+		state.disabled = (Boolean)settings.disabled==true
 		chg1 = true
 	}
-	if(state.lPE != logPistonExecutions) {
-		state.lPE = logPistonExecutions
+	if((Boolean)state.lPE != (Boolean)settings.logPistonExecutions) {
+		state.lPE = (Boolean)settings.logPistonExecutions==true
 		chg2 = true
 	}
-	if(state.cV != version() || state.hV != HEversion()) {
+	if((String)state.cV != version() || (String)state.hV != HEversion()) {
 		state.cV = version()
 		state.hV = HEversion()
 		chg3 = true
@@ -559,8 +559,8 @@ public Map getChildPstate() {
 		region: (String)(state.endpoint).contains('graph-eu') ? 'eu' : 'us',
 		instanceId: hashId(app.id),
 		locationId: getLocationSid(),
-		enabled: !disabled,
-		logPExec: logPistonExecutions,
+		enabled: state.disabled!=true,
+		logPExec: state.lPE==true,
 		incidents: getIncidents()
 	]
 }
@@ -580,13 +580,13 @@ private void clearParentPistonCache(String meth=null) {
 }
 
 private void initialize() {
-	if(state.properSID==null || state.properSID!=settings.properSID) {
-		state.properSID=settings.properSID!=null ? settings.properSID : true
+	if((Boolean)state.properSID==null || (Boolean)state.properSID!=(Boolean)settings.properSID) {
+		state.properSID=settings.properSID!=null ? (Boolean)settings.properSID : true
 		if(settings.properSID==null) app.updateSetting("properSID", [type: "bool", value: true])
 		initTokens()
 	}
 	subscribeAll()
-	state.vars = state.vars ?: [:]
+	state.vars = (Map)state.vars ?: [:]
 	state.version = version()
 	state.versionHE = HEversion()
 	refreshDevices()
@@ -771,8 +771,8 @@ private static String normalizeLabel(pis) {
 	if(t0!=(String)null) return t0 else return label
 }
 
-@Field static Map base_resultFLD
-@Field static Integer cntbase_resultFLD
+@Field volatile static Map base_resultFLD
+@Field volatile static Integer cntbase_resultFLD
 
 private Map api_get_base_result(Boolean updateCache = false) {
 	if(base_resultFLD!=null) {
@@ -825,7 +825,7 @@ private Map api_get_base_result(Boolean updateCache = false) {
 			settings: state.settings ?: [:],
 			//lifx: state.lifx ?: [:],
 			virtualDevices: virtualDevices(updateCache),
-			globalVars: listAvailableVariables(),
+			globalVars: listAvailableVariables1(),
 			fuelStreamUrls: getFuelStreamUrls(instanceId),
 		],
 		location: [
@@ -1656,10 +1656,21 @@ private api_intf_dashboard_piston_activity() {
 	Map result
 	//debug "Dashboard: Activity request received $params"
 	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId((String)it.id) == (String)params.id }
+		String pistonId=(String)params.id
+		def piston = getChildApps().find{ hashId((String)it.id) == pistonId }
 		if(piston!=null) {
 			Map t0 = piston.activity(params.log)
-			result = [status: "ST_SUCCESS", activity: (t0 ?: [:]) + [globalVars: listAvailableVariables()/*, mode: hashId(location.getCurrentMode().id), shm: location.currentState("alarmSystemStatus")?.value, hubs: location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}*/]]
+			if(t0!=null){
+				if(t0.state){
+					Map cST=[:]+t0.state
+					cST.remove('old')
+					Map st = state[pistonId]?: [:]
+					st.remove('s')
+					st.s=cST
+					state[pistonId]=st
+				}
+			}
+			result = [status: "ST_SUCCESS", activity: (t0 ?: [:]) + [globalVars: listAvailableVariables1()/*, mode: hashId(location.getCurrentMode().id), shm: location.currentState("alarmSystemStatus")?.value, hubs: location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}*/]]
 		} else {
 			result = api_get_error_result("ERR_INVALID_ID")
 		}
@@ -2003,11 +2014,15 @@ private void setPowerSource(String powerSource, Boolean atomic = true) {
 }
 
 public Map listAvailableVariables() {
+	return (atomicState.vars ?: [:]).sort{ (String)it.key }
+}
+
+Map listAvailableVariables1() {
 	return (state.vars ?: [:]).sort{ (String)it.key }
 }
 
 public Map getGStore() {
-	return (state.store ?: [:]).sort{ (String)it.key }
+	return (atomicState.store ?: [:]).sort{ (String)it.key }
 }
 
 public getPushDev() {
@@ -2155,7 +2170,7 @@ public void myDone(resp, data) {
 /***																		***/
 /******************************************************************************/
 public Boolean isInstalled() {
-	return !!state.installed
+	return (Boolean)state.installed==true
 }
 
 public String generatePistonName() {
@@ -2264,13 +2279,15 @@ public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
 }
 */
 
-@Field static Map p_executionFLD
+@Field volatile static Map p_executionFLD=[:]
 
 public void pCallupdateRunTimeData(Map data){
-	if(p_executionFLD==null) p_executionFLD=[:]
-	Long cnt=p_executionFLD[(String)data.id]!=null ? (Long)p_executionFLD[(String)data.id] : 0L
+	if(!data || !data.id) return
+	String id=(String)data.id
+	Long cnt=p_executionFLD[id]!=null ? (Long)p_executionFLD[id] : 0L
 	cnt +=1
-	p_executionFLD[(String)data.id]=cnt
+	p_executionFLD[id]=cnt
+	p_executionFLD=p_executionFLD
 	updateRunTimeData(data)
 }
 
@@ -2278,12 +2295,13 @@ void updateRunTimeData(Map data){
 	if(!data || !data.id) return
 //	Boolean superGlobal = false
 	List variableEvents = []
+	Boolean usedAtomic=false
 	if(data.gvCache!=null) {
 		Map vars = atomicState.vars ?: [:]
 		Boolean modified = false
 		for(var in (Map)data.gvCache) {
 			String varName=(String)var.key
-			if(varName!=(String)null && varName.startsWith('@') && (vars[varName]) && (var.value.v != vars[varName].v)) {
+			if(varName!=(String)null && varName.startsWith('@') && vars[varName] && var.value.v != vars[varName].v ) {
 				Boolean a=variableEvents.push([name: varName, oldValue: vars[varName].v, value: var.value.v, type: var.value.t])
 				vars[varName].v = var.value.v
 				modified = true
@@ -2293,6 +2311,7 @@ void updateRunTimeData(Map data){
 			}
 		}
 		if(modified) {
+			usedAtomic=true
 			atomicState.vars = vars
 		}
 	}
@@ -2308,6 +2327,7 @@ void updateRunTimeData(Map data){
 			modified = true
 		}
 		if(modified) {
+			usedAtomic=true
 			atomicState.store = store
 		}
 	}
@@ -2318,13 +2338,13 @@ void updateRunTimeData(Map data){
 	Map piston = [
 		a: (Boolean)data.active,
 		c: data.category,
-		t: now(), //last run
+		t: data.t ?:now(), //last run
 		n: (Long)data.stats.nextSchedule,
 		z: (String)data.piston.z, //description
 		s: st, //state
 	]
-	//atomicState[id] = piston
-	state[id] = piston
+	if(usedAtomic)atomicState[id] = piston
+	else state[id] = piston
 	clearBaseResult('updateRunTimeData')
 	//broadcast variable change events
 	for (Map variable in variableEvents) { // this notifies the other webCoRE master instances and children
@@ -2440,10 +2460,10 @@ def webCoREHandler(event) {
 	def data = event.jsonData ?: null
 //log.error "GOT EVENT WITH DATA $data"
 	if(data && data.variable && ((String)data.event == 'variable') && event.value && event.value.startsWith('@@')) {
-		Map vars = atomicState.vars ?: [:]
 		Map variable = data.variable
-		def oldVar = vars[(String)variable.name] ?: [t:'', v:'']
 		String vType = (String)variable.type ?: 'dynamic'
+		Map vars = atomicState.vars ?: [:]
+		def oldVar = vars[(String)variable.name] ?: [t:'', v:'']
 		if(((String)oldVar.t != vType) || (oldVar.v != variable.value)) { // only notify if it is a change for us.
 			vars[(String)variable.name] = [t: vType, v: variable.value]
 			atomicState.vars = vars
@@ -2755,12 +2775,14 @@ private static Map capabilities() {
 		energyMeter			: [ n: "Energy Meter",			d: "energy meters",			a: "energy",									],
 		estimatedTimeOfArrival		: [ n: "Estimated Time of Arrival",	d: "moving devices (ETA)",		a: "eta",									],
 		fanControl			: [ n: "Fan Control",			d: "fan devices",			a: "speed",		c: ["setSpeed"],					],
+		filterStatus			: [ n: "Filter Status",			d: "filters",				a: "filterStatus",								],
 		garageDoorControl		: [ n: "Garage Door Control",		d: "automatic garage doors",		a: "door",		c: ["close", "open"],					],
 		illuminanceMeasurement		: [ n: "Illuminance Measurement",	d: "illuminance sensors",		a: "illuminance",										],
 		imageCapture			: [ n: "Image Capture",			d: "cameras, imaging devices",		a: "image",		c: ["take"],						],
 		indicator			: [ n: "Indicator",			d: "indicator devices",			a: "indicatorStatus",	c: ["indicatorNever", "indicatorWhenOn", "indicatorWhenOff"],		],
 		infraredLevel			: [ n: "Infrared Level",		d: "adjustable infrared lights",	a: "infraredLevel",	c: ["setInfraredLevel"],						],
 		light				: [ n: "Light",				d: "lights",				a: "switch",		c: ["off", "on"],							],
+		lightEffects			: [ n: "Light Effects",			d: "light effects",			a: "effectName",	c: ["setEffect", "setNextEffect", "setPreviousEffect"],			],
 		lock				: [ n: "Lock",				d: "electronic locks",			a: "lock",		c: ["lock", "unlock"],	s:"numberOfCodes,numCodes", i: "usedCode",	],
 		lockCodes			: [ n: "Lock Codes",			d: "locks lock codes",			a: "codeChanged",	c: ["deleteCode", "getCodes", "setCode", "setCodeLength"],		],
 		lockOnly			: [ n: "Lock Only",			d: "electronic locks (lock only)",	a: "lock",		c: ["lock"],								],
@@ -2860,6 +2882,8 @@ private static Map attributes() {
 		door				: [ n: "door",				t: "enum",		o: ["closed", "closing", "open", "opening", "unknown"],			p: true,					],
 		energy				: [ n: "energy",			t: "decimal",	r: [0, null],		u: "kWh",						],
 		eta				: [ n: "ETA",				t: "datetime",											],
+		effectName			: [ n: "effect name",			t: "string",											],
+		filterStatus			: [ n: "filter status",			t: "enum",		o:["normal", "replace"],						],
 		goal				: [ n: "goal",				t: "integer",	r: [0, null],									],
 		heatingSetpoint			: [ n: "heating setpoint",		t: "decimal",	r: [-127, 127],		u: '°?',						],
 		hex				: [ n: "hexadecimal code",		t: "hexcolor",											],
@@ -2870,6 +2894,7 @@ private static Map attributes() {
 		indicatorStatus			: [ n: "indicator status",		t: "enum",		o: ["never", "when off", "when on"],					],
 		infraredLevel			: [ n: "infrared level",		t: "integer",	r: [0, 100],		u: "%",							],
 		level				: [ n: "level",				t: "integer",	r: [0, 100],		u: "%",							],
+		lightEffects			: [ n: "light effects",			t: "object",											],
 		lock				: [ n: "lock",				t: "enum",		o: ["locked", "unknown", "unlocked", "unlocked with timeout"],	c: "lock",			s:"numberOfCodes,numCodes", i:"usedCode", sd: "user code"		],
 		lockCodes			: [ n: "lock codes",			t: "object",											],
 		lqi				: [ n: "link quality",			t: "integer",	r: [0, 255],									],
@@ -3026,12 +3051,15 @@ private static Map commands() {
 		setColorTemperature		: [ n: "Set color temperature...",		d: "Set color temperature to {0}°K{1}",			a: "colorTemperature",			p: [[n:"Color Temperature", t:"colorTemperature"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],	],
 		setConsumableStatus		: [ n: "Set consumable status...",		d: "Set consumable status to {0}",								p: [[n:"Status", t:"consumable"]],		],
 		setCoolingSetpoint		: [ n: "Set cooling point...",			d: "Set cooling point at {0}{T}",			a: "thermostatCoolingSetpoint",		p: [[n:"Desired temperature", t:"thermostatSetpoint"]],	],
+		setEffect			: [ n: "Set Light Effect...",			d: "Set light effect to {0}",									p: [[n:"Effect number",t:"integer"]],				],
 		setEntryDelay			: [ n: "Set Entry Delay...",			d: "Set entry delay to {0}",									p: [[n:"Entry Delay",t:"integer"]],				],
 		setExitDelay			: [ n: "Set Exit Delay...",			d: "Set exit delay to {0}",									p: [[n:"Exit Delay",t:"integer"]],				],
 		setHeatingSetpoint		: [ n: "Set heating point...",			d: "Set heating point at {0}{T}",			a: "thermostatHeatingSetpoint",		p: [[n:"Desired temperature", t:"thermostatSetpoint"]],																	],
 		setHue				: [ n: "Set hue...",		i: 'palette', is: "l",	d: "Set hue to {0}°{1}",			a: "hue",				p: [[n:"Hue", t:"hue"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],								],
 		setInfraredLevel		: [ n: "Set infrared level...",	i: 'signal',	d: "Set infrared level to {0}%{1}",			a: "infraredLevel",			p: [[n:"Level",t:"infraredLevel"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],					],
 		setLevel			: [ n: "Set level...",		i: 'signal',	d: "Set level to {0}%{1}",				a: "level",				p: [[n:"Level",t:"level"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],							],
+		setNextEffect			: [ n: "Set next light effect",																					],
+		setPreviousEffect		: [ n: "Set previous light effect",																					],
 		setPosition			: [ n: "Move to position",										a: "position",				p: [[n:"Position", t:"position"]],		],
 		setSaturation			: [ n: "Set saturation...",			d: "Set saturation to {0}{1}",				a: "saturation",			p: [[n:"Saturation", t:"saturation"], [n:"Only if switch is...", t:"enum",o:["on","off"], d:" if already {v}"]],					],
 		setSchedule			: [ n: "Set thermostat schedule...",		d: "Set schedule to {0}",				a: "schedule",				p: [[n:"Schedule", t:"object"]],			],

@@ -697,7 +697,7 @@ private getImgName(wCode, is_day){
 ]
 
 // From Darksky.net driver for HE https://community.hubitat.com/t/release-darksky-net-weather-driver-no-pws-required/22699 
-String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean isNight=false){
+static String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean isNight=false){
 	switch(icon){
 		case 'rain':
 		// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
