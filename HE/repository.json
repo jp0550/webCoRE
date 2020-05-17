@@ -1,6 +1,7 @@
 {
   "author": "imnot_bob",
   "payPalUrl": "https://www.paypal.me/ady624",
+  "gitHubUrl": "https://github.com/imnotbob",
   "packages": [
     {
       "name": "webCoRE",
