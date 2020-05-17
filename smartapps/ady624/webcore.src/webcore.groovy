@@ -18,16 +18,16 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated May 2, 2020 for Hubitat
+ * Last Updated May 16, 2020 for Hubitat
 */
-static String version() { return "v0.3.110.20191009" }
-static String HEversion() { return "v0.3.110.20200210_HE" }
+static String version(){ return "v0.3.110.20191009" }
+static String HEversion(){ return "v0.3.110.20200515_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
-private static String handle() { return "webCoRE" }
-private static String domain() { return "webcore.co" }
+private static String handle(){ return "webCoRE" }
+private static String domain(){ return "webcore.co" }
 
 definition(
 	name: handle(),
@@ -76,65 +76,65 @@ preferences{
 /******************************************************************************/
 /*** COMMON PAGES															***/
 /******************************************************************************/
-def pageMain() {
+def pageMain(){
 	//webCoRE Dashboard initialization
-	Boolean success = initializeWebCoREEndpoint()
-	if(!(Boolean)state.installed) {
-		return dynamicPage(name: "pageMain", title: "", install: false, uninstall: false, nextPage: "pageInitializeDashboard") {
-			section() {
+	Boolean success=initializeWebCoREEndpoint()
+	if(!(Boolean)state.installed){
+		return dynamicPage(name: "pageMain", title: "", install: false, uninstall: false, nextPage: "pageInitializeDashboard"){
+			section(){
 				paragraph "Welcome to "+handle()
 				paragraph "You will be guided through a few installation steps that should only take a minute."
 			}
-			if(success) {
-				if(!state.oAuthRequired) {
-					section('Note') {
+			if(success){
+				if(!state.oAuthRequired){
+					section('Note'){
 						paragraph "If you have previously installed webCoRE and are trying to open it, please go back to Apps in the HE console access webCoRE.\r\n\r\nIf you are trying to install another instance of webCoRE then please continue with the steps.", required: true
 					}
 				}
-				if(location.getTimeZone()) {
-					section() {
+				if(location.getTimeZone()){
+					section(){
 						paragraph "It looks like you are ready to go, please tap Next"
 					}
-				} else {
-					section() {
+				}else{
+					section(){
 						paragraph "Your location is not correctly setup."
 					}
 					pageSectionTimeZoneInstructions()
 				}
-			} else {
-				section() {
+			}else{
+				section(){
 					paragraph "We'll start by configuring. You need to setup OAuth in the HE console for the webCoRE App."
 				}
 				pageSectionInstructions()
-				section () {
+				section (){
 					paragraph "Once you have finished the steps above, tap Next", required: true
 				}
 			}
 		}
 	}
 	//webCoRE main page
-	dynamicPage(name: "pageMain", title: "", install: true, uninstall: false) {
-		if(settings.agreement == undefined) {
+	dynamicPage(name: "pageMain", title: "", install: true, uninstall: false){
+		if(settings.agreement == undefined){
 			pageSectionDisclaimer()
 		}
 
-		if(settings.agreement) {
-			section("Engine block") {
+		if(settings.agreement){
+			section("Engine block"){
 				href "pageEngineBlock", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/app-CoRE.png", inputTitleStr("Cast iron")), description: app.version()+" HE: "+ app.HEversion(), required: false
 			}
 		}
 
-		section("Dashboard") {
-			if(!state.endpoint) {
+		section("Dashboard"){
+			if(!state.endpoint){
 				href "pageInitializeDashboard", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), description: "Tap to initialize", required: false
-			} else {
+			}else{
 				//trace "*** DO NOT SHARE THIS LINK WITH ANYONE *** Dashboard URL: ${getDashboardInitUrl()}"
 				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/dashboard.png", inputTitleStr("Dashboard")), style: "external", url: getDashboardInitUrl(), description: "Tap to open", required: false
 				href "", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/browser-reg.png", inputTitleStr("Register a browser")), style: "embedded", url: getDashboardInitUrl(true), description: "Tap to open", required: false
 			}
 		}
 
-		section(title:"Settings") {
+		section(title:"Settings"){
 			href "pageSettings", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/settings.png", inputTitleStr("Settings")), required: false
 		}
 
@@ -146,54 +146,53 @@ private static String inputTitleStr(String title)	{ return '<u>'+title+'</u>' }
 private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
 private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
 
-private static String imgTitle(String imgSrc, String titleStr, String color=(String)null, Integer imgWidth=30, Integer imgHeight=0) {
-	String imgStyle = ''
+private static String imgTitle(String imgSrc, String titleStr, String color=(String)null, Integer imgWidth=30, Integer imgHeight=0){
+	String imgStyle=''
 	imgStyle += imgWidth ? "width: ${imgWidth}px !important;" : ""
 	imgStyle += imgHeight ? "${imgWidth ? " " : ""}height: ${imgHeight}px !important;" : ""
-	if(color!=(String)null) { return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""".toString()
-	}
-	else { return """<img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img>""".toString()
+	if(color!=(String)null){ return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""".toString()
+	}else{ return """<img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img>""".toString()
 	}
 }
 
 
-private pageSectionDisclaimer() {
-	section('Disclaimer') {
+private pageSectionDisclaimer(){
+	section('Disclaimer'){
 		paragraph "Please read the following information carefully", required: true
 		paragraph "webCoRE is a web-enabled product, which means data travels across the internet. webCoRE is using TLS for encryption of data and NEVER provides real object IDs to any system outside the WebCoRE server. The IDs are hashed into a string of letters and numbers that cannot be 'decoded' back to their original value. These hashed IDs are stored by your browser and can be cleaned up by using the Logout action in the dashboard."
 		paragraph "Access to a webCoRE App is done through the browser using a security password provided during the installation of webCoRE. The browser never stores this password and it is only used during the initial registration and authentication of your browser. A security token is generated for each browser and is used for any subsequent communication. This token expires at a preset life length, or when the password is changed, or when the tokens are manually revoked from the webCoRE App's Settings menu."
 	}
-	section('Server-side features') {
+	section('Server-side features'){
 		paragraph "Some features require that a webcore.co server processes your data. Such features include emails (sending emails out, or triggering pistons with emails), inter-location communication for superglobal variables, fuel streams, backup bins."
 		paragraph "At no time does the server receive any real IDs of HE objects, the instance security password, nor the instance security token that your browser uses to communicate with the App. The server is therefore unable to access any information that only an authenticated browser can."
 	}
-	section('Information collected by the server') {
+	section('Information collected by the server'){
 		paragraph "The webcore.co server(s) collect ANONYMIZED hashes of 1) your unique account identifier, 2) your locations, and 3) installed webCoRE instances. It also collects an encrypted version of your app instances' endpoints that allow the server to trigger pistons on emails (if you use that feature), proxy IFTTT requests to your pistons, or provide inter-location communication between your webCoRE instances, as well as data points provided by you when using the Fuel Stream feature. It also allows for automatic browser registration when you use another browser, by providing that browser basic information about your existing instances. You will still need to enter the password to access each of those instances, the server does not have the password, nor the security tokens."
 	}
-	section('Information NOT collected by the server') {
+	section('Information NOT collected by the server'){
 		paragraph "The webcore.co server(s) do NOT intentionally collect any real object IDs from HE, any names, phone numbers, email addresses, physical location information, addresses, or any other personally identifiable information."
 	}
-	section('Fuel Streams') {
+	section('Fuel Streams'){
 		paragraph "The information you provide while using the Fuel Stream feature is not encrypted and is not filtered in any way. Please avoid providing personally identifiable information in either the canister name, the fuel stream name, or the data point."
 	}
-	section('Local webCoRE servers') {
+	section('Local webCoRE servers'){
 		paragraph "Advanced users may enable a local webcore server. No data sharing with external webCoRE servers is done if this is configured/enabled. Some features may not be available if you choose to do this."
 	}
-	section('Agreement') {
+	section('Agreement'){
 		paragraph "Certain advanced features may not work if you do not agree to the webcore.co servers collecting the anonymized information described above."
 		input "agreement", "bool", title: "Allow webcore.co to collect basic, anonymized, non-personally identifiable information", defaultValue: true
 	}
 }
 
-private pageDisclaimer() {
-	dynamicPage(name: "pageDisclaimer", title: "") {
+private pageDisclaimer(){
+	dynamicPage(name: "pageDisclaimer", title: ""){
 		pageSectionDisclaimer()
 	}
 }
 
-private pageSectionInstructions() {
-	state.oAuthRequired = true
-	section () {
+private pageSectionInstructions(){
+	state.oAuthRequired=true
+	section (){
 		paragraph "Please follow these steps:", required: true
 		paragraph "1. Go to your HE console and log in", required: true
 		paragraph "2. Click on 'Apps Code' and locate the 'webCoRE' App in the list", required: true
@@ -204,8 +203,8 @@ private pageSectionInstructions() {
 	}
 }
 
-private pageSectionTimeZoneInstructions() {
-	section () {
+private pageSectionTimeZoneInstructions(){
+	section (){
 		paragraph "Please follow these steps to setup your location timezone:", required: true
 		paragraph "1. Using the HE console, abort this installation and go to 'Settings' section", required: true
 		paragraph "2. Click on 'Location and Modes'", required: true
@@ -216,44 +215,43 @@ private pageSectionTimeZoneInstructions() {
 	}
 }
 
-private pageInitializeDashboard() {
+private pageInitializeDashboard(){
 	//webCoRE Dashboard initialization
-	Boolean success = initializeWebCoREEndpoint()
-	Boolean hasTZ = location.getTimeZone() != null
-	dynamicPage(name: "pageInitializeDashboard", title: "", nextPage: success && hasTZ ? "pageSelectDevices" : null) {
-		if(!(Boolean)state.installed) {
-			if(success) {
-				if(hasTZ) {
-					section() {
+	Boolean success=initializeWebCoREEndpoint()
+	Boolean hasTZ=location.getTimeZone() != null
+	dynamicPage(name: "pageInitializeDashboard", title: "", nextPage: success && hasTZ ? "pageSelectDevices" : null){
+		if(!(Boolean)state.installed){
+			if(success){
+				if(hasTZ){
+					section(){
 						paragraph "Great, ready to go."
 					}
-					section() {
+					section(){
 						paragraph "Now, please choose a name for this webCoRE instance"
-							//label name: "name", title: "Name", defaultValue: "webCoRE", required: false
 							label name: "name", title: "Name", state: (name ? "complete" : null), defaultValue: app.name, required: false
 					}
 
 					pageSectionDisclaimer()
 
-					section() {
+					section(){
 						paragraph "${(Boolean)state.installed ? "Tap Done to continue." : "Next, choose a security password for your webCoRE dashboard. You will need to enter this password when accessing your dashboard for the first time, and possibly from time to time, depending on your settings."}", required: false
 					}
-				} else {
-					section() {
+				}else{
+					section(){
 						paragraph "Your location is not correctly setup."
 					}
 					pageSectionTimeZoneInstructions()
-					section () {
+					section (){
 						paragraph "Once you have finished the steps above, go back and try again", required: true
 					}
 					return
 				}
-			} else {
-				section() {
+			}else{
+				section(){
 					paragraph "Sorry, it looks like OAuth is not properly enabled."
 				}
 				pageSectionInstructions()
-				section () {
+				section (){
 					paragraph "Once you have finished the steps above, go back and try again", required: true
 				}
 				return
@@ -263,88 +261,88 @@ private pageInitializeDashboard() {
 	}
 }
 
-private pageEngineBlock() {
-	dynamicPage(name: "pageEngineBlock", title: "") {
-		section() {
+private pageEngineBlock(){
+	dynamicPage(name: "pageEngineBlock", title: ""){
+		section(){
 			paragraph "Under construction. This will help you upgrade your engine block to get access to extra features such as email triggers, fuel streams, and more."
 		}
 	}
 }
 
 
-private pageSelectDevices() {
-	dynamicPage(name: "pageSelectDevices", title: "", nextPage: "pageFinishInstall") {
-		section() {
+private pageSelectDevices(){
+	dynamicPage(name: "pageSelectDevices", title: "", nextPage: "pageFinishInstall"){
+		section(){
 			paragraph "${(Boolean)state.installed ? "Select the devices you want webCoRE to have access to." : "Great, now let's select some devices."}"
 			paragraph "A DEVICE ONLY NEEDS TO BE SELECTED ONCE, THE CATEGORIES BELOW ARE TO MAKE THEM EASIER TO FIND."
 			paragraph "It is a good idea to only select the devices you plan on using with webCoRE pistons. Pistons will only have access to the devices you selected."
 		}
-		if(!(Boolean)state.installed) {
-			section (Note) {
+		if(!(Boolean)state.installed){
+			section (Note){
 				paragraph "Remember, you can always come back to webCoRE and add or remove devices as needed.", required: true
 			}
-			section() {
+			section(){
 				paragraph "So go ahead, select a few devices, then tap Next"
 			}
 		}
 
-		section (sectionTitleStr('Select devices by type')) {
+		section (sectionTitleStr('Select devices by type')){
 			paragraph "Most devices should fall into one of these categories"
 			input "dev:actuator", "capability.actuator", multiple: true, title: "Actuators", required: false
 			input "dev:sensor", "capability.sensor", multiple: true, title: "Sensors", required: false
 			input "dev:all", "capability.*", multiple: true, title: "Devices", required: false
 		}
 
-		section (sectionTitleStr('Select devices by capability')) {
+		section (sectionTitleStr('Select devices by capability')){
 			paragraph "If you cannot find a device by type, you may try looking for it by category below"
 			def d=null
-			for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }) {
+			for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }){
 				if(capability.value.d != d) input "dev:${capability.key}", "capability.${capability.key}", multiple: true, title: "Which ${capability.value.d}", required: false
-				d = capability.value.d
+				d=capability.value.d
 			}
 		}
 	}
 }
 
-private pageFinishInstall() {
-	Boolean inst = (Boolean)state.installed
+private pageFinishInstall(){
+	Boolean inst=(Boolean)state.installed
 	if(!inst) initTokens()
 	refreshDevices()
-	dynamicPage(name: "pageFinishInstall", title: "", install: true) {
-		if(!inst) {
-			section() {
+	dynamicPage(name: "pageFinishInstall", title: "", install: true){
+		if(!inst){
+			section(){
 				paragraph "Excellent! You are now ready to use webCoRE"
 			}
-			section("Note") {
+			section("Note"){
 				paragraph "After you tap Done, go to 'Apps', and open the '${app.label}' App to access the dashboard.", required: true
 				paragraph "You can also access the dashboard on any another device by entering ${domain()} in the address bar of your browser.", required: true
 			}
-			section() {
+			section(){
 				paragraph "Now tap Done and enjoy webCoRE!"
 			}
-		} else {
-			section() {
+		}else{
+			section(){
 				paragraph "Devices updated"
 			}
 		}
 	}
 }
 
-def pageSettings() {
+def pageSettings(){
 	//clear devices cache
-	dynamicPage(name: "pageSettings", title: "", install: false, uninstall: false) {
-		section("General") {
+	dynamicPage(name: "pageSettings", title: "", install: false, uninstall: false){
+		section("General"){
 			label name: "name", title: "Name", state: (name ? "complete" : null), defaultValue: app.name, required: false
 		}
 
 /*
-		def storageApp = getStorageApp()
-		if(storageApp!=null) {
-			section("Storage Application") {
+		def storageApp=getStorageApp()
+		if(storageApp!=null){
+			section("Storage Application"){
 				app([title: isHubitat() ? 'Do not click - App Launchs automatically' : 'Available Devices', multiple: false, install: true, uninstall: false], 'storage', 'ady624', "${handle()} Storage")
 			}
-		} else {*/
-			section("Available devices") {
+		}else{*/
+			section("Available devices"){
 				href "pageSelectDevices", title: "Available devices", description: "Tap to select which devices are available to pistons"
 			}
 		//}
@@ -353,12 +351,12 @@ def pageSettings() {
 			input "pushDevice", "capability.notification", title: "Notification device for pushMessage (HE PhoneApp or pushOver)", multiple: true, required: false, submitOnChange: true
 		}
 	
-		String defaultLoc = weatherType == 'DarkSky' ? "${location.latitude},${location.longitude}".toString() : "${location.zipCode}".toString()
-		String mreq = weatherType
-		String zipDesc = weatherType == 'DarkSky' ? "Override latitude,longitude (Default: ${location.latitude},${location.longitude})?".toString() : "Override zip code (${location.zipCode}), or set city name or latitude,longitude?".toString()
-		section(sectionTitleStr('enable \$weather via external provider')) {
+		String defaultLoc=weatherType == 'DarkSky' ? "${location.latitude},${location.longitude}".toString() : "${location.zipCode}".toString()
+		String mreq=weatherType
+		String zipDesc=weatherType == 'DarkSky' ? "Override latitude,longitude (Default: ${location.latitude},${location.longitude})?".toString() : "Override zip code (${location.zipCode}), or set city name or latitude,longitude?".toString()
+		section(sectionTitleStr('enable \$weather via external provider')){
 			input "weatherType", "enum", title: "Weather Type to enable?", defaultValue: '', submitOnChange: true, required: false, options:['apiXU', 'DarkSky', '']
-			if(weatherType!='') {
+			if(weatherType!=''){
 				input "apixuKey", "text", title: mreq+" key?", required: !!weatherType
 				input "zipCode", "text", title: zipDesc, defaultValue: defaultLoc, required: false
 			}
@@ -371,35 +369,35 @@ def pageSettings() {
 			}
 		}
 	
-/*		section("Integrations") {
+/*		section("Integrations"){
 			href "pageIntegrations", title: "Integrations with other services", description: "Tap to configure your integrations"
 		}*/
 
-		section(sectionTitleStr("Security")) {
+		section(sectionTitleStr("Security")){
 			href "pageChangePassword", title: "Security", description: "Tap to change your dashboard security settings"
 		}
 
-		section(sectionTitleStr("Custom Endpoints - Advanced")) {
+		section(sectionTitleStr("Custom Endpoints - Advanced")){
 			paragraph "Custom Endpoints allows use of a local hub address and optionally a local WebCoRE server"
 			input "customEndpoints", "bool", submitOnChange: true, title: "Use custom endpoints?", default: false, required: true
-			if(customEndpoints){
+			if((Boolean)customEndpoints){
 				input "customHubUrl", "string", title: "Custom hub (local) url different from https://cloud.hubitat.com", submitOnChange: true,default: null, required: false
-				Boolean req = false
-				if(customEndPoints && customHubUrl) req = true
+				Boolean req=false
+				if((Boolean)customEndPoints && (String)customHubUrl) req=true
 				input "customWebcoreInstanceUrl", "string", title: "Custom webcore server instance url different from dashboard.webcore.co", default: null, required: req
-				if(customHubUrl) paragraph "If you enter a custom hub url you MUST use a custom webcore server instance url, as dashboard.webcore.co site is restricted to hubitat and smartthing's cloud access only"
+				if((String)customHubUrl) paragraph "If you enter a custom hub url you MUST use a custom webcore server instance url, as dashboard.webcore.co site is restricted to Hubitat and Smartthing's cloud access only"
 			}
 		}
 
-		section(sectionTitleStr("Logging")) {
+		section(sectionTitleStr("Logging")){
 			input "logging", "enum", title: "Logging level", options: ["None", "Minimal", "Medium", "Full"], description: "Enable Logs in platform logs", defaultValue: "None", required: false
 		}
 
-		section(title:"Privacy") {
+		section(title:"Privacy"){
 			href "pageDisclaimer", title: imgTitle("https://raw.githubusercontent.com/ady624/webCoRE/master/resources/icons/settings.png", inputTitleStr("Data Collection Notice")), required: false
 		}
 
-		section(title: "Maintenance") {
+		section(title: "Maintenance"){
 			paragraph "Memory usage is at ${mem()}", required: false
 			input "disabled", "bool", title: "Disable all pistons", description: "Disable all pistons belonging to this instance", defaultValue: false, required: false
 			input "logPistonExecutions", "bool", title: "Log piston executions?", description: "Tap to change logging pistons as hub location events", defaultValue: false, required: false
@@ -407,12 +405,12 @@ def pageSettings() {
 			href "pageRebuildCache", title: "Clean up and rebuild data cache", description: "Tap to change your clean up and rebuild your data cache"
 		}
 
-		section(title: "Recovery") {
+		section(title: "Recovery"){
 			paragraph "webCoRE can run a recovery procedure every so often. This augments the built-in automatic recovery procedures that allows webCoRE to rely on all healthy pistons to keep the failed ones running."
 			input "recovery", "enum", title: "Run recovery", options: ["Never", "Every 5 minutes", "Every 10 minutes", "Every 15 minutes", "Every 30 minutes", "Every 1 hour", "Every 3 hours"], description: "Allows recovery procedures to run every so often", defaultValue: "Every 30 minutes", required: true
 		}
 
-		section("Uninstall") {
+		section("Uninstall"){
 			href "pageRemove", title: "Uninstall webCoRE", description: "Tap to uninstall ${handle()}"
 		}
 
@@ -427,28 +425,28 @@ private pageFuelStreams(){
 	}
 }
 
-private pageChangePassword() {
-	dynamicPage(name: "pageChangePassword", title: "", uninstall: false, install: false) {
-		section(title: "Location SID") {
+private pageChangePassword(){
+	dynamicPage(name: "pageChangePassword", title: "", uninstall: false, install: false){
+		section(title: "Location SID"){
 			input "properSID", "bool", title: "Use New SID for location?", description: "Tap to change", defaultValue: true, required: false
 		}
-		section() {
+		section(){
 			paragraph "Choose a security password for your dashboard. You will need to enter this password when accessing your dashboard for the first time and possibly from time to time.", required: false
 		}
 		pageSectionPIN()
-		section() {
+		section(){
 			href "pageSavePassword", title: "Clear all Security Tokens", description: "Tap to clear all security tokens in use by browsers"
 		}
 	}
 }
 
-private pageSectionPIN() {
-	section() {
+private pageSectionPIN(){
+	section(){
 		input "PIN", "password", title: "Choose a security password for your dashboard", required: true
 		input "expiry", "enum", options: ["Every hour", "Every day", "Every week", "Every month (recommended)", "Every three months", "Never (not recommended)"], defaultValue: "Every month (recommended)", title: "Choose how often the dashboard login expires", required: true
 	}
-	if(settings.PIN) {
-		section() {
+	if(settings.PIN){
+		section(){
 			paragraph "The webCoRE dashboard uses an access token to communicate with the webCoRE app on your Hubitat Hub. In some cases you may choose to invalidate it periodically for increased security.", required: false
 			paragraph "If your dashboard fails to load and no log messages appear in Hubitat console 'Logs' when you refresh the dashboard, resetting the access token may restore access to webCoRE.", required: false
 			href "pageResetEndpoint", title: "Reset access token", description: "WARNING: External URLs for triggering pistons or accessing piston URLs will need to be updated"
@@ -456,41 +454,41 @@ private pageSectionPIN() {
 	}
 }
 
-private pageSavePassword() {
+private pageSavePassword(){
 	initTokens()
-	dynamicPage(name: "pageSavePassword", install: false, uninstall: false, title: "") {
-		section() {
+	dynamicPage(name: "pageSavePassword", install: false, uninstall: false, title: ""){
+		section(){
 			paragraph "Tokens have been Cleared. You will have to re-login to the webCoRE dashboards."
 		}
 	}
 }
 
-def pageRebuildCache() {
+def pageRebuildCache(){
 	cleanUp()
-	dynamicPage(name: "pageRebuildCache", title: "", install: false, uninstall: false) {
-		section() {
+	dynamicPage(name: "pageRebuildCache", title: "", install: false, uninstall: false){
+		section(){
 			paragraph "Success! Data cache has been cleaned up and rebuilt."
 		}
 	}
 }
 
-def pageResetEndpoint() {
+def pageResetEndpoint(){
 	revokeAccessToken()
-	Boolean success = initializeWebCoREEndpoint()
-	state.lastRecovered = 0L
-	state.lastReg = 0L
+	Boolean success=initializeWebCoREEndpoint()
+	lastRecoveredFLD=0L
+	lastRegFLD=0L
 	updated()
-	dynamicPage(name: "pageResetEndpoint", title: "", install: false, uninstall: false) {
-		section() {
+	dynamicPage(name: "pageResetEndpoint", title: "", install: false, uninstall: false){
+		section(){
 			paragraph "Success: $success Please sign out and back in to the webCoRE dashboard."
 			paragraph "If you use external URLs to trigger pistons, these URLs must be updated. See the piston detail page for an updated external URL; all pistons will use the same new token."
 		}
 	}
 }
 
-def pageRemove() {
-	dynamicPage(name: "pageRemove", title: "", install: false, uninstall: true) {
-		section('CAUTION') {
+def pageRemove(){
+	dynamicPage(name: "pageRemove", title: "", install: false, uninstall: true){
+		section('CAUTION'){
 			paragraph "You are about to completely remove webCoRE and all of its pistons.", required: true
 			paragraph "This action is irreversible.", required: true
 			paragraph "If you are sure you want to do this, please tap on the Remove button below.", required: true
@@ -498,10 +496,10 @@ def pageRemove() {
 	}
 }
 
-void revokeAccessToken() {
+void revokeAccessToken(){
 	state.accessToken=null
-	state.endpoint = (String)null
-	state.endpointLocal = (String)null
+	state.endpoint=(String)null
+	state.endpointLocal=(String)null
 	resetFuelStreamList()
 	initTokens()
 }
@@ -514,81 +512,106 @@ void revokeAccessToken() {
 /******************************************************************************/
 
 
-void installed() {
-	state.installed = true
+void installed(){
+	state.installed=true
 	initialize()
 }
 
-void updated() {
+void updated(){
 	info "Updated ran webCoRE "+version()+" HE: "+HEversion()
 	unsubscribe()
 	unschedule()
 	initialize()
 
-	Boolean chg1 = false
-	Boolean chg2 = false
-	Boolean chg3 = false
+	Boolean chg=false
+	Boolean forceResub=false
 
-	if((Boolean)state.disabled != (Boolean)settings.disabled) {
-		state.disabled = (Boolean)settings.disabled==true
-		chg1 = true
+	if((Boolean)atomicState.disabled != (Boolean)settings.disabled){
+		atomicState.disabled=(Boolean)settings.disabled==true
+		chg=true
 	}
-	if((Boolean)state.lPE != (Boolean)settings.logPistonExecutions) {
-		state.lPE = (Boolean)settings.logPistonExecutions==true
-		chg2 = true
+	if((Boolean)atomicState.lPE != (Boolean)settings.logPistonExecutions){
+		atomicState.lPE=(Boolean)settings.logPistonExecutions==true
+		chg=true
 	}
-	if((String)state.cV != version() || (String)state.hV != HEversion()) {
-		state.cV = version()
-		state.hV = HEversion()
-		chg3 = true
+	if((String)atomicState.cV != version() || (String)atomicState.hV != HEversion()){
+		debug "Detected version change ${state.cV} ${version()} ${state.hV} ${HEversion()}"
+		atomicState.cV=version()
+		atomicState.hV=HEversion()
+		forceResub=true
+		chg=true
 	}
-	if(chg1 || chg2 || chg3) {
-		clearParentPistonCache("parent updated")
+	if((Boolean)atomicState.lFS != (Boolean)settings.localFuelStreams){
+		atomicState.lFS=(Boolean)settings.localFuelStreams==true
+		chg=true
+	}
+	if(chg){
+		clearParentPistonCache("parent updated", forceResub)
+		cleanUp()
 		resetFuelStreamList()
 	}
 	clearBaseResult('updated')
 }
 
-public Map getChildPstate() {
-	def msettings = atomicState.settings
+public Map getChildPstate(){
+	def msettings=atomicState.settings
 	return [
 		sCv: version(),
 		sHv: HEversion(),
 		stsettings: msettings,
 		powerSource: state.powerSource ?: 'mains',
 		region: (String)(state.endpoint).contains('graph-eu') ? 'eu' : 'us',
-		instanceId: hashId(app.id),
+		instanceId: getInstanceSid(),
 		locationId: getLocationSid(),
-		enabled: state.disabled!=true,
-		logPExec: state.lPE==true,
-		incidents: getIncidents()
+		enabled: (Boolean)atomicState.disabled!=true,
+		logPExec: (Boolean)atomicState.lPE==true,
+		incidents: getIncidents(),
+		useLocalFuelStreams: (Boolean)atomicState.lFS==true
 	]
 }
 
-private void clearGlobalPistonCache(String meth=null) {
-	String name = handle() + ' Piston'
-	def t0 = getChildApps().findAll{ (String)it.name == name }
-	def t1 = t0[0]
+private void clearGlobalPistonCache(String meth=null){
+	String name=handle() + ' Piston'
+	def t0=getChildApps().findAll{ (String)it.name == name }
+	def t1=t0[0]
 	if(t1!=null) t1.clearGlobalCache(meth) // will cause a child to read global Vars
 }
 
-private void clearParentPistonCache(String meth=null) {
-	String name = handle() + ' Piston'
-	def t0 = getChildApps().findAll{ (String)it.name == name }
-	def t1 = t0[0]
-	if(t1!=null) t1.clearParentCache(meth) // will cause a child to read getChildPstate
+private void clearParentPistonCache(String meth=null, Boolean frcResub=false){
+	String name=handle() + ' Piston'
+	List t0=getChildApps().findAll{ (String)it.name == name }
+	if(t0){
+		def t1=t0[0]
+		if(t1!=null) t1.clearParentCache(meth) // will cause a child to read getChildPstate
+		if(frcResub){
+			t0.sort().each{ chld ->
+				chld.updated()
+			}
+		}
+	}
 }
 
-private void initialize() {
-	if((Boolean)state.properSID==null || (Boolean)state.properSID!=(Boolean)settings.properSID) {
-		state.properSID=settings.properSID!=null ? (Boolean)settings.properSID : true
+private void initialize(){
+	Boolean reSub=(Boolean)atomicState.forceResub1
+	if((Boolean)reSub==null){
+		atomicState.forceResub1=true
+		atomicState.properSID=null
+		warn "resetting SID"
+	}
+	Boolean prpSid=(Boolean)atomicState.properSID
+	if(prpSid==null || prpSid!=(Boolean)settings.properSID){
+		Boolean t0=settings.properSID!=null ? (Boolean)settings.properSID : true
+		atomicState.properSID=t0
+		state.properSID=t0
 		if(settings.properSID==null) app.updateSetting("properSID", [type: "bool", value: true])
 		initTokens()
 	}
 	subscribeAll()
-	state.vars = (Map)state.vars ?: [:]
-	state.version = version()
-	state.versionHE = HEversion()
+	Map t0=atomicState.vars
+	atomicState.vars=t0 ?: [:]
+	verFLD=version()
+	HverFLD=HEversion()
+
 	refreshDevices()
 
 	if(state.accessToken && !state.endpoint) updateEndpoint(state.accessToken)
@@ -596,74 +619,73 @@ private void initialize() {
 
 	checkWeather()
 
-	state.lastRecovered = 0L
-	String recoveryMethod = (settings.recovery ?: 'Every 30 minutes').replace('Every ', 'Every').replace(' minute', 'Minute').replace(' hour', 'Hour')
-	if(recoveryMethod != 'Never') {
-		try {
+	lastRecoveredFLD=0L
+	String recoveryMethod=(settings.recovery ?: 'Every 30 minutes').replace('Every ', 'Every').replace(' minute', 'Minute').replace(' hour', 'Hour')
+	if(recoveryMethod != 'Never'){
+		try{
 			"run$recoveryMethod"(recoveryHandler)
-		} catch (all) { }
+		} catch (all){ }
 	}
 }
 
-private void checkWeather() {
-	if(settings.weatherType || state.storAppOn) {
-		def storageApp = getStorageApp( (settings.weatherType && settings.apixuKey) )
+private void checkWeather(){
+	if(settings.weatherType || state.storAppOn){
+		def storageApp=getStorageApp( (settings.weatherType && settings.apixuKey) )
 		if(storageApp!=null){
-			state.storAppOn = true
+			state.storAppOn=true
 			storageApp.settingsToState("weatherType", settings.weatherType)
 			storageApp.settingsToState("apixuKey", settings.apixuKey)
 			storageApp.settingsToState("zipCode", settings.zipCode)
-			if(settings.weatherType && settings.apixuKey) {
+			if(settings.weatherType && settings.apixuKey){
 				storageApp.startWeather()
-			} else {
+			}else{
 				storageApp.stopWeather()
 				//delete it ??
 			}
-		} else state.storAppOn = false
+		} else state.storAppOn=false
 	}
 }
 
-public Map getWCendpoints() {
-	Map t0 = [:]
+public Map getWCendpoints(){
+	Map t0=[:]
 	String ep
 	String epl
 	if(isCustomEndpoint()){
-		ep = customServerUrl()
-		epl = ep
-	} else {
-		ep = apiServerUrl("$hubUID/apps/${app.id}")
-		epl = localApiServerUrl("${app.id}")
+		ep=customServerUrl()
+		epl=ep
+	}else{
+		ep=apiServerUrl("$hubUID/apps/${app.id}")
+		epl=localApiServerUrl("${app.id}")
 	}
-	t0.ep = ep
-	t0.epl = epl
-	t0.at = state.accessToken
+	t0.ep=ep
+	t0.epl=epl
+	t0.at=state.accessToken
 	return t0
 }
 
 private void updateEndpoint(String accessToken){
 	if(isCustomEndpoint()){
-		state.endpoint = customServerUrl("?access_token=${accessToken}")
-		state.endpointLocal = customServerUrl("?access_token=${accessToken}")
-	}
-	else {
-		state.endpoint = apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}")
-		state.endpointLocal = localApiServerUrl("${app.id}/?access_token=${accessToken}")
+		state.endpoint=customServerUrl("?access_token=${accessToken}")
+		state.endpointLocal=customServerUrl("?access_token=${accessToken}")
+	}else{
+		state.endpoint=apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}")
+		state.endpointLocal=localApiServerUrl("${app.id}/?access_token=${accessToken}")
 	}
 }
 
-private Boolean initializeWebCoREEndpoint(Boolean disableRetry=false) {
-	if(!state.endpoint) {
+private Boolean initializeWebCoREEndpoint(Boolean disableRetry=false){
+	if(!state.endpoint){
 		String accessToken
-		try {
-			accessToken = createAccessToken() // this fills in state.accessToken
-		} catch(e) {
+		try{
+			accessToken=createAccessToken() // this fills in state.accessToken
+		} catch(e){
 			error "An error has occurred during endpoint initialization: ", null, e
-			state.endpoint = (String)null
-			state.endpointLocal = (String)null
+			state.endpoint=(String)null
+			state.endpointLocal=(String)null
 		}
-		if(accessToken) {
+		if(accessToken){
 			updateEndpoint(accessToken)
-		} else if(!disableRetry) {
+		} else if(!disableRetry){
 			enableOauth()
 			return initializeWebCoREEndpoint(true)
 		} else error "Could not get access token"
@@ -671,25 +693,25 @@ private Boolean initializeWebCoREEndpoint(Boolean disableRetry=false) {
 	return state.endpoint != null
 }
 
-private void enableOauth() {
-	Map params = [
+private void enableOauth(){
+	Map params=[
 		uri: "http://localhost:8080/app/edit/update?_action_update=Update&oauthEnabled=true&id=${app.appTypeId}",
 		headers: ['Content-Type':'text/html;charset=utf-8']
 	]
-	try {
-		httpPost(params) { resp ->
+	try{
+		httpPost(params){ resp ->
 			//LogTrace("response data: ${resp.data}")
 		}
-	} catch (e) {
+	} catch (e){
 		error "enableOauth something went wrong: ", null, e
 	}
 }
 
-private getHub() {
+private getHub(){
 	return location.getHubs().find{ it.getType().toString() == 'PHYSICAL' }
 }
 
-private void subscribeAll() {
+private void subscribeAll(){
 	subscribe(location, handle()+".poll", webCoREHandler)
 	subscribe(location, '@@'+handle(), webCoREHandler)
 	subscribe(location, "systemStart", startHandler)
@@ -708,46 +730,46 @@ private void subscribeAll() {
 /***																		***/
 /******************************************************************************/
 
-mappings {
-	//path("/dashboard") {action: [GET: "api_dashboard"]}
-	path("/intf/dashboard/load") {action: [GET: "api_intf_dashboard_load"]}
-	path("/intf/dashboard/devices") {action: [GET: "api_intf_dashboard_devices"]}
-	path("/intf/dashboard/refresh") {action: [GET: "api_intf_dashboard_refresh"]}
-	path("/intf/dashboard/piston/new") {action: [GET: "api_intf_dashboard_piston_new"]}
-	path("/intf/dashboard/piston/create") {action: [GET: "api_intf_dashboard_piston_create"]}
-	path("/intf/dashboard/piston/backup") {action: [GET: "api_intf_dashboard_piston_backup"]}
-	path("/intf/dashboard/piston/get") {action: [GET: "api_intf_dashboard_piston_get"]}
-	path("/intf/dashboard/piston/set") {action: [GET: "api_intf_dashboard_piston_set"]}
-	path("/intf/dashboard/piston/set.start") {action: [GET: "api_intf_dashboard_piston_set_start"]}
-	path("/intf/dashboard/piston/set.chunk") {action: [GET: "api_intf_dashboard_piston_set_chunk"]}
-	path("/intf/dashboard/piston/set.end") {action: [GET: "api_intf_dashboard_piston_set_end"]}
-	path("/intf/dashboard/piston/pause") {action: [GET: "api_intf_dashboard_piston_pause"]}
-	path("/intf/dashboard/piston/resume") {action: [GET: "api_intf_dashboard_piston_resume"]}
-	path("/intf/dashboard/piston/set.bin") {action: [GET: "api_intf_dashboard_piston_set_bin"]}
-	path("/intf/dashboard/piston/tile") {action: [GET: "api_intf_dashboard_piston_tile"]}
-	path("/intf/dashboard/piston/set.category") {action: [GET: "api_intf_dashboard_piston_set_category"]}
-	path("/intf/dashboard/piston/logging") {action: [GET: "api_intf_dashboard_piston_logging"]}
-	path("/intf/dashboard/piston/clear.logs") {action: [GET: "api_intf_dashboard_piston_clear_logs"]}
-	path("/intf/dashboard/piston/delete") {action: [GET: "api_intf_dashboard_piston_delete"]}
-	path("/intf/dashboard/piston/evaluate") {action: [GET: "api_intf_dashboard_piston_evaluate"]}
-	path("/intf/dashboard/piston/test") {action: [GET: "api_intf_dashboard_piston_test"]}
-	path("/intf/dashboard/piston/activity") {action: [GET: "api_intf_dashboard_piston_activity"]}
-	path("/intf/dashboard/presence/create") {action: [GET: "api_intf_dashboard_presence_create"]}
-	path("/intf/dashboard/variable/set") {action: [GET: "api_intf_variable_set"]}
-	path("/intf/dashboard/settings/set") {action: [GET: "api_intf_settings_set"]}
-	path("/intf/fuelstreams/list") {action: [GET: "api_intf_fuelstreams_list"]}
-	path("/intf/fuelstreams/get") {action: [GET: "api_intf_fuelstreams_get"]}
-	path("/intf/location/entered") {action: [GET: "api_intf_location_entered"]}
-	path("/intf/location/exited") {action: [GET: "api_intf_location_exited"]}
-	path("/intf/location/updated") {action: [GET: "api_intf_location_updated"]}
-	path("/ifttt/:eventName") {action: [GET: "api_ifttt", POST: "api_ifttt"]}
-	path("/email/:pistonId") {action: [POST: "api_email"]}
-	path("/execute/:pistonIdOrName") {action: [GET: "api_execute", POST: "api_execute"]}
-	path("/tap") {action: [POST: "api_tap"]}
-	path("/tap/:tapId") {action: [GET: "api_tap"]}
+mappings{
+	//path("/dashboard"){action: [GET: "api_dashboard"]}
+	path("/intf/dashboard/load"){action: [GET: "api_intf_dashboard_load"]}
+	path("/intf/dashboard/devices"){action: [GET: "api_intf_dashboard_devices"]}
+	path("/intf/dashboard/refresh"){action: [GET: "api_intf_dashboard_refresh"]}
+	path("/intf/dashboard/piston/new"){action: [GET: "api_intf_dashboard_piston_new"]}
+	path("/intf/dashboard/piston/create"){action: [GET: "api_intf_dashboard_piston_create"]}
+	path("/intf/dashboard/piston/backup"){action: [GET: "api_intf_dashboard_piston_backup"]}
+	path("/intf/dashboard/piston/get"){action: [GET: "api_intf_dashboard_piston_get"]}
+	path("/intf/dashboard/piston/set"){action: [GET: "api_intf_dashboard_piston_set"]}
+	path("/intf/dashboard/piston/set.start"){action: [GET: "api_intf_dashboard_piston_set_start"]}
+	path("/intf/dashboard/piston/set.chunk"){action: [GET: "api_intf_dashboard_piston_set_chunk"]}
+	path("/intf/dashboard/piston/set.end"){action: [GET: "api_intf_dashboard_piston_set_end"]}
+	path("/intf/dashboard/piston/pause"){action: [GET: "api_intf_dashboard_piston_pause"]}
+	path("/intf/dashboard/piston/resume"){action: [GET: "api_intf_dashboard_piston_resume"]}
+	path("/intf/dashboard/piston/set.bin"){action: [GET: "api_intf_dashboard_piston_set_bin"]}
+	path("/intf/dashboard/piston/tile"){action: [GET: "api_intf_dashboard_piston_tile"]}
+	path("/intf/dashboard/piston/set.category"){action: [GET: "api_intf_dashboard_piston_set_category"]}
+	path("/intf/dashboard/piston/logging"){action: [GET: "api_intf_dashboard_piston_logging"]}
+	path("/intf/dashboard/piston/clear.logs"){action: [GET: "api_intf_dashboard_piston_clear_logs"]}
+	path("/intf/dashboard/piston/delete"){action: [GET: "api_intf_dashboard_piston_delete"]}
+	path("/intf/dashboard/piston/evaluate"){action: [GET: "api_intf_dashboard_piston_evaluate"]}
+	path("/intf/dashboard/piston/test"){action: [GET: "api_intf_dashboard_piston_test"]}
+	path("/intf/dashboard/piston/activity"){action: [GET: "api_intf_dashboard_piston_activity"]}
+	path("/intf/dashboard/presence/create"){action: [GET: "api_intf_dashboard_presence_create"]}
+	path("/intf/dashboard/variable/set"){action: [GET: "api_intf_variable_set"]}
+	path("/intf/dashboard/settings/set"){action: [GET: "api_intf_settings_set"]}
+	path("/intf/fuelstreams/list"){action: [GET: "api_intf_fuelstreams_list"]}
+	path("/intf/fuelstreams/get"){action: [GET: "api_intf_fuelstreams_get"]}
+	path("/intf/location/entered"){action: [GET: "api_intf_location_entered"]}
+	path("/intf/location/exited"){action: [GET: "api_intf_location_exited"]}
+	path("/intf/location/updated"){action: [GET: "api_intf_location_updated"]}
+	path("/ifttt/:eventName"){action: [GET: "api_ifttt", POST: "api_ifttt"]}
+	path("/email/:pistonId"){action: [POST: "api_email"]}
+	path("/execute/:pistonIdOrName"){action: [GET: "api_execute", POST: "api_execute"]}
+	path("/tap"){action: [POST: "api_tap"]}
+	path("/tap/:tapId"){action: [GET: "api_tap"]}
 }
 
-private Map api_get_error_result(String error) {
+private Map api_get_error_result(String error){
 	return [
 		name: location.name + ' \\ ' + (app.label ?: app.name),
 		error: error,
@@ -756,7 +778,7 @@ private Map api_get_error_result(String error) {
 }
 
 private Map getHubitatVersion(){
-	try {
+	try{
 		return location.getHubs().collectEntries {[it.id, it.getFirmwareVersionString()]}
 	}
 	catch(e){
@@ -764,21 +786,25 @@ private Map getHubitatVersion(){
 	}
 }
 
-private static String normalizeLabel(pis) {
-	String label = pis.label
-	String regex = ' <span style.*$'
-	String t0 = label.replaceAll(regex, "")
-	if(t0!=(String)null) return t0 else return label
+private static String normalizeLabel(pisN){
+	String label=pisN.label
+	String regex=' <span style.*$'
+	String t0=label.replaceAll(regex, "")
+	return t0!=(String)null ? t0 : label
+}
+
+private void clearBaseResult(String meth=''){
+	base_resultFLD=null
 }
 
 @Field volatile static Map base_resultFLD
 @Field volatile static Integer cntbase_resultFLD
 
-private Map api_get_base_result(Boolean updateCache = false) {
-	if(base_resultFLD!=null) {
+private Map api_get_base_result(Boolean updateCache=false){
+	if(base_resultFLD!=null){
 		cntbase_resultFLD=cntbase_resultFLD+1
 		if(cntbase_resultFLD>100) clearBaseResult('high count')
-		else {
+		else{
 			Map result=[:] + base_resultFLD
 			result.now=now()
 			return result
@@ -787,34 +813,37 @@ private Map api_get_base_result(Boolean updateCache = false) {
 
 	cntbase_resultFLD=0
 
-	def tz = location.getTimeZone()
-	String currentDeviceVersion = (String)state.deviceVersion
-	String name = handle() + ' Piston'
-	Long incidentThreshold = Math.round(now() - 604800000.0D)
-	List alerts = state.hsmAlerts ?: []
+	def tz=location.getTimeZone()
+	String currentDeviceVersion=(String)state.deviceVersion
+	String name=handle() + ' Piston'
+	Long incidentThreshold=Math.round(now() - 604800000.0D)
+	List alerts=state.hsmAlerts ?: []
 	
-	String instanceId = hashId(app.id, updateCache)
-//log.info "alerts = ${location.hsmAlert}"
+	String instanceId=hashId(app.id, updateCache)
+//log.info "alerts=${location.hsmAlert}"
 
-//	def t0 = location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}
+//	def t0=location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}
 //	error "api_get_base_result: hubs ${location.getHubs()} t0: ${t0}"
 //	error "api_get_base_result: locstatus ${location.hsmStatus} statehsm: ${state.hsmStatus} shm ${transformHsmStatus(location.hsmStatus ?: state.hsmStatus)}"
 	Map result=[
 		name: (String)location.name + ' \\ ' + ((String)app.label ?: (String)app.name),
 		instance: [
-			//account: [id: hashId(hubUID ?: app.getAccountId(), updateCache)],
 			account: [id: getAccountSid()],
-//ERS
 			pistons: getChildApps().findAll{ (String)it.name == name }.sort{ (String)it.label }.collect{
-				String myId = hashId(it.id, updateCache)
+				String myId=hashId(it.id, true)
+				Map meta=pStateFLD[myId]
+				if(meta==null){	
+					meta=it.curPState()
+					pStateFLD[myId]=meta
+					pStateFLD=pStateFLD
+				}
 				[
 					id: myId,
 					name: normalizeLabel(it),
-					meta: state[myId]
+					meta: meta
 				]
 			},
 			id: instanceId,
-			//locationId: hashId(location.id + (isHubitat() ? '-L' : ''), updateCache),
 			locationId: getLocationSid(),
 			name: (String)app.label ?: (String)app.name,
 			uri: (String)state.endpoint,
@@ -829,12 +858,9 @@ private Map api_get_base_result(Boolean updateCache = false) {
 			fuelStreamUrls: getFuelStreamUrls(instanceId),
 		],
 		location: [
-			//contactBookEnabled: location.getContactBookEnabled(),
 			hubs: location.getHubs().findAll{ !((String)it.name).contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: (String)it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
 			incidents: alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold },
 			//incidents: isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold },
-			//incidents: [],
-			//id: hashId(location.id + (isHubitat() ? '-L' : ''), updateCache),
 			id: getLocationSid(),
 			mode: hashId(location.getCurrentMode().id, updateCache),
 			modes: location.getModes().collect{ [id: hashId(it.id, updateCache), name: (String)it.name ]},
@@ -854,17 +880,17 @@ private Map api_get_base_result(Boolean updateCache = false) {
 	return result
 }
 
-private Map api_get_devices_result(int offset = 0, Boolean updateCache = false) {
+private Map api_get_devices_result(int offset=0, Boolean updateCache=false){
 	return listAvailableDevices(false, updateCache, offset) + [
-		deviceVersion: state.deviceVersion,
+		deviceVersion: atomicState.deviceVersion,
 	]
 }
 
 private getFuelStreamUrls(String iid){
 	if(!useLocalFuelStreams()){
-		String region = state.endpoint.contains('graph-eu') ? 'eu' : 'us'
-		String baseUrl = 'https://api-' + region + '-' + iid[32] + '.webcore.co:9287/fuelStreams'
-		Map headers = [ 'Auth-Token' : iid ]
+		String region=state.endpoint.contains('graph-eu') ? 'eu' : 'us'
+		String baseUrl='https://api-' + region + '-' + iid[32] + '.webcore.co:9287/fuelStreams'
+		Map headers=[ 'Auth-Token' : iid ]
 
 		return [
 			list : [l: false, m: 'POST', h: headers, u: baseUrl + '/list', d: [i : iid]],
@@ -872,9 +898,9 @@ private getFuelStreamUrls(String iid){
 		]
 	}	
 	
-	String baseUrl = isCustomEndpoint() ? customServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/")
+	String baseUrl=isCustomEndpoint() ? customServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/")
 	
-	String params = baseUrl.contains(state.accessToken) ? "" : "access_token=${state.accessToken}"
+	String params=baseUrl.contains(state.accessToken) ? "" : "access_token=${state.accessToken}"
 	
 	return [
 		list : [l: true, u: baseUrl + "intf/fuelstreams/list?${params}" ],
@@ -883,7 +909,7 @@ private getFuelStreamUrls(String iid){
 }
 
 public Boolean useLocalFuelStreams(){
-	return settings.localFuelStreams != null ? settings.localFuelStreams : true
+	return (Boolean)settings.localFuelStreams!=null ? (Boolean)settings.localFuelStreams : true
 }
 
 private static String transformHsmStatus(String status){
@@ -905,75 +931,75 @@ private static String transformHsmStatus(String status){
 	}
 }
 
-private api_intf_dashboard_load() {
+private api_intf_dashboard_load(){
 	Map result
 //	debug "Dashboard: load ${params}"
 	recoveryHandler()
 	//debug "Dashboard: Request received to initialize instance"
-	if(verifySecurityToken((String)params.token)) {
-		result = api_get_base_result(true)
-		if((String)params.dashboard == "1") {
+	if(verifySecurityToken((String)params.token)){
+		result=api_get_base_result(true)
+		if((String)params.dashboard == "1"){
 			startDashboard()
-		} else {
-			if(state.dashboard != 'inactive') stopDashboard()
+		}else{
+			if((String)state.dashboard != 'inactive') stopDashboard()
 		}
-	} else {
-		if((String)params.pin!=(String)null) {
-			if(settings.PIN && md5('pin:'+(String)settings.PIN) == (String)params.pin) {
-				result = api_get_base_result(true)
-				result.instance.token = createSecurityToken()
-			} else {
+	}else{
+		if((String)params.pin!=(String)null){
+			if(settings.PIN && md5('pin:'+(String)settings.PIN) == (String)params.pin){
+				result=api_get_base_result(true)
+				result.instance.token=createSecurityToken()
+			}else{
 				error "Dashboard: Authentication failed due to an invalid PIN"
 			}
 		}
-		if(result==null) result = api_get_error_result("ERR_INVALID_TOKEN")
+		if(result==null) result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 
 	if((Boolean)getLogging().debug) checkResultSize(result)
 
 	//for accuracy, use the time as close as possible to the render
-	result.now = now()
+	result.now=now()
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_devices() {
+private api_intf_dashboard_devices(){
 	Map result
-	if (verifySecurityToken((String)params.token)) {
-		def offset = "${params.offset}"
-		result = api_get_devices_result(offset.isInteger() ? offset.toInteger() : 0)
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	if (verifySecurityToken((String)params.token)){
+		def offset="${params.offset}"
+		result=api_get_devices_result(offset.isInteger() ? offset.toInteger() : 0)
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	//for accuracy, use the time as close as possible to the render
-	result.now = now()
+	result.now=now()
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_refresh() {
+private api_intf_dashboard_refresh(){
 	debug "Dashboard: Request received to refresh instance"
 	startDashboard()
 	Map result
-	if(verifySecurityToken((String)params.token)) {
-		result = getDashboardData()
-	} else {
-		if(result==null) result = api_get_error_result("ERR_INVALID_TOKEN")
+	if(verifySecurityToken((String)params.token)){
+		result=getDashboardData()
+	}else{
+		if(result==null) result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	//for accuracy, use the time as close as possible to the render
-	result.now = now()
+	result.now=now()
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private Map getDashboardData() {
+private Map getDashboardData(){
 	def value
-//	def start = now()
+//	def start=now()
 	Map result
 	def storageApp //= getStorageApp()
-	if(storageApp!=null) {
-		result = storageApp.getDashboardData()
-	} else {
-		result = settings.findAll{ ((String)it.key).startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev ->
+	if(storageApp!=null){
+		result=storageApp.getDashboardData()
+	}else{
+		result=settings.findAll{ ((String)it.key).startsWith("dev:") }.collect{ it.value }.flatten().collectEntries{ dev -> [(hashId(dev.id)): dev]}.collectEntries{ id, dev ->
 			[ (id): dev.getSupportedAttributes().collect{ (String)it.name }.unique().collectEntries {
-				try { value = dev.currentValue(it) } catch (all) { value = null }
+				try { value=dev.currentValue(it) } catch (all){ value=null }
 				return [ (it) : value]
 			}]
 		}
@@ -981,57 +1007,57 @@ private Map getDashboardData() {
 	return result
 }
 
-private api_intf_dashboard_piston_new() {
+private api_intf_dashboard_piston_new(){
 	Map result
 	debug "Dashboard: Request received to generate a new piston name"
-	if(verifySecurityToken((String)params.token)) {
-		result = [status: "ST_SUCCESS", name: generatePistonName()]
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	if(verifySecurityToken((String)params.token)){
+		result=[status: "ST_SUCCESS", name: generatePistonName()]
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_create() {
+private api_intf_dashboard_piston_create(){
 	Map result
 	debug "Dashboard: Request received to create a new piston"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = addChildApp("ady624", handle()+" Piston", (String)params.name!=(String)null ? (String)params.name : generatePistonName())
-		if((String)params.author!=(String)null || (String)params.bin!=(String)null) {
+	if(verifySecurityToken((String)params.token)){
+		def piston=addChildApp("ady624", handle()+" Piston", (String)params.name!=(String)null ? (String)params.name : generatePistonName())
+		if((String)params.author!=(String)null || (String)params.bin!=(String)null){
 			piston.config([bin: (String)params.bin, author: (String)params.author, initialVersion: version()])
 		}
 		if(!(Boolean)piston.isInstalled()) piston.installed()
-		result = [status: "ST_SUCCESS", id: hashId(piston.id)]
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+		result=[status: "ST_SUCCESS", id: hashId(piston.id)]
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_get() {
+private api_intf_dashboard_piston_get(){
 	Map result
 	def piston
 	Map theDb
 	Boolean requireDb
-	if(verifySecurityToken((String)params.token)) {
-		String pistonId = (String)params.id
-		if(pistonId!=(String)null) piston = getChildApps().find{ hashId(it.id) == pistonId }
-		if(piston!=null) {
+	if(verifySecurityToken((String)params.token)){
+		String pistonId=(String)params.id
+		if(pistonId!=(String)null) piston=getChildApps().find{ hashId(it.id) == pistonId }
+		if(piston!=null){
 			debug "Dashboard: Request received to get piston ${pistonId} ${(String)piston.label}"
-//ERS
-			String serverDbVersion = HEversion()
-			String clientDbVersion = (String)params.db
-			requireDb = serverDbVersion != clientDbVersion
-			if(requireDb) {
+
+			String serverDbVersion=HEversion()
+			String clientDbVersion=(String)params.db
+			requireDb=serverDbVersion != clientDbVersion
+			if(requireDb){
 				refreshDevices()
 			}
-			result = [:] //api_get_base_result(true)
-			Map t0 = piston.get()
-			result.data = t0!=null ? t0 : [:]
-			if(requireDb) {
+			result=[:] //api_get_base_result(true)
+			Map t0=piston.get()
+			result.data=t0!=null ? t0 : [:]
+			if(requireDb){
 				debug "Dashboard: get piston ${params?.id} needs new db current: ${serverDbVersion} in server ${clientDbVersion}"
-				result.dbVersion = serverDbVersion
-				theDb = [
+				result.dbVersion=serverDbVersion
+				theDb=[
 					capabilities: capabilities().sort{ (String)it.value.d },
 					commands: [
 						physical: commands().sort{ (String)it.value.d!=(String)null ? (String)it.value.d : (String)it.value.n },
@@ -1045,69 +1071,69 @@ private api_intf_dashboard_piston_get() {
 						standard: getColors()
 					],
 				]
-				result.dbVersion = serverDbVersion
-				result.db = theDb
+				result.dbVersion=serverDbVersion
+				result.db=theDb
 			}
 			if((Boolean)getLogging().debug) checkResultSize(result, requireDb)
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	
 
 	//for accuracy, use the time as close as possible to the render
-	result.now = now()
+	result.now=now()
 
-	//def jsonData = groovy.json.JsonOutput.toJson(result)
+	//def jsonData=groovy.json.JsonOutput.toJson(result)
 	//log.debug "Trimmed resonse length: ${jsonData.getBytes("UTF-8").length}"
 	//render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${jsonData})"
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private void checkResultSize(Map result, Boolean requireDb = false) {
-	if(!isCustomEndpoint() || customHubUrl.contains(hubUID)){
-		String jsonData = groovy.json.JsonOutput.toJson(result)
-		//data saver for hubitat ~100K limit	
-		Integer responseLength = jsonData.getBytes("UTF-8").length
+private void checkResultSize(Map result, Boolean requireDb=false){
+	if(!isCustomEndpoint() || ((String)customHubUrl).contains(hubUID)){
+		String jsonData=groovy.json.JsonOutput.toJson(result)
+		//data saver for Hubitat ~100K limit	
+		Integer responseLength=jsonData.getBytes("UTF-8").length
 		if(responseLength > (107 * 1024)){ //these are loaded anyway right after loading the piston
 			warn "Trimming ${ (Integer)(responseLength/1024) }KB response to smaller size (${requireDb})"
 /*
-			//result.instance = null
-			if(piston && result.data) {
-				Map t0 = piston.get(true)
-				result.data = t0 ?: [:]
-				//result.data?.logs = []
-				//result.data?.stats?.timing = []
-				//result.data?.trace = [:]
+			//result.instance=null
+			if(piston && result.data){
+				Map t0=piston.get(true)
+				result.data=t0 ?: [:]
+				//result.data?.logs=[]
+				//result.data?.stats?.timing=[]
+				//result.data?.trace=[:]
 			}
-			if(requireDb) {
-				result.instance.devices = [:]
+			if(requireDb){
+				result.instance.devices=[:]
 				refreshDevices()  // cause us to send devices next call
 			}
 */
-			result.data?.logs = []
-			result.data?.stats?.timing = []
-			result.data?.trace = [:]
+			result.data?.logs=[]
+			result.data?.stats?.timing=[]
+			result.data?.trace=[:]
 
-			Integer svLength = responseLength
-			jsonData = groovy.json.JsonOutput.toJson(result)
-			responseLength = jsonData.getBytes("UTF-8").length
+			Integer svLength=responseLength
+			jsonData=groovy.json.JsonOutput.toJson(result)
+			responseLength=jsonData.getBytes("UTF-8").length
 			debug "First Trimmed response length: ${ (Integer)(responseLength/1024) }KB"
-			if(responseLength == svLength || responseLength > (107 * 1024)) {
+			if(responseLength == svLength || responseLength > (107 * 1024)){
 				warn "First TRIMMING may be un-successful, trying further trimming ${ (Integer)(responseLength/1024) }KB"
-				if(requireDb) {
-					//result.instance.deviceVersion = 0
-					//result.instance.devices = [:]
-					result.data?.systemVars = [:]
-					result.data?.globalVars = [:]
-					result.data?.fuelStreamUrls = [:]
+				if(requireDb){
+					//result.instance.deviceVersion=0
+					//result.instance.devices=[:]
+					result.data?.systemVars=[:]
+					result.data?.globalVars=[:]
+					result.data?.fuelStreamUrls=[:]
 				}
-				jsonData = groovy.json.JsonOutput.toJson(result)
-				responseLength = jsonData.getBytes("UTF-8").length
+				jsonData=groovy.json.JsonOutput.toJson(result)
+				responseLength=jsonData.getBytes("UTF-8").length
 				debug "Second Trimmed response length: ${ (Integer)(responseLength/1024) }KB"
-				if(responseLength == svLength || responseLength > (107 * 1024)) {
+				if(responseLength == svLength || responseLength > (107 * 1024)){
 					warn "Final TRIMMING may be un-successful, you should load a smaller piston then reload this piston ${ (Integer)(responseLength/1024) }KB"
 				} else warn "Final TRIMMING successful, you should load a small piston again to complete IDE update ${ (Integer)(responseLength/1024) }KB"
 			} else warn "First TRIMMING successful"
@@ -1117,23 +1143,23 @@ private void checkResultSize(Map result, Boolean requireDb = false) {
 }
 
 
-private api_intf_dashboard_piston_backup() {
-	Map result = [pistons: []]
+private api_intf_dashboard_piston_backup(){
+	Map result=[pistons: []]
 	debug "Dashboard: Request received to backup pistons ${params?.ids}"
-	if(verifySecurityToken((String)params.token)) {
-		List pistonIds = ((String)params.ids ?: '').tokenize(',')
-		for(String pistonId in pistonIds) {
-			if(pistonId) {
-				def piston = getChildApps().find{ hashId(it.id) == pistonId }
-				if(piston) {
-					def pd = piston.get(true)
-					if(pd) {
-						pd.instance = [id: hashId(app.id), name: app.label]
+	if(verifySecurityToken((String)params.token)){
+		List pistonIds=((String)params.ids ?: '').tokenize(',')
+		for(String pistonId in pistonIds){
+			if(pistonId){
+				def piston=getChildApps().find{ hashId(it.id) == pistonId }
+				if(piston){
+					def pd=piston.get(true)
+					if(pd){
+						pd.instance=[id: getInstanceSid(), name: app.label]
 						Boolean a=result.pistons.push(pd)
-						if(!isCustomEndpoint() || customHubUrl.contains(hubUID)){
-							String jsonData = groovy.json.JsonOutput.toJson(result)
-							Integer responseLength = jsonData.getBytes("UTF-8").length
-							if(responseLength > 110 * 1024) {
+						if(!isCustomEndpoint() || ((String)customHubUrl).contains(hubUID)){
+							String jsonData=groovy.json.JsonOutput.toJson(result)
+							Integer responseLength=jsonData.getBytes("UTF-8").length
+							if(responseLength > 110 * 1024){
 								warn "Backup too big ${ (Integer)(responseLength/1024) }KB response"
 							}
 						}
@@ -1141,34 +1167,34 @@ private api_intf_dashboard_piston_backup() {
 				}
 			}
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	//for accuracy, use the time as close as possible to the render
-	result.now = now()
+	result.now=now()
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private String decodeEmoji(String value) {
+private String decodeEmoji(String value){
 	if(!value) return ''
 	return value.replaceAll(/(\:%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}\:)/, { m -> URLDecoder.decode(m[0].substring(1, 13), 'UTF-8') })
 }
 
 
-private api_intf_dashboard_piston_set_save(String id, String data, chunks) {
-	def piston = getChildApps().find{ hashId(it.id) == id }
-	if(piston) {
+private api_intf_dashboard_piston_set_save(String id, String data, chunks){
+	def piston=getChildApps().find{ hashId(it.id) == id }
+	if(piston){
 	/*
-		def s = decodeEmoji(new String(data.decodeBase64(), "UTF-8"))
-		int cs = 512
-		for (int a = 0; a <= Math.floor(s.size() / cs); a++) {
-			int x = a * cs + cs - 1
-		if(x >= s.size()) x = s.size() - 1
+		def s=decodeEmoji(new String(data.decodeBase64(), "UTF-8"))
+		int cs=512
+		for (int a=0; a <= Math.floor(s.size() / cs); a++){
+			int x=a * cs + cs - 1
+		if(x >= s.size()) x=s.size() - 1
 			log.trace s.substring(a * cs, x)
 		}
 	*/
-		def p = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(decodeEmoji(new String(data.decodeBase64(), "UTF-8")))
-		def result = piston.setup(p, chunks)
+		def p=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(decodeEmoji(new String(data.decodeBase64(), "UTF-8")))
+		def result=piston.setup(p, chunks)
 		broadcastPistonList()
 		return result
 	}
@@ -1176,393 +1202,405 @@ private api_intf_dashboard_piston_set_save(String id, String data, chunks) {
 }
 
 //set is used for small pistons, for large data, using set.start, set.chunk, and set.end
-private api_intf_dashboard_piston_set() {
+private api_intf_dashboard_piston_set(){
 	def result
 	debug "Dashboard: Request received to set a piston"
-	if(verifySecurityToken((String)params.token)) {
-		def data = params?.data
+	if(verifySecurityToken((String)params.token)){
+		def data=params?.data
 		//save the piston
-		def saved = api_intf_dashboard_piston_set_save(params?.id, data, ['chunk:0' : data])
-		if(saved) {
-			if(saved.rtData) {
+		def saved=api_intf_dashboard_piston_set_save(params?.id, data, ['chunk:0' : data])
+		if(saved){
+			if(saved.rtData){
 				updateRunTimeData((Map)saved.rtData)
-				saved.rtData = null
+				saved.rtData=null
 			}
-			result = [status: "ST_SUCCESS"] + saved
-		} else {
-			result = [status: "ST_ERROR", error: "ERR_UNKNOWN"]
+			result=[status: "ST_SUCCESS"] + saved
+		}else{
+			result=[status: "ST_ERROR", error: "ERR_UNKNOWN"]
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_set_start() {
+private api_intf_dashboard_piston_set_start(){
 	Map result
 	debug "Dashboard: Request received to set a piston (chunked start)"
-	if(verifySecurityToken((String)params.token)) {
-		def chunks = "${params?.chunks}"
-		chunks = chunks.isInteger() ? chunks.toInteger() : 0
-		if((chunks > 0) && (chunks < 100)) {
-			state.hash = [:]
-			atomicState.chunks = [id: params?.id, count: chunks]
-			result = [status: "ST_READY"]
-		} else {
-			result = [status: "ST_ERROR", error: "ERR_INVALID_CHUNK_COUNT"]
+	if(verifySecurityToken((String)params.token)){
+		def chunks="${params?.chunks}"
+		chunks=chunks.isInteger() ? chunks.toInteger() : 0
+		if((chunks > 0) && (chunks < 100)){
+			theHashMapFLD=[:]
+			mb()
+			atomicState.chunks=[id: params?.id, count: chunks]
+			result=[status: "ST_READY"]
+		}else{
+			result=[status: "ST_ERROR", error: "ERR_INVALID_CHUNK_COUNT"]
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_set_chunk() {
+private api_intf_dashboard_piston_set_chunk(){
 	Map result
-	def chunk = "${params?.chunk}".toString()
-	chunk = chunk.isInteger() ? chunk.toInteger() : -1
-	debug "Dashboard: Request received to set a piston chunk (#${1 + chunk}/${state.chunks?.count})"
-	if(verifySecurityToken((String)params.token)) {
-		String data = params?.data
-		def chunks = state.chunks
-		if(chunks && chunks.count && (chunk >= 0) && (chunk < chunks.count)) {
-			chunks["chunk:$chunk".toString()] = data
-			atomicState.chunks = chunks
-			result = [status: "ST_READY"]
-		} else {
-			result = [status: "ST_ERROR", error: "ERR_INVALID_CHUNK"]
+	def chunk="${params?.chunk}".toString()
+	chunk=chunk.isInteger() ? chunk.toInteger() : -1
+	debug "Dashboard: Request received to set a piston chunk (#${1 + chunk}/${atomicState.chunks?.count})"
+	if(verifySecurityToken((String)params.token)){
+		String data=params?.data
+		def chunks=atomicState.chunks
+		if(chunks && chunks.count && (chunk >= 0) && (chunk < chunks.count)){
+			chunks["chunk:$chunk".toString()]=data
+			atomicState.chunks=chunks
+			result=[status: "ST_READY"]
+		}else{
+			result=[status: "ST_ERROR", error: "ERR_INVALID_CHUNK"]
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_set_end() {
+private api_intf_dashboard_piston_set_end(){
 	Map result
 	debug "Dashboard: Request received to set a piston (chunked end)"
-	if(verifySecurityToken((String)params.token)) {
-		def chunks = state.chunks
-		if(chunks && chunks.count) {
-			Boolean ok = true
-			String data = ""
-			Integer i = 0
-			Integer count = chunks.count
-			while(i<count) {
-				String s = chunks["chunk:$i".toString()]
-				if(s) {
+	if(verifySecurityToken((String)params.token)){
+		def chunks=atomicState.chunks
+		if(chunks && chunks.count){
+			Boolean ok=true
+			String data=""
+			Integer i=0
+			Integer count=chunks.count
+			while(i<count){
+				String s=chunks["chunk:$i".toString()]
+				if(s){
 					data += s
-				} else {
-					data = ""
-					ok = false
+				}else{
+					data=""
+					ok=false
 					break
 				}
 				i++
 			}
-			atomicState.chunks = null
+			atomicState.chunks=null
 			state.remove("chunks")
-			if(ok) {
+			if(ok){
 				//save the piston
-				def saved = api_intf_dashboard_piston_set_save((String)chunks.id, data, chunks.findAll{ it.key.startsWith('chunk:') })
-				if(saved) {
-					if(saved.rtData) {
+				def saved=api_intf_dashboard_piston_set_save((String)chunks.id, data, chunks.findAll{ it.key.startsWith('chunk:') })
+				if(saved){
+					if(saved.rtData){
 						updateRunTimeData((Map)saved.rtData)
-						saved.rtData = null
+						saved.rtData=null
 					}
-					result = [status: "ST_SUCCESS"] + saved
-				} else {
-					result = [status: "ST_ERROR", error: "ERR_UNKNOWN"]
+					result=[status: "ST_SUCCESS"] + saved
+				}else{
+					result=[status: "ST_ERROR", error: "ERR_UNKNOWN"]
 				}
-			} else {
-				result = [status: "ST_ERROR", error: "ERR_INVALID_CHUNK"]
+			}else{
+				result=[status: "ST_ERROR", error: "ERR_INVALID_CHUNK"]
 			}
-		} else {
-			result = [status: "ST_ERROR", error: "ERR_INVALID_CHUNK"]
+		}else{
+			result=[status: "ST_ERROR", error: "ERR_INVALID_CHUNK"]
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_pause() {
+private api_intf_dashboard_piston_pause(){
 	Map result
 	debug "Dashboard: Request received to pause a piston"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			Map rtData = piston.pausePiston()
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			Map rtData=piston.pausePiston()
 			updateRunTimeData(rtData)
-			result = [status: "ST_SUCCESS", active: false]
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+			result=[status: "ST_SUCCESS", active: false]
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_resume() {
+private api_intf_dashboard_piston_resume(){
 	Map result
 	debug "Dashboard: Request received to resume a piston"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			Map rtData = piston.resume()
-			result = rtData.result
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			Map rtData=piston.resume()
+			result=rtData.result
 			updateRunTimeData(rtData)
-			result.status = "ST_SUCCESS"
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+			result.status="ST_SUCCESS"
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_test() {
+private api_intf_dashboard_piston_test(){
 	Map result
 	debug "Dashboard: Request received to test a piston"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston!=null) {
-			result = piston.test()
-			result.status = "ST_SUCCESS"
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston!=null){
+			result=piston.test()
+			result.status="ST_SUCCESS"
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_presence_create() {
+private api_intf_dashboard_presence_create(){
 	Map result
-	if(verifySecurityToken((String)params.token)) {
-		String dni = params.dni
-		def sensor = (dni ? getChildDevices().find{ (String)it.getDeviceNetworkId() == dni } : null) ?: addChildDevice("ady624", handle() + " Presence Sensor", dni ?: hashId("${now()}"), null, [label: params.name])
-		if(sensor) {
-			sensor.label = "${params.name}"
-			result = [
+	if(verifySecurityToken((String)params.token)){
+		String dni=params.dni
+		def sensor=(dni ? getChildDevices().find{ (String)it.getDeviceNetworkId() == dni } : null) ?: addChildDevice("ady624", handle() + " Presence Sensor", dni ?: hashId("${now()}"), null, [label: params.name])
+		if(sensor){
+			sensor.label="${params.name}"
+			result=[
 				status: "ST_SUCCESS",
 				deviceId: hashId(sensor.id)
 			]
 			refreshDevices()
-		} else {
-			result = api_get_error_result("ERR_COULD_NOT_CREATE_DEVICE")
+		}else{
+			result=api_get_error_result("ERR_COULD_NOT_CREATE_DEVICE")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_tile() {
+private api_intf_dashboard_piston_tile(){
 	Map result
 	debug "Dashboard: Clicked a piston tile"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			result = piston.clickTile(params.tile)
-			result.status = "ST_SUCCESS"
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			result=piston.clickTile(params.tile)
+			result.status="ST_SUCCESS"
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_set_bin() {
+private api_intf_dashboard_piston_set_bin(){
 	Map result
 	debug "Dashboard: Request received to set piston bin"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			result = piston.setBin((String)params.bin)
-			result.status = "ST_SUCCESS"
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			result=piston.setBin((String)params.bin)
+			result.status="ST_SUCCESS"
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
 
 
-private api_intf_dashboard_piston_set_category() {
+private api_intf_dashboard_piston_set_category(){
 	Map result
 	debug "Dashboard: Request received to set piston category"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			result = piston.setCategory(params.category)
-			Map st = state[(String)params.id]
-			if(st) {
-				st.c = params.category
-				state[(String)params.id] = st
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			result=piston.setCategory(params.category)
+			String myId=(String)params.id
+			Map st=pStateFLD[myId]
+			if(st==null) st=piston.curPState() //st=atomicState[myId]
+			if(st){
+				st.c=params.category
+				pStateFLD[myId]=st
+				pStateFLD=pStateFLD
+				//atomicState[myId]=st
 			}
-			result.status = "ST_SUCCESS"
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+			result.status="ST_SUCCESS"
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_logging() {
+private api_intf_dashboard_piston_logging(){
 	Map result
 	debug "Dashboard: Request received to set piston logging level"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			result = piston.setLoggingLevel(params.level)
-			result.status = "ST_SUCCESS"
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			result=piston.setLoggingLevel(params.level)
+			result.status="ST_SUCCESS"
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_clear_logs() {
+private api_intf_dashboard_piston_clear_logs(){
 	Map result
 	debug "Dashboard: Request received to clear piston logs"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			result = piston.clearLogs()
-			result.status = "ST_SUCCESS"
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			result=piston.clearLogs()
+			result.status="ST_SUCCESS"
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_delete() {
+private api_intf_dashboard_piston_delete(){
 	Map result
 	debug "Dashboard: Request received to delete a piston"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			result = piston.deletePiston()
+	if(verifySecurityToken((String)params.token)){
+		String id=(String)params.id
+		def piston=getChildApps().find{ hashId(it.id) == id }
+		if(piston){
+			pStateFLD[id]=null
+			pStateFLD=pStateFLD
+			result=piston.deletePiston()
 			app.deleteChildApp(piston.id)
+//			p_executionFLD[id]=null
+//			p_executionFLD=p_executionFLD
+			theHashMapFLD=[:]
+			mb()
 			clearBaseResult('delete Piston')
-			result = [status: "ST_SUCCESS"]
-			state.remove((String)params.id)
-			state.remove('sph${(String)params.id}')
+			result=[status: "ST_SUCCESS"]
+			cleanUp()
+			clearParentPistonCache("piston deleted")
 			broadcastPistonList()
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_location_entered() {
-	String deviceId = params.device
-	String dni = params.dni
-	def device = getChildDevices().find{ ((String)it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
+private api_intf_location_entered(){
+	String deviceId=params.device
+	String dni=params.dni
+	def device=getChildDevices().find{ ((String)it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
 	if(device && params.place) device.processEvent([name: 'entered', place: params.place, places: state.settings.places])
 }
 
-private api_intf_location_exited() {
-	String deviceId = params.device
-	String dni = params.dni
-	def device = getChildDevices().find{ ((String)it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
+private api_intf_location_exited(){
+	String deviceId=params.device
+	String dni=params.dni
+	def device=getChildDevices().find{ ((String)it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
 	if(device && params.place) device.processEvent([name: 'exited', place: params.place, places: state.settings.places])
 }
 
-private api_intf_location_updated() {
-	String deviceId = params.device
-	String dni = params.dni
-	def device = getChildDevices().find{ ((String)it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
-	Map location = params.location ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(params.location) : [error: "Invalid data"]
+private api_intf_location_updated(){
+	String deviceId=params.device
+	String dni=params.dni
+	def device=getChildDevices().find{ ((String)it.getDeviceNetworkId() == dni) || (hashId(it.id) == deviceId) }
+	Map location=params.location ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(params.location) : [error: "Invalid data"]
 	if(device) device.processEvent([name: 'updated', location: location, places: state.settings.places])
 }
 
-private api_intf_variable_set() {
+private api_intf_variable_set(){
 	Map result
 	debug "Dashboard: Request received to set a variable"
-	if(verifySecurityToken((String)params.token)) {
-		String pid = (String)params.id
-		String name = (String)params.name
-		def value = params.value ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.value.decodeBase64(), "UTF-8")) : null
+	if(verifySecurityToken((String)params.token)){
+		String pid=(String)params.id
+		String name=(String)params.name
+		def value=params.value ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.value.decodeBase64(), "UTF-8")) : null
 		Map globalVars
 		Map localVars
-		if(!pid) {
-			Boolean chgd = false
-			globalVars = atomicState.vars ?: [:]
-			if(name && !value) {
+		if(!pid){
+			Boolean chgd=false
+			globalVars=atomicState.vars ?: [:]
+			if(name && !value){
 				//deleting a variable
 				globalVars.remove(name)
-				chgd = true
-			} else if(value && value.n) {
-				if(!name || (name != (String)value.n)) {
+				chgd=true
+			} else if(value && value.n){
+				if(!name || (name != (String)value.n)){
 					//add a new variable
 					if(name) globalVars.remove(name)
-					globalVars[(String)value.n] = [t: (String)value.t, v: value.v]
-					chgd = true
-				} else {
+					globalVars[(String)value.n]=[t: (String)value.t, v: value.v]
+					chgd=true
+				}else{
 					//update a variable
-					globalVars[name] = [t: (String)value.t, v: value.v]
-					chgd = true
+					globalVars[name]=[t: (String)value.t, v: value.v]
+					chgd=true
 				}
 			}
-			if(chgd) {
-				atomicState.vars = globalVars
+			if(chgd){
+				atomicState.vars=globalVars
 				clearGlobalPistonCache("dashboard set")
 				clearBaseResult('api_intf_variable_set')
 				sendVariableEvent([name: (String)value.n, value: value.v, type: (String)value.t])
 			}
-			result = [status: "ST_SUCCESS"] + [globalVars: globalVars]
-		} else {
-			def piston = getChildApps().find{ hashId(it.id) == pid }
-			if(piston) {
-				localVars = piston.setLocalVariable(name, value.v)
+			result=[status: "ST_SUCCESS"] + [globalVars: globalVars]
+		}else{
+			def piston=getChildApps().find{ hashId(it.id) == pid }
+			if(piston){
+				localVars=piston.setLocalVariable(name, value.v)
 				clearBaseResult('api_intf_variable_set')
-				result = [status: "ST_SUCCESS"] + [id: pid, localVars: localVars]
-			} else {
-				result = api_get_error_result("ERR_INVALID_ID")
+				result=[status: "ST_SUCCESS"] + [id: pid, localVars: localVars]
+			}else{
+				result=api_get_error_result("ERR_INVALID_ID")
 			}
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
 private void resetFuelStreamList(){
-	state.fuelStreams = []
+	state.fuelStreams=[]
 /*
-	name = "${handle()} Fuel Stream"
-	fuelStreams = getChildApps().findAll{ it.name == name }.collect { it.label }
-	state.fuelStreams = fuelStreams
+	name="${handle()} Fuel Stream"
+	fuelStreams=getChildApps().findAll{ it.name == name }.collect { it.label }
+	state.fuelStreams=fuelStreams
 */
 	state.remove("fuelStreams")
 }
 
 public void writeToFuelStream(Map req){
-	String name = handle()+" Fuel Stream"
-	String streamName = "${(req.c ?: "")}||${req.n}"
+	String name=handle()+" Fuel Stream"
+	String streamName="${(req.c ?: "")}||${req.n}"
 	
-	def result = getChildApps().find{ (String)it.name == name && ((String)it.label).contains(streamName)}
-//	def fuelStreams = isHubitat() ? [] : atomicState.fuelStreams ?: []
+	def result=getChildApps().find{ (String)it.name == name && ((String)it.label).contains(streamName)}
+//	def fuelStreams=isHubitat() ? [] : atomicState.fuelStreams ?: []
 	
 	if(!result){
 /*
@@ -1571,15 +1609,15 @@ public void writeToFuelStream(Map req){
 			return
 		}
 */
-		def t0 = getChildApps().findAll{ (String)it.name == name }.collect{ ((String)it.label).split(' - ')[0].toInteger()}.max()
-		def id = (t0 ?: 0) + 1
-		try {
-			result = addChildApp('ady624', name, "$id - $streamName")
+		def t0=getChildApps().findAll{ (String)it.name == name }.collect{ ((String)it.label).split(' - ')[0].toInteger()}.max()
+		def id=(t0 ?: 0) + 1
+		try{
+			result=addChildApp('ady624', name, "$id - $streamName")
 /*
 			if(!isHubitat()){
-				fuelStreams = getChildApps().find{ it.name == name }.collect { it.label }
+				fuelStreams=getChildApps().find{ it.name == name }.collect { it.label }
 				fuelStreams << result.label
-				atomicState.fuelStreams = fuelStreams
+				atomicState.fuelStreams=fuelStreams
 			}		
 */
 			result.createStream([id: id, name: req.n, canister: req.c ?: ""])
@@ -1592,196 +1630,213 @@ public void writeToFuelStream(Map req){
 	result.updateFuelStream(req)
 }
 
-private api_intf_fuelstreams_list() {
+private api_intf_fuelstreams_list(){
 	def result
 	debug "Dashboard: Request received to list fuelstreams"
-	//if(verifySecurityToken((String)params.token)) {
-	String name = handle()+" Fuel Stream"
-	result = getChildApps().findAll{ (String)it.name == name }*.getFuelStream()
+	//if(verifySecurityToken((String)params.token)){
+	String name=handle()+" Fuel Stream"
+	result=getChildApps().findAll{ (String)it.name == name }*.getFuelStream()
 	
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(["fuelStreams" : result])})"
 }
 
-private api_intf_fuelstreams_get() {
+private api_intf_fuelstreams_get(){
 	def result
-	String id = (String)params.id
+	String id=(String)params.id
 	debug "Dashboard: Request received to get fuelstream data $id"
 	
-	//if(verifySecurityToken((String)params.token)) {
-	String name = handle()+" Fuel Stream"
-	def stream = getChildApps().find { (String)it.name == name && ((String)it.label).startsWith("$id -")}
-	result = stream.listFuelStreamData()
+	//if(verifySecurityToken((String)params.token)){
+	String name=handle()+" Fuel Stream"
+	def stream=getChildApps().find { (String)it.name == name && ((String)it.label).startsWith("$id -")}
+	result=stream.listFuelStreamData()
 	
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(["points" : result])})"
 }
 
-private api_intf_settings_set() {
+private api_intf_settings_set(){
 	Map result
 	debug "Dashboard: Request received to set settings"
-	if(verifySecurityToken((String)params.token)) {
-		def msettings = params.settings ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.settings.decodeBase64(), "UTF-8")) : null
-		atomicState.settings = msettings
+	if(verifySecurityToken((String)params.token)){
+		def msettings=params.settings ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.settings.decodeBase64(), "UTF-8")) : null
+		atomicState.settings=msettings
 
 		clearParentPistonCache("dashboard changed settings")
 		clearBaseResult('settings change')
 
 		//testLifx()
-		result = [status: "ST_SUCCESS"]
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+		result=[status: "ST_SUCCESS"]
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_evaluate() {
+private api_intf_dashboard_piston_evaluate(){
 	Map result
 	debug "Dashboard: Request received to evaluate an expression"
-	if(verifySecurityToken((String)params.token)) {
-		def piston = getChildApps().find{ hashId(it.id) == (String)params.id }
-		if(piston) {
-			def expression = (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.expression.decodeBase64(), "UTF-8"))
-			Map msg = timer "Evaluating expression"
-			result = [status: "ST_SUCCESS", value: piston.proxyEvaluateExpression(null /* getRunTimeData()*/, expression, params.dataType)]
+	if(verifySecurityToken((String)params.token)){
+		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
+		if(piston){
+			def expression=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.expression.decodeBase64(), "UTF-8"))
+			Map msg=timer "Evaluating expression"
+			result=[status: "ST_SUCCESS", value: piston.proxyEvaluateExpression(null /* getRunTimeData()*/, expression, params.dataType)]
 			trace msg
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-private api_intf_dashboard_piston_activity() {
+private api_intf_dashboard_piston_activity(){
 	Map result
 	//debug "Dashboard: Activity request received $params"
-	if(verifySecurityToken((String)params.token)) {
+	if(verifySecurityToken((String)params.token)){
 		String pistonId=(String)params.id
-		def piston = getChildApps().find{ hashId((String)it.id) == pistonId }
-		if(piston!=null) {
-			Map t0 = piston.activity(params.log)
-			if(t0!=null){
-				if(t0.state){
-					Map cST=[:]+t0.state
-					cST.remove('old')
-					Map st = state[pistonId]?: [:]
-					st.remove('s')
-					st.s=cST
-					state[pistonId]=st
-				}
-			}
-			result = [status: "ST_SUCCESS", activity: (t0 ?: [:]) + [globalVars: listAvailableVariables1()/*, mode: hashId(location.getCurrentMode().id), shm: location.currentState("alarmSystemStatus")?.value, hubs: location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}*/]]
-		} else {
-			result = api_get_error_result("ERR_INVALID_ID")
+		def piston=getChildApps().find{ hashId((String)it.id) == pistonId }
+		if(piston!=null){
+			Map t0=piston.activity(params.log)
+			result=[status: "ST_SUCCESS", activity: (t0 ?: [:]) + [globalVars: listAvailableVariables1()/*, mode: hashId(location.getCurrentMode().id), shm: location.currentState("alarmSystemStatus")?.value, hubs: location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}*/]]
+		}else{
+			result=api_get_error_result("ERR_INVALID_ID")
 		}
-	} else {
-		result = api_get_error_result("ERR_INVALID_TOKEN")
+	}else{
+		result=api_get_error_result("ERR_INVALID_TOKEN")
 	}
 	render contentType: "application/javascript;charset=utf-8", data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-def api_ifttt() {
-	def data = [:]
-	//def remoteAddr = isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
-	def remoteAddr = request.'X-forwarded-for'
+def api_ifttt(){
+	def data=[:]
+	//def remoteAddr=isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
+	def remoteAddr=request.'X-forwarded-for'
 	debug "Request received ifttt call IP $remoteAddr  Referer: ${request.Referer}"
 //log.debug "params ${params}"
-	if(params) {
-		data.params = [:]
-		for(param in params) {
-			if(!(param.key in ['access_token', 'theAccessToken', 'appId', 'action', 'controller'])) {
-				data[param.key] = param.value
+	if(params){
+		data.params=[:]
+		for(param in params){
+			if(!(param.key in ['access_token', 'theAccessToken', 'appId', 'action', 'controller'])){
+				data[param.key]=param.value
 			}
 		}
 	}
-	data = data + (request?.JSON ?: [:])
-	data.remoteAddr = remoteAddr
-	String eventName = (String)params?.eventName
-	if(eventName) {
+	data=data + (request?.JSON ?: [:])
+	data.remoteAddr=remoteAddr
+	String eventName=(String)params?.eventName
+	if(eventName){
 		sendLocationEvent([name: "ifttt.${eventName}", value: eventName, isStateChange: true, linkText: "IFTTT event", descriptionText: "${handle()} has received an IFTTT event: $eventName", data: data])
 	}
 	render contentType: "text/html", data: "<!DOCTYPE html><html lang=\"en\">Received event $eventName.<body></body></html>"
 }
 
 
-def api_email() {
-	def data = request?.JSON ?: [:]
-	def from = data.from ?: ''
-	def pistonId = params?.pistonId
-	if(pistonId) {
+def api_email(){
+	def data=request?.JSON ?: [:]
+	def from=data.from ?: ''
+	def pistonId=params?.pistonId
+	if(pistonId){
 		sendLocationEvent([name: "email.${pistonId}", value: pistonId, isStateChange: true, linkText: "Email event", descriptionText: "${handle()} has received an email from $from", data: data])
 	}
 	render contentType: "text/plain", data: "OK"
 }
 
-private api_execute() {
-	Map result = [:]
-	Map data = [:]
-	//def remoteAddr = isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
-	def remoteAddr = request.'X-forwarded-for'
+private api_execute(){
+	Map result=[:]
+	Map data=[:]
+	//def remoteAddr=isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
+	def remoteAddr=request.'X-forwarded-for'
 	debug "Dashboard or web request received to execute a piston from IP $remoteAddr  Referer: ${request.Referer}"
 //log.debug "params ${params} request: ${request}"
-	if(params) {
-		data = [:]
-		for(param in params) {
-			if(!((String)param.key in ['access_token', 'pistonIdOrName'])) {
-				data[(String)param.key] = param.value
+	if(params){
+		data=[:]
+		for(param in params){
+			if(!((String)param.key in ['access_token', 'pistonIdOrName'])){
+				data[(String)param.key]=param.value
 			}
 		}
 	}
-	data = data + (request?.JSON ?: [:])
-	data.remoteAddr = remoteAddr
-	data.referer = request.Referer
-	String pistonIdOrName = (String)params?.pistonIdOrName
-	def piston = getChildApps().find{ ((String)it.label == pistonIdOrName) || (hashId(it.id) == pistonIdOrName) }
-	if(piston!=null) {
+	data=data + (request?.JSON ?: [:])
+	data.remoteAddr=remoteAddr
+	data.referer=request.Referer
+	String pistonIdOrName=(String)params?.pistonIdOrName
+	def piston=getChildApps().find{ ((String)it.label == pistonIdOrName) || (hashId(it.id) == pistonIdOrName) }
+	if(piston!=null){
 		sendLocationEvent(name: hashId(piston.id), value: remoteAddr, isStateChange: true, displayed: false, linkText: "Execute event", descriptionText: "External piston execute request from IP $remoteAddr", data: data)
-		result.result = 'OK'
-	} else {
-		result.result = 'ERROR'
+		result.result='OK'
+	}else{
+		result.result='ERROR'
 		error "Piston not found for dashboard or web Request to execute a piston from IP $remoteAddr $pistonIdOrName"
 	}
-	result.timestamp = (new Date()).time
+	result.timestamp=(new Date()).time
 	render contentType: "application/json", data: "${groovy.json.JsonOutput.toJson(result)}"
 }
 
-void recoveryHandler() {
-	if((String)state.version != version() || (String)state.versionHE != HEversion()) {
+@Field static java.util.concurrent.Semaphore theSerialLockFLD=new java.util.concurrent.Semaphore(0)
+
+// Memory Barrier
+void mb(String meth=(String)null){
+	if((Boolean)theSerialLockFLD.tryAcquire()){
+		theSerialLockFLD.release()
+	}
+}
+
+@Field volatile static Long lastRecoveredFLD
+@Field static String verFLD
+@Field static String HverFLD
+
+void recoveryHandler(){
+	if(verFLD==(String)null || HverFLD==(String)null){
+		if((String)state.cV == version() && (String)state.hV == HEversion()){
+			verFLD=version()
+			HverFLD=HEversion()
+			mb()
+		}
+	}
+	if(verFLD!=version() || HverFLD!=HEversion()){
 		info "webCoRE software Updated to "+version()+" HE: "+HEversion()
-		atomicState.version = version()
-		atomicState.versionHE = HEversion()
+		verFLD=version()
+		HverFLD=HEversion()
+		mb()
 		updated()
 	}
 
-	Long t = now()
-	Long lastRecovered = (Long)state.lastRecovered ?: 0L
-	Long recTime = 900000L  // 15 min in ms
-	if(lastRecovered && ((t - lastRecovered) < recTime)) return
-
-	state.lastRecovered = t
+	Long t=now()
+	Long lastRecovered=lastRecoveredFLD
+	lastRecovered=lastRecovered ?: 0L
+	Long recTime=900000L  // 15 min in ms
+	if(lastRecovered!=0L && (t - lastRecovered) < recTime) return
+	lastRecoveredFLD=t
 	registerInstance(false)
-	Integer delay = Math.round(200.0D * Math.random()) // seconds
+	Integer delay=Math.round(200.0D * Math.random()) // seconds
 	runIn(delay, finishRecovery)
 }
 
-void finishRecovery() {
-	Long recTime = 300000L  // 5 min in ms
-	String name = handle() + ' Piston'
-	Long threshold = now() - recTime
-	Boolean updateCache = true
-//ERS
-	def failedPistons = getChildApps().findAll{ (String)it.name == name }.collect {
-		String myId = hashId(it.id, updateCache)
-		[ id: myId, 'name': (String)it.label, 'meta': state[myId] ] }.findAll{ it.meta!=null && (Boolean)it.meta.a && it.meta.n && (Long)it.meta.n < threshold }
-	if(failedPistons.size()) {
-		for (piston in failedPistons) {
-			warn "Piston $piston.name was sent a recovery signal because it was ${now() - piston.meta.n}ms late"
-			Long delay = Math.round(3000.0D * Math.random()) // 3 sec in ms
+void finishRecovery(){
+	Long recTime=300000L  // 5 min in ms
+	String name=handle() + ' Piston'
+	Long threshold=now() - recTime
+	Boolean updateCache=true
+
+	def failedPistons=getChildApps().findAll{ (String)it.name == name }.collect {
+		String myId=hashId(it.id, updateCache)
+		Map meta=pStateFLD[myId]
+		if(meta==null){	
+			//meta=atomicState[myId]
+			meta=it.curPState()
+			pStateFLD[myId]=meta
+			pStateFLD=pStateFLD
+		}
+		[ id: myId, 'name': (String)it.label, 'meta': meta ] }.findAll{ it.meta!=null && (Boolean)it.meta.a && it.meta.n && (Long)it.meta.n < threshold }
+	if(failedPistons.size()){
+		for (piston in failedPistons){
 			sendLocationEvent(name: (String)piston.id, value: 'recovery', isStateChange: true, displayed: false, linkText: "Recovery event", descriptionText: "Recovery event for piston $piston.name")
+			warn "Piston $piston.name was sent a recovery signal because it was ${now() - piston.meta.n}ms late"
+			Long delay=Math.round(2000.0D * Math.random()) // 2 sec
 			pauseExecution(delay)
 		}
 	}
-	//log.trace "RECOVERY took ${now() - t}ms"
 }
 
 
@@ -1790,32 +1845,33 @@ void finishRecovery() {
 /*** PRIVATE METHODS								***/
 /******************************************************************************/
 
-private void cleanUp() {
-	try {
-	List pistons = getChildApps().collect{ hashId(it.id) }
-	for (item in state.findAll{ (it.key.startsWith('sph') && (it.value == 0)) || it.key.contains('-') || (it.key.startsWith(':') && !(it.key in pistons)) }) {
+private void cleanUp(){
+try{
+	List pistons=getChildApps().collect{ hashId(it.id) }
+	for (item in state.findAll{ (it.key.startsWith('sph') && (it.value == 0)) || it.key.contains('-') || (it.key.startsWith(':') && !(it.key in pistons)) }){
 		state.remove(item.key)
 	}
-	state.remove('chunks')
-	state.remove('hash')
-	state.remove('virtualDevices')
-	state.remove('updateDevices')
-	state.remove('semaphore')
-	state.remove('pong')
-	state.remove('modules')
-	state.remove('globalVars')
-	state.remove('devices')
-	state.remove('migratedStorage')
-	def a = api_get_base_result(true)
-	} catch (all) {
+
+	List data=[ 'version', 'versionHE', 'chunks', 'hash', 'virtualDevices', 'updateDevices', 'semaphore', 'pong', 'modules', 'globalVars', 'devices', 'migratedStorage', 'lastRecovered', 'lastReg', 'lastRegTry']
+	for(String foo in data)state.remove(foo)
+
+	List t0=getChildApps().findAll{ (String)it.name == name }
+	if(t0){
+		t0.each{
+			String myId=hashId(it.id, true)
+			state.remove(myId)
+		}
 	}
+	def a=api_get_base_result(true)
+} catch (all){
+}
 }
 
-private getStorageApp(Boolean install = false) {
-	String name = handle() + ' Storage'
-	def storageApp = getChildApps().find{ (String)it.name == name }
+private getStorageApp(Boolean install=false){
+	String name=handle() + ' Storage'
+	def storageApp=getChildApps().find{ (String)it.name == name }
 
-	if(storageApp!=null) {
+	if(storageApp!=null){
 
 /*
 // Hubitat does not use storage app for settings for performance reasons;  Someone could have created it elsewhere in UI
@@ -1829,58 +1885,58 @@ private getStorageApp(Boolean install = false) {
 */
 	}
 
-	String label = "${app.label}" + ' Storage'
-	if(storageApp!=null) {
-		if(label != storageApp.label) {
+	String label="${app.label}" + ' Storage'
+	if(storageApp!=null){
+		if(label != storageApp.label){
 			storageApp.updateLabel(label)
 		}
 		return storageApp
 	}
 
-	if(install) {
-		try {
-			storageApp = addChildApp("ady624", name, label)
-		} catch (all) {
+	if(install){
+		try{
+			storageApp=addChildApp("ady624", name, label)
+		} catch (all){
 			error "Please install the webCoRE Storage App for \$weather to work"
 			return null
 		}
 	}
 /*
-	try {
+	try{
 		storageApp.initData(settings.collect{ it.key.startsWith('dev:') ? it : null }, settings.contacts)
-		for (item in settings.collect{ it.key.startsWith('dev:') ? it : null }) {
-			if(item && item.key) {
+		for (item in settings.collect{ it.key.startsWith('dev:') ? it : null }){
+			if(item && item.key){
 				//app.updateSetting(item.key, [type: 'text', value: null])
 				app.clearSetting("${item.key}".toString())
 			}
 		}
 		//app.updateSetting('contacts', [type: 'text', value: null])
 		app.clearSetting('contacts')
-	} catch (all) {
+	} catch (all){
 	}
 */
 
 	return storageApp
 }
 
-private getDashboardApp(Boolean install = false) {
+private getDashboardApp(Boolean install=false){
 	if(!enableDashNotifications) return null
-	String name = handle() + ' Dashboard'
-	String label = app.label + ' (dashboard)'
-	def dashboardApp = getChildApps().find{ (String)it.name == name }
-	if(dashboardApp!=null) {
-		if(!enableDashNotifications) {
+	String name=handle() + ' Dashboard'
+	String label=app.label + ' (dashboard)'
+	def dashboardApp=getChildApps().find{ (String)it.name == name }
+	if(dashboardApp!=null){
+		if(!enableDashNotifications){
 			app.deleteChildApp(dashboardApp.id)
 			return null
 		}
-		if(label != dashboardApp.label) {
+		if(label != dashboardApp.label){
 			dashboardApp.updateLabel(label)
 		}
 		return dashboardApp
 	}
-	try {
-		dashboardApp = addChildApp("ady624", name, app.label)
-	} catch (all) {
+	try{
+		dashboardApp=addChildApp("ady624", name, app.label)
+	} catch (all){
 		return null
 	}
 	return dashboardApp
@@ -1889,28 +1945,27 @@ private getDashboardApp(Boolean install = false) {
 private String customServerUrl(String path){
 	path ?: ""
 	if(!path.startsWith("/")){
-		path = "/" + path
+		path="/" + path
 	}
 	
-	if(customHubUrl.contains(hubUID)){
-		return customHubUrl + "/" + app.id + path
+	if( ((String)customHubUrl).contains(hubUID)){
+		return (String)customHubUrl + "/" + app.id + path
 	}
-	return customHubUrl + "/apps/api/" + app.id + path
+	return (String)customHubUrl + "/apps/api/" + app.id + path
 }
 
 
-private String getDashboardInitUrl(Boolean register = false) {
-	String url = register ? getDashboardRegistrationUrl() : getDashboardUrl()
+private String getDashboardInitUrl(Boolean register=false){
+	String url=register ? getDashboardRegistrationUrl() : getDashboardUrl()
 	if(!url) return (String)null
 	String t0
 	if(isCustomEndpoint()){
 		//return url + (register ? "register/" : "init/") +	(
-		t0 = url + (register ? "register/" : "init/") +	(
+		t0=url + (register ? "register/" : "init/") +	(
 			customServerUrl('/?access_token=' + state.accessToken) ).bytes.encodeBase64()
-	}
-	else {
+	}else{
 		//return url + (register ? "register/" : "init/") +
-		t0 = url + (register ? "register/" : "init/") +
+		t0=url + (register ? "register/" : "init/") +
 			(apiServerUrl("").replace("https://", '').replace(".api.smartthings.com", "").replace(":443", "").replace("/", "") +
 			((hubUID ?: state.accessToken) + app.id).replace("-", "") + (isHubitat() ? '/?access_token=' + state.accessToken : '')).bytes.encodeBase64()
 	}
@@ -1918,30 +1973,30 @@ private String getDashboardInitUrl(Boolean register = false) {
 	return t0
 }
 
-private String getDashboardRegistrationUrl() {
+private String getDashboardRegistrationUrl(){
 	if(!state.endpoint) return (String)null
 	return "https://api.${domain()}/dashboard/"
 }
 
-public Map listAvailableDevices(Boolean raw = false, Boolean updateCache = false, Integer offset = 0) {
-	Long time = now()
-	def storageApp // = getStorageApp()
-	Map result = [:]
-	if(storageApp) {
-		result = storageApp.listAvailableDevices(raw, offset)
-	} else {
-		def myDevices = settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
-		def devices = myDevices.unique{ it.id }
-		if(raw) {
-			result = devices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
-		} else {
-			Map overrides = commandOverrides()
-			Integer deviceCount = devices.size()
-			devices = devices[offset..-1]
-			result.devices = [:]
-			result.complete = !devices.indexed().find{ idx, dev ->
+public Map listAvailableDevices(Boolean raw=false, Boolean updateCache=false, Integer offset=0){
+	Long time=now()
+	def storageApp //=getStorageApp()
+	Map result=[:]
+	if(storageApp){
+		result=storageApp.listAvailableDevices(raw, offset)
+	}else{
+		def myDevices=settings.findAll{ it.key.startsWith("dev:") }.collect{ it.value }.flatten().sort{ it.getDisplayName() }
+		def devices=myDevices.unique{ it.id }
+		if(raw){
+			result=devices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
+		}else{
+			Map overrides=commandOverrides()
+			Integer deviceCount=devices.size()
+			devices=devices[offset..-1]
+			result.devices=[:]
+			result.complete=!devices.indexed().find{ idx, dev ->
 //				log.debug "Loaded device at ${idx} after ${now() - time}ms. Data size is ${result.toString().size()}"
-				result.devices[hashId(dev.id)] = [
+				result.devices[hashId(dev.id)]=[
 					n: dev.getDisplayName(),
 					cn: dev.getCapabilities()*.name,
 					a: dev.getSupportedAttributes().unique{ (String)it.name }.collect{[
@@ -1954,15 +2009,15 @@ public Map listAvailableDevices(Boolean raw = false, Boolean updateCache = false
 						p: it.getArguments()
 					]}
 				]
-				Boolean stop = false
-				String jsonData = groovy.json.JsonOutput.toJson(result)
-				Integer responseLength = jsonData.getBytes("UTF-8").length
+				Boolean stop=false
+				String jsonData=groovy.json.JsonOutput.toJson(result)
+				Integer responseLength=jsonData.getBytes("UTF-8").length
 				if(responseLength > (50 * 1024)){
-					stop = true // Stop if large
+					stop=true // Stop if large
 				}
-				if(now() - time > 4000) stop = true
-				if (idx < devices.size() - 1 && stop) {
-					result.nextOffset = offset + idx + 1
+				if(now() - time > 4000) stop=true
+				if (idx < devices.size() - 1 && stop){
+					result.nextOffset=offset + idx + 1
 					return true
 				}
 				false
@@ -1970,13 +2025,13 @@ public Map listAvailableDevices(Boolean raw = false, Boolean updateCache = false
 			debug "Generated list of ${offset}-${offset + (Integer)((Map)result.devices).size()-1} of ${deviceCount} devices in ${now() - time}ms. Data size is ${result.toString().size()}"
 		}
 	}
-	if(raw || (Boolean)result.complete) {
-		List presenceDevices = getChildDevices()
-		if(presenceDevices && presenceDevices.size()) {
-			if(raw) {
+	if(raw || (Boolean)result.complete){
+		List presenceDevices=getChildDevices()
+		if(presenceDevices && presenceDevices.size()){
+			if(raw){
 				result << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
-			} else {
-				result.devices << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}.collectEntries{ id, dev -> [ (id): [ n: dev.getDisplayName(), cn: dev.getCapabilities()*.name, a: dev.getSupportedAttributes().unique{ (String)it.name }.collect{def x = [n: (String)it.name, t: it.getDataType(), o: it.getValues()]; x}, c: dev.getSupportedCommands().unique{ it.getName() }.collect{[n: it.getName(), p: it.getArguments()]} ]]}
+			}else{
+				result.devices << presenceDevices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}.collectEntries{ id, dev -> [ (id): [ n: dev.getDisplayName(), cn: dev.getCapabilities()*.name, a: dev.getSupportedAttributes().unique{ (String)it.name }.collect{def x=[n: (String)it.name, t: it.getDataType(), o: it.getValues()]; x}, c: dev.getSupportedCommands().unique{ it.getName() }.collect{[n: it.getName(), p: it.getArguments()]} ]]}
 			}
 		}
 	}
@@ -1995,7 +2050,7 @@ public Map listAvailableDevices(Boolean raw = false, Boolean updateCache = false
 //isAppInstalled("hubitat", "Z-Wave Poller", "SYSTEM")
 
 private static String transformCommand(command, Map overrides){
-	Map override = overrides[command.getName()]
+	Map override=overrides[command.getName()]
 	if(override && override.s == command.getArguments()?.toString()){
 		return override.r
 	}
@@ -2003,135 +2058,153 @@ private static String transformCommand(command, Map overrides){
 }
 
 
-private void setPowerSource(String powerSource, Boolean atomic = true) {
+private void setPowerSource(String powerSource, Boolean atomic=true){
 	if(state.powerSource == powerSource) return
-	if(atomic) {
-		atomicState.powerSource = powerSource
-	} else {
-		state.powerSource = powerSource
-	}
+	atomicState.powerSource=powerSource
 	sendLocationEvent([name: 'powerSource', value: powerSource, isStateChange: true, linkText: "webCoRE power source event", descriptionText: handle()+" has detected a new power source: "+powerSource])
 }
 
-public Map listAvailableVariables() {
+public Map listAvailableVariables(){
 	return (atomicState.vars ?: [:]).sort{ (String)it.key }
 }
 
-Map listAvailableVariables1() {
+Map listAvailableVariables1(){
 	return (state.vars ?: [:]).sort{ (String)it.key }
 }
 
-public Map getGStore() {
+public Map getGStore(){
 	return (atomicState.store ?: [:]).sort{ (String)it.key }
 }
 
-public getPushDev() {
+public getPushDev(){
 	return (settings.pushDevice ?: [])
 }
 
-private void initTokens() {
+private void initTokens(){
 	debug "Dashboard: Initializing security tokens"
-	state.securityTokens = [:]
+	atomicState.securityTokens=[:]
 }
 
-private Boolean verifySecurityToken(String tokenId) {
+private Boolean verifySecurityToken(String tokenId){
 	//trace "verifySecurityToken ${tokenId}"
-	Map tokens = state.securityTokens
+	Map tokens=state.securityTokens
 	if(tokens==null || tokenId==(String)null) return false
-	Long threshold = now()
-	Boolean modified = false
+	Long threshold=now()
+	Boolean modified=false
 	//remove all expired tokens
-	for (token in tokens.findAll{ (Long)it.value < threshold }) {
+	for (token in tokens.findAll{ (Long)it.value < threshold }){
 		tokens.remove((String)token.key)
-		modified = true
+		modified=true
 	}
-	if(modified) {
-		state.securityTokens = tokens
+	if(modified){
+		atomicState.securityTokens=tokens
 	}
-	def token = tokens[tokenId]
-	if(token==null || (Long)token < now()) {
-		error "Dashboard: Authentication failed due to an invalid token"
+	Long token=tokens[tokenId]
+	if(token==null || token < now()){
+		if(tokenId!=(String)null && tokens) error "Dashboard: Authentication failed due to an invalid token"
 		return false
 	}
 	return true
 }
 
-private String createSecurityToken() {
+private String createSecurityToken(){
 	trace "Dashboard: Generating new security token after a successful PIN authentication"
-	String token = UUID.randomUUID().toString()
-	Map tokens = state.securityTokens ?: [:]
-	Long mexpiry = 0L
-	String eo = "$settings.expiry".toLowerCase().replace("every ", "").replace("(recommended)", "").replace("(not recommended)", "").trim()
-	switch (eo) {
-		case "hour": mexpiry = 3600L; break
-		case "day": mexpiry = 86400L; break
-		case "week": mexpiry = 604800L; break
-		case "month": mexpiry = 2592000L; break
-		case "three months": mexpiry = 7776000L; break
-		case "never": mexpiry = 3110400000L; break //never means 100 years, okay?
+	String token=UUID.randomUUID().toString()
+	Map tokens=atomicState.securityTokens ?: [:]
+	Long mexpiry=0L
+	String eo=((String)settings.expiry).toLowerCase().replace("every ", "").replace("(recommended)", "").replace("(not recommended)", "").trim()
+	switch(eo){
+		case "hour": mexpiry=3600L; break
+		case "day": mexpiry=86400L; break
+		case "week": mexpiry=604800L; break
+		case "month": mexpiry=2592000L; break
+		case "three months": mexpiry=7776000L; break
+		case "never": mexpiry=3110400000L; break //never means 100 years, okay?
 	}
-	tokens[token] = (Long)Math.round(now() + (mexpiry * 1000.0D))
-	state.securityTokens = tokens
+	tokens[token]=(Long)Math.round(now() + (mexpiry * 1000.0D))
+	atomicState.securityTokens=tokens
 	return token
 }
 
-private void ping() {
-	sendLocationEvent( [name: handle(), value: 'ping', isStateChange: true, displayed: false, linkText: "${handle()} ping reply", descriptionText: "${handle()} has received a ping reply and is replying with a pong", data: [id: hashId(app.id), name: app.label]] )
+private void ping(){
+	sendLocationEvent( [name: handle(), value: 'ping', isStateChange: true, displayed: false, linkText: "${handle()} ping reply", descriptionText: "${handle()} has received a ping reply and is replying with a pong", data: [id: getInstanceSid(), name: app.label]] )
 }
 
-private void startDashboard() {
+private void startDashboard(){
 	//debug "startDashboard"
-	def dashboardApp = getDashboardApp()
+	def dashboardApp=getDashboardApp()
 	if(!dashboardApp) return //false
-	Map t0 = listAvailableDevices(true)
-	dashboardApp.start(t0.collect{ it.value }, hashId(app.id))
-	if(state.dashboard != 'active') atomicState.dashboard = 'active'
+	Map t0=listAvailableDevices(true)
+	dashboardApp.start(t0.collect{ it.value }, getInstanceSid())
+	if((String)state.dashboard != 'active') atomicState.dashboard='active'
 }
 
-private void stopDashboard() {
+private void stopDashboard(){
 	//debug "stopDashboard"
-	def dashboardApp = getDashboardApp()
+	def dashboardApp=getDashboardApp()
 	if(!dashboardApp) return //false
 	dashboardApp.stop()
-	if(state.dashboard != 'inactive') atomicState.dashboard = 'inactive'
+	if((String)state.dashboard != 'inactive') atomicState.dashboard='inactive'
 }
 
-private String getAccountSid() {
-	Boolean useNew = state.properSID!=null ? state.properSID : true
+private String getAccountSid(){
+	Boolean useNew=state.properSID!=null ? state.properSID : true
 	String accountStr=useNew ? hubUID+'-A' : hubUID
 	return hashId(accountStr)
 }
 
-private String getLocationSid() {
-	Boolean useNew = state.properSID!=null ? state.properSID : true
-	String locationStr=useNew ? hubUID+'-L' : location.id + '-L'
+private String getLocationSid(){
+	Boolean useNew=state.properSID!=null ? state.properSID : true
+	String locationStr=useNew ? hubUID+location.name+'-L' : location.id + '-L'
 	return hashId(locationStr)
 }
 
-private void registerInstance(Boolean force=true) {
-	if((Boolean)state.installed && settings.agreement && !isCustomEndpoint()) {
-		Long lastReg = state.lastReg ? (Long)state.lastReg : 0L
-		if(!force && lastReg && (now() - lastReg < 129600000L)) return // 36 hr in ms
-		Long lastRegTry = state.lastRegTry ? (Long) state.lastRegTry : 0L
-		if(!force && lastRegTry && (now() - lastRegTry < 1800000L)) return // 30 min in ms
-		state.lastRegTry = now()
-		//String accountId = hashId(hubUID ?: app.getAccountId())
-		String accountId = getAccountSid()
-		//String locationId = hashId(location.id + (isHubitat() ? '-L' : ''))
-		String locationId = getLocationSid()
-		String instanceId = hashId(app.id)
-		String endpoint = (String)state.endpoint
-		String region = endpoint.contains('graph-eu') ? 'eu' : 'us'
-		String name = handle() + ' Piston'
-		def pistons = getChildApps().findAll{ (String)it.name == name }.collect{ String t0 = hashId(it.id, true); [ id: t0, a: state[t0]?.a ] }
-//log.debug "pistons: ${pistons}"
-		List lpa = pistons.findAll{ it.a }.collect{ it.id }
-		Integer pa = lpa.size()
-		List lpd = pistons.findAll{ !it.a }.collect{ it.id }
-		Integer pd = pistons.size() - pa
+private String getInstanceSid(){
+	Boolean useNew=state.properSID!=null ? state.properSID : true
+	String hsh=app.id.toString()
+	String instStr=useNew ? hubUID+hsh+'-I' : hsh
+	return hashId(instStr)
+}
+
+@Field volatile static Long lastRegFLD
+@Field volatile static Long lastRegTryFLD
+
+private void registerInstance(Boolean force=true){
+	if((Boolean)state.installed && settings.agreement && !isCustomEndpoint()){
+		if(!force){
+			Long lastReg=lastRegFLD
+			lastReg=lastReg ?: 0L
+			if(lastReg && (now() - lastReg < 129600000L)) return // 36 hr in ms
+
+			Long lastRegTry=lastRegTryFLD
+			lastRegTry=lastRegTry ?: 0L
+			if(lastRegTry!=0 && (now() - lastRegTry < 1800000L)) return // 30 min in ms
+		}
+		lastRegTryFLD=now()
+		String accountId=getAccountSid()
+		String locationId=getLocationSid()
+		String instanceId=getInstanceSid()
+		String endpoint=(String)state.endpoint
+		String region=endpoint.contains('graph-eu') ? 'eu' : 'us'
+		String name=handle() + ' Piston'
+		def pistons=getChildApps().findAll{ (String)it.name == name }.collect{
+			String myId=hashId(it.id, true)
+			Map meta=pStateFLD[myId]
+			if(meta==null){	
+				//meta=atomicState[myId]
+				meta=it.curPState()
+				pStateFLD[myId]=meta
+				pStateFLD=pStateFLD
+			}
+			[ id: myId, a: meta?.a ]
+		}
+		List lpa=pistons.findAll{ it.a }.collect{ it.id }
+		Integer pa=lpa.size()
+		List lpd=pistons.findAll{ !it.a }.collect{ it.id }
+		Integer pd=pistons.size() - pa
 	
-		Map params = [
-			uri: "https://api-${region}-${instanceId[32]}.webcore.co:9247",
+		Map params=[
+			uri: "https://api-${region}-${instanceId[32]}.webcore.co:9247".toString(),
 			path: '/instance/register',
 			headers: ['ST' : instanceId],
 			body: [
@@ -2154,13 +2227,13 @@ private void registerInstance(Boolean force=true) {
 	}
 }
 
-public void myDone(resp, data) {
-	String endpoint = (String)state.endpoint
-	String region = endpoint.contains('graph-eu') ? 'eu' : 'us'
-	String instanceId = hashId(app.id)
+public void myDone(resp, data){
+	String endpoint=(String)state.endpoint
+	String region=endpoint.contains('graph-eu') ? 'eu' : 'us'
+	String instanceId=getInstanceSid()
 	debug "register resp: ${resp?.status} using api-${region}-${instanceId[32]}.webcore.co:9247"
-	if(resp?.status == 200) {
-		state.lastReg = now()
+	if(resp?.status == 200){
+		lastRegFLD=now()
 	}
 }
 
@@ -2169,23 +2242,23 @@ public void myDone(resp, data) {
 /*** PUBLIC METHODS															***/
 /***																		***/
 /******************************************************************************/
-public Boolean isInstalled() {
+public Boolean isInstalled(){
 	return (Boolean)state.installed==true
 }
 
-public String generatePistonName() {
-	def apps = getChildApps()
-	Integer i = 1
-	while (true) {
-		String name = handle()+" Piston #$i".toString()
-		Boolean found = false
-		for (app in apps) {
-			if(app.label == name) {
-				found = true
+public String generatePistonName(){
+	def apps=getChildApps()
+	Integer i=1
+	while (true){
+		String name=handle()+" Piston #$i".toString()
+		Boolean found=false
+		for (app in apps){
+			if(app.label == name){
+				found=true
 				break
 			}
 		}
-		if(found) {
+		if(found){
 			i++
 			continue
 		}
@@ -2193,50 +2266,52 @@ public String generatePistonName() {
 	}
 }
 
-public String getDashboardUrl() {
+public String getDashboardUrl(){
 	if(!state.endpoint) return (String)null
 
-	if(customEndpoints && (customWebcoreInstanceUrl ?: "") != ""){
-		return customWebcoreInstanceUrl + "/"
-	} else {
+	if((Boolean)customEndpoints && ((String)customWebcoreInstanceUrl ?: "") != ""){
+		return (String)customWebcoreInstanceUrl + "/"
+	}else{
 		return "https://dashboard.${domain()}/"
 	}
 }
 
-public void refreshDevices() {
-	state.deviceVersion = now().toString()
+public void refreshDevices(){
+	state.deviceVersion=now().toString()
+	atomicState.deviceVersion=state.deviceVersion
+	clearBaseResult('refreshDevices')
 	//testLifx()
 }
 
-public static String getWikiUrl() {
+public static String getWikiUrl(){
 	return "https://wiki.${domain()}/"
 }
 
-private String mem(Boolean showBytes = true) {
-	Integer bytes = state.toString().length()
+private String mem(Boolean showBytes=true){
+	Integer bytes=state.toString().length()
 	return Math.round(100.0D * (bytes/ 100000.0D)) + "%${showBytes ? " ($bytes bytes)" : ""}"
 }
 
 /*
-public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
-	Long startTime = now()
+public Map getRunTimeData(semaphore=null, fetchWrappers=false){
+	Long startTime=now()
 // we never ask parent to lock
-	semaphore = semaphore ?: 0
-	Long semaphoreDelay = 0
-	String semaphoreName = semaphore ? "sph$semaphore" : ''
-	Boolean waited = false
-	if(semaphore) {		
+	semaphore=semaphore ?: 0
+	Long semaphoreDelay=0
+	String semaphoreName=semaphore ? "sph$semaphore" : ''
+	Boolean waited=false
+	if(semaphore){		
 		//if we need to wait for a semaphore
 		def lastSemaphore
-		while (semaphore) {
-			lastSemaphore = lastSemaphore ?: (atomicState[semaphoreName] ?: 0)
-			if(!lastSemaphore || (now() - lastSemaphore > 100000)) {
-				semaphoreDelay = waited ? now() - startTime : 0
-				semaphore = now()
-				atomicState[semaphoreName] = semaphore
+		while (semaphore){
+			lastSemaphore=lastSemaphore ?: (atomicState[semaphoreName] ?: 0)
+			if(!lastSemaphore || (now() - lastSemaphore > 100000)){
+				semaphoreDelay=waited ? now() - startTime : 0
+				semaphore=now()
+				atomicState[semaphoreName]=semaphore
 				break
 			}
-			waited = true
+			waited=true
 			pause(250)
 		}
 	}
@@ -2263,7 +2338,7 @@ public Map getRunTimeData(semaphore = null, fetchWrappers = false) {
 		//lifx: state.lifx ?: [:],
 		powerSource: state.powerSource ?: 'mains',
 		region: state.endpoint.contains('graph-eu') ? 'eu' : 'us',
-		instanceId: hashId(app.id),
+		instanceId: getInstanceSid(),
 		//sunTimes: getSunTimes(),
 		//started: startTime,
 		ended: now(),
@@ -2291,51 +2366,46 @@ public void pCallupdateRunTimeData(Map data){
 	updateRunTimeData(data)
 }
 
+@Field volatile static Map pStateFLD=[:]
+
 void updateRunTimeData(Map data){
 	if(!data || !data.id) return
-//	Boolean superGlobal = false
-	List variableEvents = []
-	Boolean usedAtomic=false
-	if(data.gvCache!=null) {
-		Map vars = atomicState.vars ?: [:]
-		Boolean modified = false
-		for(var in (Map)data.gvCache) {
+	List variableEvents=[]
+	if(data.gvCache!=null){
+		Map vars=atomicState.vars ?: [:]
+		Boolean modified=false
+		for(var in (Map)data.gvCache){
 			String varName=(String)var.key
-			if(varName!=(String)null && varName.startsWith('@') && vars[varName] && var.value.v != vars[varName].v ) {
+			if(varName!=(String)null && varName.startsWith('@') && vars[varName] && var.value.v != vars[varName].v ){
 				Boolean a=variableEvents.push([name: varName, oldValue: vars[varName].v, value: var.value.v, type: var.value.t])
-				vars[varName].v = var.value.v
-				modified = true
-		/*		if(varName.startsWith('@@')) {
-					superGlobal = true
-				} */
+				vars[varName].v=var.value.v
+				modified=true
 			}
 		}
-		if(modified) {
-			usedAtomic=true
-			atomicState.vars = vars
+		if(modified){
+			atomicState.vars=vars
 		}
 	}
-	if(data.gvStoreCache!=null) {
-		Map store = atomicState.store ?: [:]
-		Boolean modified = false
-		for(var in (Map)data.gvStoreCache) {
-			if(var.value == null) {
+	if(data.gvStoreCache!=null){
+		Map store=atomicState.store ?: [:]
+		Boolean modified=false
+		for(var in (Map)data.gvStoreCache){
+			if(var.value == null){
 				store.remove((String)var.key)
-			} else {
-				store[(String)var.key] = var.value
+			}else{
+				store[(String)var.key]=var.value
 			}
-			modified = true
+			modified=true
 		}
-		if(modified) {
-			usedAtomic=true
-			atomicState.store = store
+		if(modified){
+			atomicState.store=store
 		}
 	}
-	String id = (String)data.id
+	String id=(String)data.id
 	//remove the old state as we don't need it
-	def st = [:] + (Map)data.state
+	Map st=[:] + (Map)data.state
 	st.remove('old')
-	Map piston = [
+	Map piston=[
 		a: (Boolean)data.active,
 		c: data.category,
 		t: data.t ?:now(), //last run
@@ -2343,99 +2413,85 @@ void updateRunTimeData(Map data){
 		z: (String)data.piston.z, //description
 		s: st, //state
 	]
-	if(usedAtomic)atomicState[id] = piston
-	else state[id] = piston
+	pStateFLD[id]=piston
+	pStateFLD=pStateFLD
 	clearBaseResult('updateRunTimeData')
 	//broadcast variable change events
-	for (Map variable in variableEvents) { // this notifies the other webCoRE master instances and children
+	for (Map variable in variableEvents){ // this notifies the other webCoRE master instances and children
 		sendVariableEvent(variable)
 	}
-//	if(superGlobal) { // if one of my children modified a superglobal, they all have it
-		//clearGlobalPistonCache("superGlobal updated")
-//	}
-/*
-	//release semaphores
-	if(data.semaphoreName && (atomicState[data.semaphoreName] <= data.semaphore)) {
-		//release the semaphore
-		atomicState[data.semaphoreName] = 0
-		//atomicState.remove(data.semaphoreName)
-	}
-*/
+	//atomicState[id]=piston
 	//broadcast to dashboard
-	if(state.dashboard == 'active') {
-		def dashboardApp = getDashboardApp()
+	if((String)state.dashboard == 'active'){
+		def dashboardApp=getDashboardApp()
 		if(dashboardApp) dashboardApp.updatePiston(id, piston)
 	}
 	recoveryHandler()
 }
 
-public Boolean pausePiston(String pistonId) {
-	def piston = getChildApps().find{ hashId(it.id) == pistonId }
-	if(piston) {
-		Map rtData = piston.pausePiston()
+public Boolean pausePiston(String pistonId){
+	def piston=getChildApps().find{ hashId(it.id) == pistonId }
+	if(piston){
+		Map rtData=piston.pausePiston()
 		updateRunTimeData(rtData)
 		return true
 	}
 	return false
 }
 
-public Boolean resumePiston(String pistonId) {
-	def piston = getChildApps().find{ hashId(it.id) == pistonId }
-	if(piston) {
-		Map rtData = piston.resume()
+public Boolean resumePiston(String pistonId){
+	def piston=getChildApps().find{ hashId(it.id) == pistonId }
+	if(piston){
+		Map rtData=piston.resume()
 		updateRunTimeData(rtData)
 		return true
 	}
 	return false
 }
 
-public Boolean executePiston(String pistonId, data, source) {
-	def piston = getChildApps().find{ hashId(it.id) == pistonId }
-	if(piston) {
-		Map a = piston.execute(data, source)
+public Boolean executePiston(String pistonId, data, source){
+	def piston=getChildApps().find{ hashId(it.id) == pistonId }
+	if(piston){
+		Map a=piston.execute(data, source)
 		return true
 	}
 	return false
 }
 
-public Map getWData() {
-	def storageApp = getStorageApp(true)
-	def t0 = [:]
-	if(storageApp) {
-		t0 = storageApp.getWData()
+public Map getWData(){
+	def storageApp=getStorageApp(true)
+	def t0=[:]
+	if(storageApp){
+		t0=storageApp.getWData()
 	}
 	return t0
 }
 
-private void sendVariableEvent(Map variable, Boolean onlyChildren=false) {
-	String myId = hashId(app.id)
-	String myLabel = app.label
-	String varN = (String)variable.name
-	Map theEvent = [
+private void sendVariableEvent(Map variable, Boolean onlyChildren=false){
+	String myId=getInstanceSid()
+	String myLabel=app.label
+	String varN=(String)variable.name
+	Map theEvent=[
 		value: varN, isStateChange: true, displayed: false,
 		data: [id: myId, name: myLabel, event: 'variable', variable: variable]
 	]
 // This notifies other webCoRE master instances of super change
-	if( !onlyChildren && varN.startsWith('@@') ) {
-		String str = handle()+" Super global variable ${varN} changed".toString()
+	if( !onlyChildren && varN.startsWith('@@') ){
+		String str=handle()+" Super global variable ${varN} changed".toString()
 		sendLocationEvent(theEvent + [
 			name: ('@@' + handle()),
 			linkText: str, descriptionText: str,
 		])
 	}
-	//sendLocationEvent([name: (variable.name.startsWith('@@') ? '@@' + handle() : hashId(app.id)) + ".${variable.name}", value: variable.name, isStateChange: true, displayed: false, linkText: "${handle()} global variable ${variable.name} changed", descriptionText: "${handle()} global variable ${variable.name} changed", data: [id: hashId(app.id), name: app.label, event: 'variable', variable: variable]])
-
 // this notifies my children
-	String str = handle()+" global variable ${varN} changed".toString()
+	String str=handle()+" global variable ${varN} changed".toString()
 	sendLocationEvent(theEvent + [
-		name: (hashId(app.id)) + ".${varN}",
+		name: (getInstanceSid()) + ".${varN}",
 		linkText: str, descriptionText: str,
 		])
 }
 
-private broadcastPistonList() {
-//public getWCendpoints() need to share endpoints if someone is going to execute (or do they only send event to piston??) arguments?
-//ERS
+private broadcastPistonList(){
 	sendLocationEvent(
 		[
 			name: handle(),
@@ -2443,7 +2499,7 @@ private broadcastPistonList() {
 			isStateChange: true,
 			displayed: false,
 			data: [
-				id: hashId(app.id),
+				id: getInstanceSid(),
 				name: app.label,
 				pistons: getChildApps().findAll{ (String)it.name == (handle()+' Piston') }.collect{
 					[
@@ -2454,74 +2510,74 @@ private broadcastPistonList() {
 		])
 }
 
-def webCoREHandler(event) {
+def webCoREHandler(event){
 // receive notification of super Global change
 	if(!event || (!event.name.endsWith(handle()))) return
-	def data = event.jsonData ?: null
+	def data=event.jsonData ?: null
 //log.error "GOT EVENT WITH DATA $data"
-	if(data && data.variable && ((String)data.event == 'variable') && event.value && event.value.startsWith('@@')) {
-		Map variable = data.variable
-		String vType = (String)variable.type ?: 'dynamic'
-		Map vars = atomicState.vars ?: [:]
-		def oldVar = vars[(String)variable.name] ?: [t:'', v:'']
-		if(((String)oldVar.t != vType) || (oldVar.v != variable.value)) { // only notify if it is a change for us.
-			vars[(String)variable.name] = [t: vType, v: variable.value]
-			atomicState.vars = vars
+	if(data && data.variable && ((String)data.event == 'variable') && event.value && event.value.startsWith('@@')){
+		Map variable=data.variable
+		String vType=(String)variable.type ?: 'dynamic'
+		Map vars=atomicState.vars ?: [:]
+		def oldVar=vars[(String)variable.name] ?: [t:'', v:'']
+		if(((String)oldVar.t != vType) || (oldVar.v != variable.value)){ // only notify if it is a change for us.
+			vars[(String)variable.name]=[t: vType, v: variable.value]
+			atomicState.vars=vars
 			clearGlobalPistonCache("variable event")
 // notify my child instances
 			sendVariableEvent([name: (String)variable.name, value: variable.value, type: vType], true)
 		}
 		return
 	}
-	switch (event.value) {
+	switch (event.value){
 		case 'poll':
-			Long delay = Math.round(2000.0D * Math.random())
+			Long delay=Math.round(2000.0D * Math.random())
 			pauseExecution(delay)
 			broadcastPistonList()
 			break
 /*		case 'ping':
-		if(data && data.id && data.name && (data.id != hashId(app.id))) {
-			sendLocationEvent( [name: handle(), value: 'pong', isStateChange: true, displayed: false, linkText: "${handle()} ping reply", descriptionText: "${handle()} has received a ping reply and is replying with a pong", data: [id: hashId(app.id), name: app.label]] )
-		} else {
+		if(data && data.id && data.name && (data.id != getInstanceSid())){
+			sendLocationEvent( [name: handle(), value: 'pong', isStateChange: true, displayed: false, linkText: "${handle()} ping reply", descriptionText: "${handle()} has received a ping reply and is replying with a pong", data: [id: getInstanceSid(), name: app.label]] )
+		}else{
 			break
 		}
 			//fall through to pong
 		case 'pong':
-		/*if(data && data.id && data.name && (data.id != hashId(app.id))) {
-			def pong = atomicState.pong ?: [:]
-			pong[data.id] = data.name
-			atomicState.pong = pong
+		/*if(data && data.id && data.name && (data.id != getInstanceSid())){
+			def pong=atomicState.pong ?: [:]
+			pong[data.id]=data.name
+			atomicState.pong=pong
 		}*/
 	}
 }
 
-def instanceRegistrationHandler(response, callbackData) {
+def instanceRegistrationHandler(response, callbackData){
 }
 
-def hubUpdatedHandler(evt) {
-	if(evt.jsonData && (evt.jsonData.hubType == 'PHYSICAL') && evt.jsonData.data && evt.jsonData.data.batteryInUse) {
+def hubUpdatedHandler(evt){
+	if(evt.jsonData && (evt.jsonData.hubType == 'PHYSICAL') && evt.jsonData.data && evt.jsonData.data.batteryInUse){
 		setPowerSource(evt.jsonData.data.batteryInUse ? 'battery' : 'mains')
 	}
 }
 
-def summaryHandler(evt) {
+def summaryHandler(evt){
 	//log.error "$evt.name >>> ${evt.jsonData}"
 }
 
-def newIncidentHandler(evt) {
+def newIncidentHandler(evt){
 	//log.error "$evt.name >>> ${evt.jsonData}"
 }
 
 def hsmHandler(evt){
-	state.hsmStatus = evt.value
+	state.hsmStatus=evt.value
 	clearBaseResult('hsmHandler')
 }
 
 def hsmAlertHandler(evt){
 //push incidents
-	String title = "HSM Alert: $evt.value" + (evt.value == "rule" ? ",  $evt.descriptionText" : "")
+	String title="HSM Alert: $evt.value" + (evt.value == "rule" ? ",  $evt.descriptionText" : "")
 
-	Map alert = [
+	Map alert=[
 		date:evt.date.getTime(),
 		title: title,
 		message: "",
@@ -2541,52 +2597,47 @@ List t1=getLocationEventsSince('hsmAlert', new Date() - 10)
 		}
 		if(t2 && t2.value){ return stringToTime(t2.value) + 1000 }
 */
-	String locStat = (String)location.hsmStatus
-	String evV = evt.value
+	String locStat=(String)location.hsmStatus
+	String evV=evt.value
 
-	List alerts = atomicState.hsmAlerts
-	alerts = alerts ?: []
+	List alerts=atomicState.hsmAlerts
+	alerts=alerts ?: []
 	Boolean aa=alerts.push(alert)
-	if(locStat == 'allDisarmed' || evV == 'cancel') alerts = []
-	atomicState.hsmAlerts = alerts
-	//atomicState.hsmAlert = alert
+	if(locStat == 'allDisarmed' || evV == 'cancel') alerts=[]
+	atomicState.hsmAlerts=alerts
+	//atomicState.hsmAlert=alert
 
-	def a = getIncidents() // cause trimming
+	def a=getIncidents() // cause trimming
 	clearParentPistonCache("hsmAlerts changed")
 	clearBaseResult('hsmAlertHandler')
 
-//	Long incidentThreshold = now() - 604800000 // 1 week
-//	List newAlerts = alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold }
-//	List new2Alerts = newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }
-//	atomicState.hsmAlerts = new2Alerts
+//	Long incidentThreshold=now() - 604800000 // 1 week
+//	List newAlerts=alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold }
+//	List new2Alerts=newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }
+//	atomicState.hsmAlerts=new2Alerts
 
 	info "HSM Alert: $evt.value" + (evV == "rule" ? ",  $evt.descriptionText" : "")
 }
 
-private void clearBaseResult(String meth='') {
-	base_resultFLD = null
-	//debug "clearBaseResult ${meth} ${cntbase_resultFLD}"
-}
-
-public List getIncidents() {
-	Long incidentThreshold = Math.round(now() - 604800000.0D) // 1 week
-	String locStat = (String)location.hsmStatus
-	List alerts = atomicState.hsmAlerts
-	alerts = alerts ?: []
-	Integer osz = (Integer)alerts.size()
+public List getIncidents(){
+	Long incidentThreshold=Math.round(now() - 604800000.0D) // 1 week
+	String locStat=(String)location.hsmStatus
+	List alerts=atomicState.hsmAlerts
+	alerts=alerts ?: []
+	Integer osz=(Integer)alerts.size()
 	if(osz == 0) return []
-	if(locStat == 'allDisarmed') { alerts = []; state.remove("hsmAlert") }
-	List newAlerts = alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold }
-	List new2Alerts = newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }.sort { it.date }
+	if(locStat == 'allDisarmed'){ alerts=[]; state.remove("hsmAlert") }
+	List newAlerts=alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold }
+	List new2Alerts=newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }.sort { it.date }
 	//return (state.vars ?: [:]).sort{ (String)it.key }
-			//for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }) {
-	List new3Alerts = []
-	for(myE in newAlerts2) {
+			//for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }){
+	List new3Alerts=[]
+	for(myE in newAlerts2){
 		if(myE.v=='cancel') new3Alerts=[]
 		else Boolean aa=new3Alerts.push(myE)
 	}
-	Integer nsz = new3Alerts.size()
-	if(osz!=nsz) atomicState.hsmAlerts = new3Alerts
+	Integer nsz=new3Alerts.size()
+	if(osz!=nsz) atomicState.hsmAlerts=new3Alerts
 	return new3Alerts
 }
 
@@ -2596,12 +2647,12 @@ def modeHandler(evt){
 
 def startHandler(evt){
 	debug "startHandler called"
-	state.lastRecovered = 0L
-	state.lastReg = 0L
+	lastRecoveredFLD=0L
+	lastRegFLD=0L
 	runIn(20, startWork)
 }
 
-def startWork() {
+def startWork(){
 	checkWeather()
 	recoveryHandler()
 }
@@ -2609,43 +2660,35 @@ def startWork() {
 
 
 /******************************************************************************/
-/***																		***/
 /*** SECURITY METHODS														***/
-/***																		***/
 /******************************************************************************/
-private String md5(String md5) {
+private String md5(String md5){
 //log.debug "doing md5 $md5"
-	try {
-	java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
-	byte[] array = md.digest(md5.getBytes())
-	String result = ""
-	for (int i = 0; i < array.length; ++i) {
+	java.security.MessageDigest md=java.security.MessageDigest.getInstance("MD5")
+	byte[] array=md.digest(md5.getBytes())
+	String result=''
+	for (int i=0; i<array.length; ++i){
 		result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
 	}
 	return result
-	} catch (java.security.NoSuchAlgorithmException e) {
-	}
-	return (String)null
 }
 
-private String hashId(id, Boolean updateCache = true) {
+@Field static Map theHashMapFLD=[:]
+
+private String hashId(id, Boolean updateCache=true){
 	//enabled hash caching for faster processing
 	String result
-	String myId = id.toString()
-	LinkedHashMap hash = [:]
-	if(state.hash) {
-		hash = state.hash
-		result = (String)hash."${myId}"
-	}
-	if(result==(String)null) {
-		result = ':'+md5('core.' + myId)+':'
-		hash."${myId}" = result
-		state.hash = hash
+	String myId=id.toString()
+	result=(String)theHashMapFLD[myId]
+	if(result==(String)null){
+		result=':'+md5('core.' + myId)+':'
+		theHashMapFLD[myId]=result
+		mb()
 	}
 	return result
 }
 
-private String temperatureUnit() {
+private String temperatureUnit(){
 	return "°" + location.temperatureScale
 }
 
@@ -2653,8 +2696,8 @@ private String temperatureUnit() {
 /*** DEBUG FUNCTIONS														***/
 /******************************************************************************/
 
-private Map getLogging() {
-	String logging = settings?.logging
+private Map getLogging(){
+	String logging=settings?.logging
 	return [
 		error: true,
 		warn: true,
@@ -2664,94 +2707,94 @@ private Map getLogging() {
 	]
 }
 
-private Map log(message, Integer shift=-2, err = null, String cmd = (String)null) {
-	if(cmd == "timer") {
+private Map log(message, Integer shift=-2, err=null, String cmd=(String)null){
+	if(cmd == "timer"){
 		return [m: message, t: now(), s: shift, e: err]
 	}
-	if(message instanceof Map) {
-		shift = message.s
-		err = message.e
-		message = (String)message.m + " (${now() - (Long)message.t}ms)"
+	if(message instanceof Map){
+		shift=message.s
+		err=message.e
+		message=(String)message.m + " (${now() - (Long)message.t}ms)"
 	}
-	String myMsg = (String)message
-	cmd = cmd ? cmd : 'debug'
+	String myMsg=(String)message
+	cmd=cmd ? cmd : 'debug'
 	Map myLog=getLogging()
-	if(cmd != 'error' && cmd != 'warn') {
+	if(cmd != 'error' && cmd != 'warn'){
 		if(!((Boolean)myLog.info) && cmd=='info') return [:]
 		if(!((Boolean)myLog.trace) && cmd=='trace') return [:]
 		if(!((Boolean)myLog.debug) && cmd=='debug') return [:]
 	}
-	String prefix = ""
-	Boolean debugging=false
-	if(debugging) {
+	String prefix=""
+/*	Boolean debugging=false
+	if(debugging){
 		//mode is
 		// 0 - initialize level, level set to 1
 		// 1 - start of routine, level up
 		// -1 - end of routine, level down
 		// anything else - nothing happens
-		Integer maxLevel = 4
-		Integer level = state.debugLevel ? state.debugLevel : 0
-		Integer levelDelta = 0
-		prefix = "║"
-		String pad = "░"
-		switch (shift) {
+		Integer maxLevel=4
+		Integer level=state.debugLevel ? state.debugLevel : 0
+		Integer levelDelta=0
+		prefix="║"
+		String pad="░"
+		switch (shift){
 			case 0:
-				level = 0
-				prefix = ""
+				level=0
+				prefix=""
 				break
 			case 1:
 				level += 1
-				prefix = "╚"
-				pad = "═"
+				prefix="╚"
+				pad="═"
 				break
 			case -1:
-				levelDelta = -(level > 0 ? 1 : 0)
-				pad = "═"
-				prefix = "╔"
+				levelDelta=-(level > 0 ? 1 : 0)
+				pad="═"
+				prefix="╔"
 			break
 		}
 
-		if(level > 0) {
-			prefix = prefix.padLeft(level, "║").padRight(maxLevel, pad)
+		if(level > 0){
+			prefix=prefix.padLeft(level, "║").padRight(maxLevel, pad)
 		}
 
 		level += levelDelta
-		state.debugLevel = level
+		state.debugLevel=level
 
 		prefix += " "
-	}
+	}*/
 
 	if(err){
 		log."$cmd" "$prefix$myMsg $err"
-	} else {
+	}else{
 		log."$cmd" "$prefix$myMsg"
 	}
 	return [:]
 }
 
-private void info(message, Integer shift=-2, err=null)	{ Map a = log message, shift, err, 'info' }
-private void debug(message, Integer shift=-2, err=null)	{ Map a = log message, shift, err, 'debug' }
-private void trace(message, Integer shift=-2, err=null)	{ Map a = log message, shift, err, 'trace' }
-private void warn(message, Integer shift=-2, err=null)	{ Map a = log message, shift, err, 'warn' }
-private void error(message, Integer shift=-2, err=null)	{ Map a = log message, shift, err, 'error' }
+private void info(message, Integer shift=-2, err=null)	{ Map a=log message, shift, err, 'info' }
+private void debug(message, Integer shift=-2, err=null)	{ Map a=log message, shift, err, 'debug' }
+private void trace(message, Integer shift=-2, err=null)	{ Map a=log message, shift, err, 'trace' }
+private void warn(message, Integer shift=-2, err=null)	{ Map a=log message, shift, err, 'warn' }
+private void error(message, Integer shift=-2, err=null)	{ Map a=log message, shift, err, 'error' }
 private Map timer(String message, Integer shift=-2, err=null)	{ log message, shift, err, 'timer' }
 
 private Boolean isCustomEndpoint(){
-	customEndpoints && (customHubUrl ?: "") != ""
+	(Boolean)customEndpoints && ((String)customHubUrl ?: "") != ""
 }
 
 /******************************************************************************/
 /*** DATABASE																***/
 /******************************************************************************/
 
-	//n = name
-	//d = friendly devices name
-	//a = default attribute
-	//c = accepted commands
-	//m = momentary
-	//s = number of subdevices
-	//i = subdevice index in event data
-private static Map capabilities() {
+	//n=name
+	//d=friendly devices name
+	//a=default attribute
+	//c=accepted commands
+	//m=momentary
+	//s=number of subdevices
+	//i=subdevice index in event data
+private static Map capabilities(){
 	return [
 		accelerationSensor		: [ n: "Acceleration Sensor",		d: "acceleration sensors",		a: "acceleration",								],
 		actuator			: [ n: "Actuator",			d: "actuators",														],
@@ -2841,26 +2884,26 @@ private static Map capabilities() {
 	]
 }
 
-public static Map getChildAttributes() {
-	Map result = attributes()
-	Map cleanResult = [:]
-	result.each {
-		Map t0 = [:]
-		String hasI = it.value.i
-		def hasP = it.value.p
-		String hasT = it.value.t
-		def hasM = it.value.m
-		if(hasI) t0 = t0 + [i:hasI]
-		if(hasP != null) t0 = t0 + [p:hasP.toBoolean()]
-		if(hasT) t0 = t0 + [t:hasT]
-		if(hasM != null) t0 = t0 + [m:hasM.toBoolean()]
-		if(t0 == [:]) t0 = [ n:"a" ]
-		cleanResult[it.key.toString()] = t0
+public static Map getChildAttributes(){
+	Map result=attributes()
+	Map cleanResult=[:]
+	result.each{
+		Map t0=[:]
+		String hasI=it.value.i
+		def hasP=it.value.p
+		String hasT=it.value.t
+		def hasM=it.value.m
+		if(hasI) t0=t0 + [i:hasI]
+		if(hasP != null) t0=t0 + [p:hasP.toBoolean()]
+		if(hasT) t0=t0 + [t:hasT]
+		if(hasM != null) t0=t0 + [m:hasM.toBoolean()]
+		if(t0 == [:]) t0=[ n:"a" ]
+		cleanResult[it.key.toString()]=t0
 	}		
 	return cleanResult
 }		
 
-private static Map attributes() {
+private static Map attributes(){
 	return [
 		acceleration			: [ n: "acceleration",			t: "enum",		o: ["active", "inactive"],						],
 		activities			: [ n: "activities",			t: "object",											],
@@ -2982,22 +3025,22 @@ private static Map commandOverrides(){
 	] ) as HashMap
 }
 
-public static Map getChildCommands() {
-	Map result = commands()
-	Map cleanResult = [:]
-	result.each {
-		Map t0 = [:]
-		String hasA = it.value.a
-		String hasV = it.value.v
-		if(hasA) t0 = t0 + [a:hasA]
-		if(hasV) t0 = t0 + [v:hasV]
-		if(t0 == [:]) t0 = [ n:"a" ]
-		cleanResult[it.key.toString()] = t0
+public static Map getChildCommands(){
+	Map result=commands()
+	Map cleanResult=[:]
+	result.each{
+		Map t0=[:]
+		String hasA=it.value.a
+		String hasV=it.value.v
+		if(hasA) t0=t0 + [a:hasA]
+		if(hasV) t0=t0 + [v:hasV]
+		if(t0 == [:]) t0=[ n:"a" ]
+		cleanResult[it.key.toString()]=t0
 	}		
 	return cleanResult
 }
 
-private static Map commands() {
+private static Map commands(){
 	return [
 		armAway				: [ n: "Arm Away",				a: "securityKeypad",				v: "armed away",					],
 		armHome				: [ n: "Arm Home",				a: "securityKeypad",				v: "armed home",					],
@@ -3145,29 +3188,29 @@ private static Map commands() {
 	]
 }
 
-public static Map getChildVirtCommands() {
-	Map result = virtualCommands()
-	Map cleanResult = [:]
-	result.each {
-		Map t0 = [:]
-		def hasA = it.value.a
-		def hasO = it.value.o
-		if(hasA != null) t0 = t0 + [a:hasA.toBoolean()]
-		if(hasO != null) t0 = t0 + [o:hasO.toBoolean()]
-		if(t0 == [:]) t0 = [ n:"a" ]
-		cleanResult[it.key.toString()] = t0
+public static Map getChildVirtCommands(){
+	Map result=virtualCommands()
+	Map cleanResult=[:]
+	result.each{
+		Map t0=[:]
+		def hasA=it.value.a
+		def hasO=it.value.o
+		if(hasA != null) t0=t0 + [a:hasA.toBoolean()]
+		if(hasO != null) t0=t0 + [o:hasO.toBoolean()]
+		if(t0 == [:]) t0=[ n:"a" ]
+		cleanResult[it.key.toString()]=t0
 	}		
 	return cleanResult
 }
 
-	//a = aggregate
-	//d = display
-	//n = name
-	//t = type
-	//i = icon
-	//p = parameters
-private static Map virtualCommands() {
-	List<String> tileIndexes = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16']
+	//a=aggregate
+	//d=display
+	//n=name
+	//t=type
+	//i=icon
+	//p=parameters
+private static Map virtualCommands(){
+	List<String> tileIndexes=['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16']
 	return [
 		noop				: [ n: "No operation",			a: true,	i: "circle",				d: "No operation",						],
 		wait				: [ n: "Wait...",			a: true,	i: "clock", is: "r",				d: "Wait {0}",						p: [[n:"Duration", t:"duration"]],				],
@@ -3230,33 +3273,33 @@ private static Map virtualCommands() {
 }
 
 
-public static Map getChildComparisons() {
-	Map result = comparisons()
-	Map cleanResult = [:]
-	cleanResult.conditions = [:]
-	result.conditions.each {
-		Map t0 = [:]
-		def hasP = it.value.p
-		def hasT = it.value.t
-		if(hasP != null) t0 = t0 + [p:hasP.toInteger()]
-		if(hasT != null) t0 = t0 + [t:hasT.toInteger()]
-		if(t0 == [:]) t0 = [ n:"a" ]
-		cleanResult.conditions[it.key.toString()] = t0
+public static Map getChildComparisons(){
+	Map result=comparisons()
+	Map cleanResult=[:]
+	cleanResult.conditions=[:]
+	result.conditions.each{
+		Map t0=[:]
+		def hasP=it.value.p
+		def hasT=it.value.t
+		if(hasP != null) t0=t0 + [p:hasP.toInteger()]
+		if(hasT != null) t0=t0 + [t:hasT.toInteger()]
+		if(t0 == [:]) t0=[ n:"a" ]
+		cleanResult.conditions[it.key.toString()]=t0
 	}
-	cleanResult.triggers = [:]
-	result.triggers.each {
-		Map t0 = [:]
-		def hasP = it.value.p
-		def hasT = it.value.t
-		if(hasP != null) t0 = t0 + [p:hasP.toInteger()]
-		if(hasT != null) t0 = t0 + [t:hasT.toInteger()]
-		if(t0 == [:]) t0 = [ n:"a" ]
-		cleanResult.triggers[it.key.toString()] = t0
+	cleanResult.triggers=[:]
+	result.triggers.each{
+		Map t0=[:]
+		def hasP=it.value.p
+		def hasT=it.value.t
+		if(hasP != null) t0=t0 + [p:hasP.toInteger()]
+		if(hasT != null) t0=t0 + [t:hasT.toInteger()]
+		if(t0 == [:]) t0=[ n:"a" ]
+		cleanResult.triggers[it.key.toString()]=t0
 	}
 	return cleanResult
 }
 
-private static Map comparisons() {
+private static Map comparisons(){
 	return [
 		conditions: [
 			changed				: [ d: "changed",									g:"bdfis",				t: 1,	],
@@ -3346,7 +3389,7 @@ private static Map comparisons() {
 	]
 }
 
-private static Map functions() {
+private static Map functions(){
 	return [
 		age			: [ t: "integer",						],
 		previousage		: [ t: "integer",	d: "previousAge",	],
@@ -3444,24 +3487,24 @@ private static Map functions() {
 	]
 }
 
-def getIftttKey() {
-	def module = state.modules?.IFTTT
+def getIftttKey(){
+	def module=state.modules?.IFTTT
 	return (module && module.connected ? module.key : null)
 }
 /*
-def getLifxToken() {
-	def module = state.modules?.LIFX
+def getLifxToken(){
+	def module=state.modules?.LIFX
 	return (module && module.connected ? module.token : null)
 }
 */
-private Map getLocationModeOptions(Boolean updateCache = false) {
-	Map result = [:]
-	for (mode in location.modes) {
-		if(mode) result[hashId((Long)mode.getId(), updateCache)] = (String)mode.name
+private Map getLocationModeOptions(Boolean updateCache=false){
+	Map result=[:]
+	for (mode in location.modes){
+		if(mode) result[hashId((Long)mode.getId(), updateCache)]=(String)mode.name
 	}
 	return result
 }
-private static Map getAlarmSystemStatusActions() {
+private static Map getAlarmSystemStatusActions(){
 	return [	
 		armAway:		"Arm Away",
 		armHome:		"Arm Home",
@@ -3476,7 +3519,7 @@ private static Map getAlarmSystemStatusActions() {
 }
 
 /*
-private static Map getAlarmSystemStatusOptions() {
+private static Map getAlarmSystemStatusOptions(){
 	return [
 	off:	"Disarmed",
 	stay:	"Armed/Stay",
@@ -3485,7 +3528,7 @@ private static Map getAlarmSystemStatusOptions() {
 }
 */
 
-private static Map getHubitatAlarmSystemStatusOptions() {
+private static Map getHubitatAlarmSystemStatusOptions(){
 	return [	
 		armedAway:		"Armed Away",
 		armingAway:		"Arming Away Pending exit delay",
@@ -3498,7 +3541,7 @@ private static Map getHubitatAlarmSystemStatusOptions() {
 	]	
 }
 
-private static Map getAlarmSystemAlertOptions() {
+private static Map getAlarmSystemAlertOptions(){
 	return [	
 		intrusion:		"Intrusion Away",
 		"intrusion-home":	"Intrusion Home",
@@ -3511,7 +3554,7 @@ private static Map getAlarmSystemAlertOptions() {
 	]
 }
 
-private static Map getAlarmSystemRuleOptions() {
+private static Map getAlarmSystemRuleOptions(){
 	return [	
 		armedRule:	"Armed Rule",
 		disarmedRule:	"Disarmed Rule"
@@ -3520,57 +3563,57 @@ private static Map getAlarmSystemRuleOptions() {
 
 
 /*
-private Map getRoutineOptions(updateCache = false) {
-	def routines = location.helloHome?.getPhrases()
-	def result = [:]
-	if(routines) {
-		routines = routines.sort{ it?.label ?: '' }
-		for(routine in routines) {
+private Map getRoutineOptions(updateCache=false){
+	def routines=location.helloHome?.getPhrases()
+	def result=[:]
+	if(routines){
+		routines=routines.sort{ it?.label ?: '' }
+		for(routine in routines){
 			if(routine && routine?.label)
-				result[hashId(routine.id, updateCache)] = routine.label
+				result[hashId(routine.id, updateCache)]=routine.label
 		}
 	}
 	return result
 }
 
-private Map getAskAlexaOptions() {
+private Map getAskAlexaOptions(){
 	return state.askAlexaMacros ?: [null:"AskAlexa not installed - please install or open AskAlexa"]
 }
 
-private Map getEchoSistantOptions() {
+private Map getEchoSistantOptions(){
 	return state.echoSistantProfiles ?: [null:"EchoSistant not installed - please install or open EchoSistant"]
 }
 */
 
 import hubitat.helper.RMUtils
 
-private Map getRuleOptions(Boolean updateCache) {
-	Map result = [:]
-	def rules = RMUtils.getRuleList()
-	rules.each {rule->
+private Map getRuleOptions(Boolean updateCache){
+	Map result=[:]
+	def rules=RMUtils.getRuleList()
+	rules.each{rule->
 		rule.each{pair->
-			result[hashId(pair.key, updateCache)] = pair.value
+			result[hashId(pair.key, updateCache)]=pair.value
 		}
 	}
 	return result
 }
 
-public Map getChildVirtDevices() {
-	Map result = virtualDevices()
-	Map cleanResult = [:]
-	result.each {
-		Map t0 = [:]
-		def hasAC = it.value.ac
-		def hasO = it.value.o
-		if(hasAC != null) t0 = t0 + [ac:hasAC]
-		if(hasO != null) t0 = t0 + [o:hasO]
-		if(t0 == [:]) t0 = [ n:"a" ]
-		cleanResult[it.key.toString()] = t0
+public Map getChildVirtDevices(){
+	Map result=virtualDevices()
+	Map cleanResult=[:]
+	result.each{
+		Map t0=[:]
+		def hasAC=it.value.ac
+		def hasO=it.value.o
+		if(hasAC != null) t0=t0 + [ac:hasAC]
+		if(hasO != null) t0=t0 + [o:hasO]
+		if(t0 == [:]) t0=[ n:"a" ]
+		cleanResult[it.key.toString()]=t0
 	}		
 	return cleanResult
 }
 
-private Map virtualDevices(Boolean updateCache = false) {
+private Map virtualDevices(Boolean updateCache=false){
 	return [
 		date:			[ n: 'Date',			t: 'date',		],
 		datetime:		[ n: 'Date & Time',		t: 'datetime',	],

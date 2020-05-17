@@ -1,0 +1,45 @@
+{
+  "packageName": "webCoRE",
+  "author": "imnot_bob",
+  "version": "1.0.0",
+  "minimumHEVersion": "2.1.9",
+  "licenseFile": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/LICENSE",
+  "releaseNotes": "Latest release for Hubitat to run webCoRE pistons locally on HE",
+  "documentationLink": "https://wiki.webcore.co",
+  "communityLink": "https://community.hubitat.com/t/webcore-for-hubitat-updates/11967",
+  "dateReleased": "2020-05-16",
+  "apps": [
+    {
+      "id": "cb649f7b-d33d-42b8-82c3-79d1d2101fea",
+      "name": "webCoRE",
+      "namespace": "ady624",
+      "location": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore.src/webcore.groovy",
+      "required": true,
+      "oauth": true
+    },
+    {
+      "id": "3f309b36-4e36-4caf-9b1c-efdf7fc707ac",
+      "name": "webCoRE Piston",
+      "namespace": "ady624",
+      "location": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-piston.src/webcore-piston.groovy",
+      "required": true,
+      "oauth": false
+    },
+    {
+      "id": "4fa112a8-c9fb-4376-ba19-97c55fd5787c",
+      "name": "webCoRE Storage",
+      "namespace": "ady624",
+      "location": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-storage.src/webcore-storage.groovy",
+      "required": false,
+      "oauth": false
+    },
+    {
+      "id": "f7733131-3a5d-49c9-941f-79f12e9d47e4",
+      "name": "webCoRE Fuel Stream",
+      "namespace": "ady624",
+      "location": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-fuel-stream.src/webcore-fuel-stream.groovy",
+      "required": false,
+      "oauth": false
+    }
+  ]
+}
