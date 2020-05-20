@@ -2612,7 +2612,7 @@ List t1=getLocationEventsSince('hsmAlert', new Date() - 10)
 	clearBaseResult('hsmAlertHandler')
 
 //	Long incidentThreshold=now() - 604800000 // 1 week
-//	List newAlerts=alerts.collect{it}.findAll{ (long)it.date >= incidentThreshold }
+//	List newAlerts=alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold }
 //	List new2Alerts=newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }
 //	atomicState.hsmAlerts=new2Alerts
 

@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 10, 2020 for Hubitat
+ * Last update April 30, 2020 for Hubitat
  */
 public static String version(){ return "v0.3.110.20191009" }
 public static String HEversion(){ return "v0.3.110.20191209_HE" }
@@ -387,14 +387,14 @@ String formatDt(dt){
 	return tf.format(dt)
 }
 
-def GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=null){
+Long GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=null){
 	if((strtDate && !stpDate) || (strtDate && stpDate)){
 		//if(strtDate?.contains("dtNow")){ return 10000 }
 		Date now = new Date()
 		String stopVal = stpDate ? stpDate.toString() : formatDt(now)
 		Long start = Date.parse("E MMM dd HH:mm:ss z yyyy", strtDate).getTime()
 		Long stop = Date.parse("E MMM dd HH:mm:ss z yyyy", stopVal).getTime()
-		Long diff = (Integer) (Long) (stop - start) / 1000
+		Long diff = (stop - start) / 1000L
 		return diff
 	}else{ return null }
 }

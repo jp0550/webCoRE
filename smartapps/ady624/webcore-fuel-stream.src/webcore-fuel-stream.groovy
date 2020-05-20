@@ -23,7 +23,7 @@ def settingsPage(){
         section(){
             input "maxSize", "number", title: "Max size of all fuelStream data in KB", defaultValue: 95  
             
-            def storageSize = (int)(state.toString().size() / 1024.0)
+            def storageSize = (Integer)(state.toString().size() / 1024.0)
             paragraph("Current memory usage is ${storageSize}KB")
         }
     }    
@@ -62,15 +62,15 @@ def getFuelStreamData(){
 
 def cleanFuelStreams(){    
     //ensure max size is obeyed
-    def storageSize = (int)(state.toString().size() / 1024.0)
+    def storageSize = (Integer)(state.toString().size() / 1024.0)
     def max = (settings.maxSize ?: 95).toInteger()
     
     if(storageSize > max){
         log.debug "Trim down fuel stream"     
         def points = getFuelStreamData().size()
-        def averageSize = points > 0 ? storageSize/(double)points : 0      
+        def averageSize = points > 0 ? storageSize/(Double)points : 0      
 
-        def pointsToRemove = averageSize > 0 ? (int)((storageSize - max) / (double)averageSize) : 0
+        def pointsToRemove = averageSize > 0 ? (Integer)((storageSize - max) / (Double)averageSize) : 0
         pointsToRemove = pointsToRemove > 0 ? pointsToRemove : 0
 
         log.debug "Size ${storageSize}KB Points ${points} Avg $averageSize Remove $pointsToRemove"
