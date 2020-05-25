@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated May 16, 2020 for Hubitat
+ * Last Updated May 25, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200515_HE" }
@@ -819,7 +819,8 @@ private Map api_get_base_result(Boolean updateCache=false){
 	Long incidentThreshold=Math.round(now() - 604800000.0D)
 	List alerts=state.hsmAlerts ?: []
 	
-	String instanceId=hashId(app.id, updateCache)
+	String instanceId=getInstanceSid()
+	String locationId=getLocationSid()
 //log.info "alerts=${location.hsmAlert}"
 
 //	def t0=location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}
@@ -844,7 +845,7 @@ private Map api_get_base_result(Boolean updateCache=false){
 				]
 			},
 			id: instanceId,
-			locationId: getLocationSid(),
+			locationId: locationId,
 			name: (String)app.label ?: (String)app.name,
 			uri: (String)state.endpoint,
 			deviceVersion: currentDeviceVersion,
@@ -861,7 +862,7 @@ private Map api_get_base_result(Boolean updateCache=false){
 			hubs: location.getHubs().findAll{ !((String)it.name).contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: (String)it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
 			incidents: alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold },
 			//incidents: isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold },
-			id: getLocationSid(),
+			id: locationId,
 			mode: hashId(location.getCurrentMode().id, updateCache),
 			modes: location.getModes().collect{ [id: hashId(it.id, updateCache), name: (String)it.name ]},
 			shm: transformHsmStatus(location.hsmStatus),
@@ -1026,7 +1027,6 @@ private api_intf_dashboard_piston_create(){
 		if((String)params.author!=(String)null || (String)params.bin!=(String)null){
 			piston.config([bin: (String)params.bin, author: (String)params.author, initialVersion: version()])
 		}
-		if(!(Boolean)piston.isInstalled()) piston.installed()
 		result=[status: "ST_SUCCESS", id: hashId(piston.id)]
 	}else{
 		result=api_get_error_result("ERR_INVALID_TOKEN")
@@ -1183,7 +1183,9 @@ private String decodeEmoji(String value){
 
 private api_intf_dashboard_piston_set_save(String id, String data, chunks){
 	def piston=getChildApps().find{ hashId(it.id) == id }
+	String myS="Dashboard: Request received to set_save"
 	if(piston){
+		debug myS
 	/*
 		def s=decodeEmoji(new String(data.decodeBase64(), "UTF-8"))
 		int cs=512
@@ -1198,6 +1200,7 @@ private api_intf_dashboard_piston_set_save(String id, String data, chunks){
 		broadcastPistonList()
 		return result
 	}
+	debug myS+" $id $chunks NOT FOUND"
 	return null
 }
 

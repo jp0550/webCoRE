@@ -341,11 +341,13 @@ void initialize(){
 	String tt1=(String)settings.logging
 	Integer tt2=(Integer)state.logging
 	String tt3=tt2.toString()
-	if(tt1==(String)null)Map a=setLoggingLevel(tt2 ? tt3:'0')
-	else if(tt1!=tt3)Map a=setLoggingLevel(tt1)
-	cleanState()
-	clearMyCache('initialize')
-	if((Boolean)state.active)Map b=resume()
+	if(tt1==(String)null)Map a=setLoggingLevel(tt2 ? tt3:'0', false)
+	else if(tt1!=tt3)Map a=setLoggingLevel(tt1, false)
+	if(!!state.active)Map b=resume()
+	else {
+		cleanState()
+		clearMyCache('initialize')
+	}
 }
 
 private void cleanState(){
@@ -551,11 +553,13 @@ public Map setup(LinkedHashMap data, chunks){
 	state.modifiedVersion=version()
 
 	state.cache=[:]
-	clear1(true)
+	state.logs=[]
+	state.trace=[:]
 
 	Map rtD=[:]
 	rtD.piston=piston
-	if((Integer)state.build==1 || (Boolean)state.active)rtD=resume(piston)
+	if((Integer)state.build==1 || !!state.active)rtD=resume(piston)
+	else clearMyCache('setup')
 	return [active:(Boolean)state.active, build:(Integer)state.build, modified:(Long)state.modified, state:(Map)state.state, rtData:rtD]
 }
 
@@ -776,13 +780,13 @@ Map shortRtd(Map rtD){
 	return myRt
 }
 
-public Map setLoggingLevel(String level){
+public Map setLoggingLevel(String level, Boolean clearC=true){
 	Integer mlogging=level.isInteger()? level.toInteger():0
 	mlogging=Math.min(Math.max(0,mlogging),3)
 	app.updateSetting('logging', [type:'enum', value:mlogging.toString()])
 	state.logging=mlogging
 	if(mlogging==0)state.logs=[]
-	clearMyCache('setLoggingLevel')
+	if(clearC) clearMyCache('setLoggingLevel')
 	return [logging:mlogging]
 }
 
@@ -1006,7 +1010,7 @@ private Map getTemporaryRunTimeData(Long startTime){
 		}
 		releaseTheLock(semName, lockTyp)
 	}
-	rtD=getDSCache()
+	rtD=getDSCache(false, 'getTemporaryRT')
 	rtD.temporary=true
 	rtD.timestamp=startTime
 	rtD.logs=[[t:startTime]]
@@ -1035,7 +1039,7 @@ private void clearMyCache(String meth=(String)null){
 	releaseTheLock(tsemaphoreName, lockTyp)
 }
 
-private Map getCachedMaps(Boolean retry=true, Boolean nolog=false){
+private Map getCachedMaps(Boolean retry=true, Boolean nolog=false, String meth=(String)null){
 	String myId=hashId(app.id.toString())
 	Map result=theCacheFLD[myId]
 	if(result!=null){
@@ -1044,14 +1048,14 @@ private Map getCachedMaps(Boolean retry=true, Boolean nolog=false){
 		theCacheFLD=theCacheFLD
 	}
 	if(retry){
-		Map a=getDSCache(nolog)
-		return getCachedMaps(false,nolog)
+		Map a=getDSCache(nolog,meth)
+		return getCachedMaps(false,nolog, meth)
 	}
 	if(eric())log.warn 'cached map nf'
 	return null
 }
 
-private Map getDSCache(Boolean nolog=false){
+private Map getDSCache(Boolean nolog=false, String meth){
 	String appStr=(app.id).toString()
 	String appId=hashId(appStr)
 	String myId=appId
@@ -1072,11 +1076,12 @@ private Map getDSCache(Boolean nolog=false){
 				LinkedHashMap piston=recreatePiston()
 				state.pep=piston.o?.pep ? true:false
 			}
+			String ttt=(String)atomicState.svLabel
 			Map t1=[
 				id: appId,
 				logging: (Integer)state.logging!=null ? (Integer)state.logging:0,
 				svLabel: (String)state.svLabel,
-				name: (String)state.svLabel!=(String)null ? (String)state.svLabel:(String)app.label,
+				name: ttt!=(String)null ? ttt:(String)app.label,
 				active: (Boolean)state.active,
 				category: state.category ?: 0,
 				pep: (Boolean)state.pep,
@@ -1127,12 +1132,12 @@ private Map getDSCache(Boolean nolog=false){
 			atomState=null
 		}
 		releaseTheLock(tsemaphoreName, lockTyp)
-		if(sendM && !nolog && eric())log.debug 'creating my piston cache'
+		if(sendM && !nolog && eric())log.debug 'creating my piston cache '+meth
 	}
 	Map rtD=[:]+pC+result
 	pC=null
 	result=null
-	if(sendM)checkLabel(rtD)
+	if(sendM && rtD.build!=0)checkLabel(rtD)
 	return rtD
 }
 
@@ -1944,8 +1949,7 @@ private void processSchedules(Map rtD, Boolean scheduleJob=false){
 			nextT=(Long)tnext.t
 			Long t=Math.round((nextT-now())/1000.0D)
 			t=(t<1L ? 1L:t)
-			Integer t1=Math.round(t)
-			runIn(t1, timeHandler, [data: tnext])
+			runIn(t, timeHandler, [data: tnext])
 
 			if((Integer)rtD.logging>0) info 'Setting up scheduled job for '+formatLocalTime(nextT)+' (in '+t.toString()+'s)' + ((Integer)schedules.size()>1 ? ', with ' + ((Integer)schedules.size()-1).toString() + ' more job' + ((Integer)schedules.size()>2 ? 's' : '') + ' pending' : ''), rtD
 		}
