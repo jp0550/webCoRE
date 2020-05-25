@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update May 16, 2020 for Hubitat
+ * Last update May 24, 2020 for Hubitat
 */
 
 private static String version(){ return 'v0.3.110.20191009' }
@@ -53,7 +53,7 @@ preferences{
 	page(name:'pageDumpPiston')
 }
 
-private static Boolean eric(){ return false }
+private static Boolean eric(){ return true }
 
 /** CONFIGURATION PAGES				**/
 
@@ -443,7 +443,6 @@ public Map clearLogs(){
 }
 
 private String decodeEmoji(String value){
-//	if(value==null)return ''
 	return value.replaceAll(/(\:%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}%[0-9A-F]{2}\:)/,{ m -> URLDecoder.decode(m[0].substring(1, 13), 'UTF-8')})
 }
 
@@ -659,7 +658,6 @@ public Map deletePiston(){
 }
 
 private void checkLabel(Map rtD=null, Boolean clear=true){
-//	if(rtD==null)rtD=getTemporaryRunTimeData(now())
 	Boolean act=(Boolean)rtD.active
 	Boolean dis=(Boolean)rtD.disabled
 	String appLbl=(String)app.label
@@ -755,8 +753,6 @@ public Map resume(LinkedHashMap piston=null){
 	state.state=[:]+(Map)rtD.state
 	Map nRtd=shortRtd(rtD)
 	nRtd.result=[active:true, subscriptions:(Map)state.subscriptions]
-//	state.active=true
-//	clearMyCache('resumeP1')
 	tempRtData=null
 	rtD=null
 	return nRtd
@@ -1091,7 +1087,6 @@ private Map getDSCache(Boolean nolog=false){
 				bin: (String)state.bin,
 				logsToHE: (Boolean)settings.logsToHE ? true:false,
 			]
-//ERS trying to cache things used on every piston start, read by activity, or frequently updated with atomicState
 			Long stateEnd=now()
 			t1.stateAccess=stateEnd-stateStart
 			t1.runTimeHis=[]
@@ -1162,7 +1157,7 @@ public void clearParentCache(String meth=(String)null){
 		List data=t0.collect{ it.key }
 		for(item in data)t0.remove((String)item)
 	}
-	theCacheFLD=[:] // force all pistons to reset cache
+	theCacheFLD=[:] // all pistons reset their cache
 	t0=null
 	mb()
 
@@ -1850,7 +1845,6 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		}
 
 		parent.pCallupdateRunTimeData(rtD)
-		//parent.updateRunTimeData(rtD)
 
 		rtD.piston=tpiston
 
@@ -1858,11 +1852,10 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		rtD.remove('gvStoreCache')
 		rtD.initGStore=false
 	}else{
-		// schedule to update UI for state
+		// update UI for state
 		Map myRt=shortRtd(rtD)
 		myRt.t=now()
 		parent.pCallupdateRunTimeData(myRt)
-		//runIn(2, finishUIupdate, [data: myRt])
 	}
 
 	rtD.stats.timing.u=Math.round(1.0D*now()-startTime)
@@ -1904,10 +1897,6 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		theCacheFLD[myId].runTimeHis=hisList
 		theCacheFLD=theCacheFLD
 	}
-}
-
-public void finishUIupdate(myRt){
-	parent.updateRunTimeData(myRt) //pCallupdateRunTimeData(myRt)
 }
 
 private void processSchedules(Map rtD, Boolean scheduleJob=false){
@@ -1989,7 +1978,7 @@ private void updateLogs(Map rtD, Long lastExecute=null){
 			theCacheFLD=theCacheFLD
 		}
 	}
-	//we only save the logs if we got some
+
 	if((Integer)((List)rtD.logs).size()>1){
 		Boolean myPep=(Boolean)rtD.pep
 		Integer t1=settings.maxLogs!=null ? (Integer)settings.maxLogs:(Integer)getPistonLimits.maxLogs
@@ -2504,8 +2493,7 @@ private Boolean executeTask(Map rtD, List devices, Map statement, Map task, Bool
 		def p
 		switch ((String)param.vt){
 		case 'variable':
-			if((String)param.t!='x')continue
-			p=param.x instanceof List ? (List)param.x : (String)param.x + ((String)param.xi!=(String)null ? '['+(String)param.xi+']':'')
+			if((String)param.t=='x') p=param.x instanceof List ? (List)param.x : (String)param.x + ((String)param.xi!=(String)null ? '['+(String)param.xi+']':'')
 			break
 		default:
 			Map v=(Map)evaluateOperand(rtD, null, param)
@@ -2834,7 +2822,7 @@ private void scheduleTimer(Map rtD, Map timer, Long lastRun=0L){
 		}
 		//check to see if it fits the restrictions
 		if(nextSchedule>=rightNow){
-			Long offset=checkTimeRestrictions(rtD, timer.lo, nextSchedule, level, interval)
+			Long offset=checkTimeRestrictions(rtD, (Map)timer.lo, nextSchedule, level, interval)
 			if(offset==0L)break
 			if(offset>0L)nextSchedule += offset
 		}
@@ -3460,7 +3448,7 @@ private Long vcmd_internal_fade(Map rtD, device, String command, Integer startLe
 		minInterval=5000L
 	}
 	if((startLevel==endLevel)|| (duration<=500L)){
-		//if the fade is too fast, or not changing anything, give it up and go to the end level directly
+		//if the fade is too fast, or not changing anything, go to the end level directly
 		executePhysicalCommand(rtD, device, command, endLevel)
 		return 0L
 	}
@@ -4631,7 +4619,7 @@ private Boolean evaluateComparison(Map rtD, String comparison, Map lo, Map ro=nu
 				case 'time':
 				case 'date':
 				case 'datetime':
-					Boolean pass=(checkTimeRestrictions(rtD, lo.operand, now(), 5, 1)==0L)
+					Boolean pass=(checkTimeRestrictions(rtD, (Map)lo.operand, now(), 5, 1)==0L)
 					if((Integer)rtD.logging>2)debug "Time restriction check ${pass ? 'passed':'failed'}", rtD
 					if(!pass)res=false
 				}
@@ -5414,7 +5402,7 @@ private getDevice(Map rtD, String idOrName){
 	def device=t0!=null ? t0:rtD.devices.find{ (String)it.value.getDisplayName()==idOrName }?.value
 	if(device==null){
 		if(rtD.allDevices==null){
-			Map msg=timer "Device missing from piston. Loading all from parent...", rtD
+			Map msg=timer "Device missing from piston. Loading all from parent", rtD
 			rtD.allDevices=(Map)parent.listAvailableDevices(true)
 			if(eric()||(Integer)rtD.logging>2)debug msg, rtD
 		}
