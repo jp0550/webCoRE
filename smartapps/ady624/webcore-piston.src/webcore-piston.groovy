@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update May 24, 2020 for Hubitat
+ * Last update May 25, 2020 for Hubitat
 */
 
 private static String version(){ return 'v0.3.110.20191009' }
@@ -53,7 +53,7 @@ preferences{
 	page(name:'pageDumpPiston')
 }
 
-private static Boolean eric(){ return true }
+private static Boolean eric(){ return false }
 
 /** CONFIGURATION PAGES				**/
 
