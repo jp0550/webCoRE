@@ -1,13 +1,13 @@
 {
   "packageName": "webCoRE",
   "author": "imnot_bob",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minimumHEVersion": "2.1.9",
   "licenseFile": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/LICENSE",
   "releaseNotes": "Latest release for Hubitat to run webCoRE pistons locally on HE - bug fixes",
   "documentationLink": "https://wiki.webcore.co",
   "communityLink": "https://community.hubitat.com/t/webcore-for-hubitat-updates/11967",
-  "dateReleased": "2020-05-24",
+  "dateReleased": "2020-05-25",
   "apps": [
     {
       "id": "cb649f7b-d33d-42b8-82c3-79d1d2101fea",
@@ -40,6 +40,15 @@
       "location": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore-fuel-stream.src/webcore-fuel-stream.groovy",
       "required": false,
       "oauth": false
+    }
+  ],
+  "drivers": [
+    {
+      "id": "665948da-1ed9-4b25-8b5b-53872afb3b4f",
+      "name": "webCoRE Presence Sensor",
+      "namespace": "ady624",
+      "location": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/devicetypes/ady624/webcore-presence-sensor.src/webcore-presence-sensor.groovy",
+      "required": false
     }
   ]
 }
