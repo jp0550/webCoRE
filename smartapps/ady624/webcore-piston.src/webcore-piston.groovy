@@ -397,7 +397,7 @@ public Map get(Boolean minimal=false){ // minimal is backup
 }
 
 public Map activity(lastLogTimestamp){
-	Map t0=getCachedMaps()
+	Map t0=getCachedMaps(true,false,'activity')
 	if(t0==null)return [:]
 	List logs=[]+(List)t0.logs
 	Integer lsz=(Integer)logs.size()
@@ -421,7 +421,7 @@ public Map activity(lastLogTimestamp){
 }
 
 public Map curPState(){
-	Map t0=getCachedMaps(true,true)
+	Map t0=getCachedMaps(true,true,'curPState')
 	if(t0==null)return null
 	Map st=[:] + (Map)t0.state
         st.remove('old')
@@ -541,11 +541,11 @@ public Map setup(LinkedHashMap data, chunks){
 	state.pep=piston.o?.pep ? true:false
 
 	if((String)data.n!=(String)null && (Integer)((String)data.n).length()>0){
-		if(state.svLabel!=(String)null){
-			String res=(String)state.svLabel
-			app.updateLabel(res)
+		String tt=atomicState.svLabel
+		if(tt!=(String)null){
+			app.updateLabel(tt)
 		}
-		state.svLabel=(String)null
+		atomicState.svLabel=(String)null
 		app.updateLabel((String)data.n)
 	}
 	state.schedules=[]
@@ -1049,7 +1049,7 @@ private Map getCachedMaps(Boolean retry=true, Boolean nolog=false, String meth=(
 	}
 	if(retry){
 		Map a=getDSCache(nolog,meth)
-		return getCachedMaps(false,nolog, meth)
+		return getCachedMaps(false,nolog,meth)
 	}
 	if(eric())log.warn 'cached map nf'
 	return null
@@ -1224,12 +1224,14 @@ private Map getRunTimeData(Map rtD=null, Map retSt=null, Boolean fetchWrappers=f
 	List logs=[]
 	Long lstarted=0L
 	Long lended=0L
+	LinkedHashMap piston
 	Integer dbgLevel=0
 	if(rtD!=null){
 		timestamp=(Long)rtD.timestamp
 		logs=rtD.logs!=null ? (List)rtD.logs:[]
 		lstarted=rtD.lstarted!=null ? (Long)rtD.lstarted:0L
 		lended=rtD.lended!=null ? (Long)rtD.lended:0L
+		piston=rtD.piston!=null ? rtD.piston:null
 		dbgLevel=rtD.debugLevel!=null ? (Integer)rtD.debugLevel:0
 	}else rtD=getTemporaryRunTimeData(timestamp)
 
@@ -1259,7 +1261,7 @@ private Map getRunTimeData(Map rtD=null, Map retSt=null, Boolean fetchWrappers=f
 	rtD.updateDevices=false
 	rtD.systemVars=[:]+getSystemVariables
 
-	Map atomState=getCachedMaps()
+	Map atomState=getCachedMaps(true,false,'getRTD')
 	atomState=atomState!=null?atomState:[:]
 	Map st=(Map)atomState.state
 	rtD.state=st!=null && st instanceof Map ? [:]+st : [old:'', new:'']
@@ -1268,8 +1270,9 @@ private Map getRunTimeData(Map rtD=null, Map retSt=null, Boolean fetchWrappers=f
 	rtD.pStart=now()
 
 	Boolean doSubScribe=false
-	LinkedHashMap piston=recreatePiston(shorten)
+	if(piston==null) piston=recreatePiston(shorten)
 	doSubScribe=!piston.cached
+	
 	rtD.piston=piston
 
 	getLocalVariables(rtD, piston.v, atomState)
@@ -1828,12 +1831,11 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 
 	if((Boolean)rtD.updateDevices){
 		updateDeviceList(rtD, rtD.devices*.value.id) // this will clear the cache
-		t0=getCachedMaps()
+		t0=getCachedMaps(true,false,'final2')
 	}
 	rtD.remove('devices')
 
 	if(rtD.gvCache!=null || rtD.gvStoreCache!=null){
-		unschedule(finishUIupdate)
 		LinkedHashMap tpiston=[:]+(LinkedHashMap)rtD.piston
 		rtD.piston=[:]
 		rtD.piston.z=(String)tpiston.z
@@ -5355,7 +5357,7 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 	//save cache collected through dummy run
 		for(item in rtD.newCache)rtD.cache[(String)item.key]=item.value
 
-		Map t0=getCachedMaps()
+		Map t0=getCachedMaps(true,false,'subAll')
 		String myId=(String)rtD.id
 		if(t0!=null){
 			theCacheFLD[myId].cache=[:]+(Map)rtD.cache
