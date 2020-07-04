@@ -17,7 +17,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 public static String version() { return "v0.3.110.20191009" }
-public static String HEversion() { return "v0.3.110.20191209_HE" }
+public static String HEversion() { return "v0.3.110.20200702_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -185,7 +185,7 @@ def String md5(String md5) {
 	java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
 	byte[] array = md.digest(md5.getBytes())
 	def result = ""
-	for (int i = 0; i < array.length; ++i) {
+	for (Integer i = 0; i < array.length; ++i) {
 		result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
 	}
 	return result

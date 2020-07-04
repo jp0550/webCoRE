@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update April 30, 2020 for Hubitat
+ * Last update July 2, 2020 for Hubitat
  */
 public static String version(){ return "v0.3.110.20191009" }
-public static String HEversion(){ return "v0.3.110.20191209_HE" }
+public static String HEversion(){ return "v0.3.110.20200702_HE" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -109,8 +109,8 @@ private pageSelectDevices(){
 	}
 }
 
-private static String sectionTitleStr(String title)     { return '<h3>'+title+'</h3>' }
-private static String inputTitleStr(String title)       { return '<u>'+title+'</u>' }
+private static String sectionTitleStr(String title)	{ return '<h3>'+title+'</h3>' }
+private static String inputTitleStr(String title)	{ return '<u>'+title+'</u>' }
 private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
 private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
 
@@ -331,10 +331,10 @@ public void ahttpRequestHandler(resp, callbackData){
 		}
 	}else{
 		if(resp.hasError()){
-			log.error "$weatherType http Response Status: ${resp.status}   error Message: ${resp.getErrorMessage()}"
+			log.error "$weatherType http Response Status: ${resp.status}  error Message: ${resp.getErrorMessage()}"
 			return
 		}
-		log.error "$weatherType no data: ${resp.status}   resp.data: ${resp.data} resp.json: ${resp.json}"
+		log.error "$weatherType no data: ${resp.status}  resp.data: ${resp.data} resp.json: ${resp.json}"
 		return
 	}
 	theObsFLD = json
@@ -442,22 +442,23 @@ public Map listAvailableDevices(Boolean raw = false, Integer offset = 0){
 	}else{
 		Integer deviceCount = devices.size()
 		Map overrides = commandOverrides()
-		devices = devices[offset..-1]
 		response.devices = [:]
+		if(devices){
+		devices = devices[offset..-1]
 		response.complete = !devices.indexed().find{ idx, dev ->
 //			log.debug "Loaded device at ${idx} after ${now() - time}ms. Data size is ${response.toString().size()}"
 			response.devices[hashId(dev.id)] = [
-				n: dev.getDisplayName(), 
-				cn: dev.getCapabilities()*.name, 
+				n: dev.getDisplayName(),
+				cn: dev.getCapabilities()*.name,
 				a: dev.getSupportedAttributes().unique{ it.name }.collect{[
 					n: it.name,
 					t: it.getDataType(),
 					o: it.getValues()
-				]}, 
+				]},
 				c: dev.getSupportedCommands().unique{ transformCommand(it, overrides) }.collect{[
 					n: transformCommand(it, overrides),
 					p: it.getArguments()
-				]} 
+				]}
 			]
 			Boolean stop = false
 			def jsonData = groovy.json.JsonOutput.toJson(response)
@@ -472,6 +473,7 @@ public Map listAvailableDevices(Boolean raw = false, Integer offset = 0){
 			}
 			false
 		}
+		} else response.complete=true
 		log.debug "Generated list of ${offset}-${offset + devices.size()} of ${deviceCount} devices in ${now() - time}ms. Data size is ${response.toString().size()}"
 	}
 	return response
@@ -503,10 +505,10 @@ public String mem(showBytes = true){
 
 /* Push command has multiple overloads in hubitat */
 private static Map commandOverrides(){
-        return ( [ //s: command signature
-                push    : [c: "push",   s: null , r: "pushMomentary"],
-                flash   : [c: "flash",  s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
-        ] ) as HashMap
+	return ( [ //s: command signature
+		push    : [c: "push",   s: null , r: "pushMomentary"],
+		flash   : [c: "flash",  s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
+	] ) as HashMap
 }
 
 /******************************************************************************/
@@ -696,11 +698,11 @@ private getImgName(wCode, is_day){
 	[code: 1282, day: 0, img: '18', ]	// NIGHT - Moderate or heavy snow with thunder
 ]
 
-// From Darksky.net driver for HE https://community.hubitat.com/t/release-darksky-net-weather-driver-no-pws-required/22699 
+// From Darksky.net driver for HE https://community.hubitat.com/t/release-darksky-net-weather-driver-no-pws-required/22699
 static String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean isNight=false){
 	switch(icon){
 		case 'rain':
-		// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy, 
+		// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy,
 		//       Rain and Breezy, Rain and Windy, Heavy Rain and Breezy, Rain and Dangerously Windy, Light Rain and Dangerously Windy],
 			if(dcs == 'Drizzle'){
 				icon = 'drizzle'
@@ -761,7 +763,7 @@ static String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean
 			break
 		case 'fog':
 		case 'wind':
-			// wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy, 
+			// wind=[Windy and Overcast, Windy and Mostly Cloudy, Windy and Partly Cloudy, Breezy and Mostly Cloudy, Breezy and Partly Cloudy,
 			// Breezy and Overcast, Breezy, Windy, Dangerously Windy and Overcast, Windy and Foggy, Dangerously Windy and Partly Cloudy, Breezy and Foggy]}
 			if(dcs.contains('Windy')){
 				// icon = 'wind'
@@ -799,7 +801,7 @@ String getStdIcon(String code){
 	return (LUitem ? LUitem.stdIcon : '')
 }
 
-@Field final List LUTable =  [
+@Field final List LUTable = [
 [ ccode: 'breezy', altIcon: '23.png', ctext: 'Breezy', owmIcon: '50d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
 [ ccode: 'breezyfoggy', altIcon: '48.png', ctext: 'Breezy and Foggy', owmIcon: '50d', stdIcon: 'fog', luxpercent: 0.2 ],
 [ ccode: 'breezymostlycloudy', altIcon: '51.png', ctext: 'Breezy and Mostly Cloudy', owmIcon: '04d', stdIcon: 'cloudy', luxpercent: 0.6 ],
