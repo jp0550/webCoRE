@@ -9,6 +9,7 @@
   "communityLink": "https://community.hubitat.com/t/webcore-for-hubitat-updates/11967",
   "dateReleased": "2020-07-04",
   "apps": [
+    {
       "id": "cb649f7b-d33d-42b8-82c3-79d1d2101fea",
       "name": "webCoRE",
       "namespace": "ady624",
