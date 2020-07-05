@@ -9,13 +9,13 @@
   "communityLink": "https://community.hubitat.com/t/webcore-for-hubitat-updates/11967",
   "dateReleased": "2020-07-04",
   "apps": [
-    {
       "id": "cb649f7b-d33d-42b8-82c3-79d1d2101fea",
       "name": "webCoRE",
       "namespace": "ady624",
       "location": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/smartapps/ady624/webcore.src/webcore.groovy",
       "required": true,
-      "oauth": true
+      "oauth": true,
+      "primary": true
     },
     {
       "id": "3f309b36-4e36-4caf-9b1c-efdf7fc707ac",
