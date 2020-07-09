@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated July 2, 2020 for Hubitat
+ * Last Updated July 8, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200702_HE" }
@@ -636,7 +636,7 @@ void clearChldCaches(Boolean all=false){
 				pStateFLD[myId]=meta
 				pStateFLD=pStateFLD
 			}
-			if((Boolean)meta.a && (Long)meta.t < threshold ){
+			if(meta!=null && (Boolean)meta.a && (Long)meta.t < threshold ){
 				chld.clear1(true,false,false,false) //clears caches
 			}
 		}
