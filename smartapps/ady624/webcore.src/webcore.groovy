@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated July 8, 2020 for Hubitat
+ * Last Updated July 14, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200702_HE" }
@@ -619,13 +619,17 @@ private void clearParentPistonCache(String meth=null, Boolean frcResub=false){
 	}
 }
 
+@Field static Map<String,Long> cldClearFLD=[:]
+
 void clearChldCaches(Boolean all=false){
 // clear child caches if has not run in 30 mins
 	String name=handle() + ' Piston'
 	Boolean updateCache=true
+	Long t1=now()
 	Long recTime=1860000L  // 31 min in ms
 	if(all) recTime=1000L
-	Long threshold=now() - recTime
+	Long threshold=t1 - recTime
+	if(all)pStateFLD=[:]
 	List t0=getChildApps().findAll{ (String)it.name == name }
 	if(t0){
 		t0.sort().each{ chld ->
@@ -636,8 +640,15 @@ void clearChldCaches(Boolean all=false){
 				pStateFLD[myId]=meta
 				pStateFLD=pStateFLD
 			}
-			if(meta!=null && (Boolean)meta.a && (Long)meta.t < threshold ){
-				chld.clear1(true,false,false,false) //clears caches
+			String schld=chld.id.toString()
+			Long t2=cldClearFLD[schld]
+			Long t3=(Long)meta?.t
+			Boolean t4=(Boolean)meta?.heCached
+			if(t2==null) cldClearFLD[schld]=threshold-3600000L
+			else if( (all&&t4) || ( meta!=null && t4 && (Boolean)meta.a && t3!=null && t3>t2 && t3<threshold)){
+				cldClearFLD[schld]=t1
+				sendLocationEvent(name: myId, value: 'clearc', isStateChange: true, displayed: false, linkText: "Clear cache event", descriptionText: "Clear cache event for piston $chld.name")
+				//chld.clear1(true,false,false,false) //clears caches
 			}
 		}
 	}
@@ -1601,6 +1612,8 @@ private api_intf_dashboard_piston_delete(){
 		if(piston){
 			pStateFLD[id]=null
 			pStateFLD=pStateFLD
+			String schld=piston.id.toString()
+			cldClearFLD.remove(schld)
 			result=(Map)piston.deletePiston()
 			app.deleteChildApp(piston.id)
 //			p_executionFLD[id]=null
@@ -2531,7 +2544,8 @@ void updateRunTimeData(Map data){
 		t: data.t ?:now(), //last run
 		n: (Long)data.stats.nextSchedule,
 		z: (String)data.piston.z, //description
-		s: st
+		s: st,
+		heCached:(Boolean)data.Cached
 	]
 	pStateFLD[id]=piston
 	pStateFLD=pStateFLD
