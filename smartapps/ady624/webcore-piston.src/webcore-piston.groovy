@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update July 14, 2020 for Hubitat
+ * Last update July 15, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -300,10 +300,12 @@ void clear1(Boolean ccache=false, Boolean some=true, Boolean most=false, Boolean
 		String appStr=(app.id).toString()
 		String tsemaphoreName='sph'+appStr
 		theSemaphoresFLD[tsemaphoreName]=0L
-		theSemaphoresFLD=theSemaphoresFLD
+		mb()
+		//theSemaphoresFLD=theSemaphoresFLD
 		String queueName='aevQ'+appStr
 		theQueuesFLD[queueName]=[]
-		theQueuesFLD=theQueuesFLD // this forces volatile cache flush
+		mb()
+		//theQueuesFLD=theQueuesFLD // this forces volatile cache flush
 		if(act && !dis){
 			tRtData=getTemporaryRunTimeData(now())
 			Map rtD=getRunTimeData(tRtData, null, true, true) //reinitializes cache variables; caches piston
@@ -311,10 +313,9 @@ void clear1(Boolean ccache=false, Boolean some=true, Boolean most=false, Boolean
 			tRtData=null
 		}
 	}
-	//if(ccache && some)clearMyCache(meth)
 	clearMyCache(meth)
 	if(ccache){
-		cleanState()
+		//cleanState()
 		clearMyPiston(meth)
 	}
 }
@@ -684,7 +685,6 @@ Map setup(LinkedHashMap data, chunks){
 	for(chunk in chunks)app.updateSetting((String)chunk.key, [type:sTEXT, value:chunk.value])
 	app.updateSetting('bin', [type:sTEXT, value:(String)state.bin ?: sBLK])
 	app.updateSetting('author', [type:sTEXT, value:(String)state.author ?: sBLK])
-	app.clearSetting('dev')
 
 	state.pep=piston.o?.pep ? true:false
 
@@ -901,7 +901,7 @@ Map pausePiston(){
 	state.state=[:]+(Map)rtD.state
 	state.remove('lastEvent')
 	clear1(true,false,false,false)	// calls clearMyCache(meth) && clearMyPiston
-	app.clearSetting('dev')
+	//app.clearSetting('dev')
 	Map nRtd=shortRtd(rtD)
 	rtD=null
 	return nRtd
@@ -977,6 +977,11 @@ Map execute(data, source){
 Map clickTile(index){
 	handleEvents([date:new Date(), device:location, name:'tile', value:index])
 	return (Map)state.state ?: [:]
+}
+
+Map clearCache(){
+	handleEvents([date:new Date(), device:location, name:'clearc', value:now()])
+	return [:]
 }
 
 private Map getCachedAtomicState(){
@@ -1128,7 +1133,8 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 			lastSemaphore=tt0
 			if(lastSemaphore==0L || tt1-lastSemaphore>100000L){
 				theSemaphoresFLD[tsemaphoreName]=tt1
-				theSemaphoresFLD=theSemaphoresFLD
+				mb()
+			//	theSemaphoresFLD=theSemaphoresFLD
 				semaphoreName=tsemaphoreName
 				semaphoreDelay=waited ? tt1-startTime:0L
 				r_semaphore=tt1
@@ -1164,7 +1170,8 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 					evtQ=evtQ!=null ? evtQ:[]
 					Boolean a=evtQ.push(myEvent)
 					theQueuesFLD[queueName]=evtQ
-					theQueuesFLD=theQueuesFLD
+					mb()
+					//theQueuesFLD=theQueuesFLD
 					didQ=true
 
 					qsize=(Integer)evtQ.size()
@@ -1238,7 +1245,7 @@ private void clearMyCache(String meth=sNULL){
 	//	List data=t0.collect{ it.key }
 	//	for(item in data)t0.remove((String)item)
 		theCacheFLD[myId]=null
-		theCacheFLD=theCacheFLD
+		//theCacheFLD=theCacheFLD
 		clrd=true
 		t0=null
 	}
@@ -1257,7 +1264,7 @@ private Map getCachedMaps(String meth=sNULL, Boolean retry=true, Boolean Upd=tru
 			return result
 		}
 		theCacheFLD[myId]=null
-		theCacheFLD=theCacheFLD
+		//theCacheFLD=theCacheFLD
 	}
 	releaseCacheLock()
 	if(retry){
@@ -1346,7 +1353,7 @@ private Map getDSCache(String meth, Boolean Upd=true){
 				t1.Cached=true
 				getCacheLock()
 				theCacheFLD[myId]=t1
-				theCacheFLD=theCacheFLD
+				//theCacheFLD=theCacheFLD
 				releaseCacheLock()
 			}
 			result=t1
@@ -1608,7 +1615,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		info mymsg, tmpRtD, 0
 	}
 
-	Boolean clearC=evntVal=='clearc'
+	Boolean clearC=evntName=='clearc'
 
 	Boolean act=(Boolean)tmpRtD.active
 	Boolean dis=!(Boolean)tmpRtD.enabled
@@ -1691,8 +1698,8 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		if(rtD.lastExecuted==null || now()-(Long)rtD.lastExecuted > 1860000L) clear1(true,false,false,false)
 	}else{
 		startTime=now()
-		Map msg2=timer "Execution stage complete.", rtD, -1
-
+		Map msg2
+		if((Integer)rtD.logging>0)msg2=timer "Execution stage complete.", rtD, -1
 		Boolean success=true
 		Boolean firstTime=true
 		if(evntName!=sTIME && evntName!=sASYNCREP){
@@ -1732,7 +1739,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 			if(tt0!=null){
 				getCacheLock()
 				theCacheFLD[myId].schedules=schedules
-				theCacheFLD=theCacheFLD
+				//theCacheFLD=theCacheFLD
 				releaseCacheLock()
 			}
 			tt0=null
@@ -1811,9 +1818,9 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 					pauseExecution(delay)
 				}
 			}
-			if(firstTime){
+			if(firstTime&&(Integer)rtD.logging>0){
 				msg2=timer "Execution stage complete.", rtD, -1
-				if((Integer)rtD.logging>0)info "Execution stage started", rtD, 1
+				info "Execution stage started", rtD, 1
 			}
 			success=executeEvent(rtD, event)
 			syncTime=true
@@ -1824,7 +1831,6 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		if((Integer)rtD.logging>0)info msg2, rtD
 		if(!success)msg.m='Event processing failed'
 		if(eric())msg.m=(String)msg.m+' Total Pauses ms: '+((Long)rtD.tPause).toString()
-
 		finalizeEvent(rtD, msg, success)
 
 		if((Boolean)rtD.logPExec && (Map)rtD.currentEvent!=null){
@@ -1840,7 +1846,8 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 	for(String foo in heData) rtD.remove(foo)
 
 // any queued events?
-	String msgt='Exiting'
+	String msgt
+	if((Integer)rtD.logging>2)msgt='Exiting'
 	String queueName='aevQ'+(app.id).toString()
 	String semName=(String)rtD.semaphoreName
 	while(doSerialization && !callMySelf && semName!=sNULL){
@@ -1849,9 +1856,10 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		List evtQ=(List)theQueuesFLD[queueName]
 		if(evtQ==null || evtQ==[]){
 			if((Long)theSemaphoresFLD[semName]<=(Long)rtD.semaphore){
-				msgt='Released Lock and exiting'
+				if((Integer)rtD.logging>2) msgt='Released Lock and exiting'
 				theSemaphoresFLD[semName]=0L
-				theSemaphoresFLD=theSemaphoresFLD
+				mb()
+				//theSemaphoresFLD=theSemaphoresFLD
 			}
 			releaseTheLock(semName)
 			break
@@ -1859,7 +1867,8 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		List evtList=evtQ.sort{ (Long)it.t }
 		def theEvent=evtList.remove(0)
 		theQueuesFLD[queueName]=evtList
-		theQueuesFLD=theQueuesFLD
+		mb()
+		//theQueuesFLD=theQueuesFLD
 		releaseTheLock(semName)
 
 		Integer qsize=(Integer)evtQ.size()
@@ -1868,6 +1877,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		handleEvents(theEvent, false, true)
 	}
 	if((Integer)rtD.logging>2) log.debug msgt 
+	if((Boolean)rtD.updateDevices) clearMyCache("updateDeviceList")
 	data=rtD.collect{ it.key }
 	for(item in data)rtD.remove((String)item)
 	event=null
@@ -2058,7 +2068,7 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		theCacheFLD[myId].store=[:]+(Map)rtD.store
 		theCacheFLD[myId].state=[:]+(Map)rtD.state
 		theCacheFLD[myId].trace=[:]+(Map)rtD.trace
-		theCacheFLD=theCacheFLD
+		//theCacheFLD=theCacheFLD
 		releaseCacheLock()
 	}
 	if(myPep){
@@ -2082,16 +2092,14 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		if(rtD.event?.schedule?.stack)rtD.event.schedule.stack=[:]
 	}
 
-	if((Boolean)rtD.updateDevices){
-		updateDeviceList(rtD, rtD.devices*.value.id)
-		//t0=getCachedMaps('final2',true,false)
-	}
-//	rtD.remove('devices')
+	if((Boolean)rtD.updateDevices) updateDeviceList(rtD, rtD.devices*.value.id)
+	rtD.remove('devices')
 
 	if(rtD.gvCache!=null || rtD.gvStoreCache!=null){
 		LinkedHashMap tpiston=[:]+(LinkedHashMap)rtD.piston
 		rtD.piston=[:]
 		rtD.piston.z=(String)tpiston.z
+		tpiston=null
 		if(rtD.gvCache!=null){
 			String lockTyp='finalize'
 			String semName='theGlobal'
@@ -2107,8 +2115,6 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 			releaseTheLock(semName)
 		}
 		parent.pCallupdateRunTimeData(rtD)
-		//rtD.piston=tpiston
-		tpiston=null
 		rtD.remove('gvCache')
 		rtD.remove('gvStoreCache')
 		rtD.initGStore=false
@@ -2157,7 +2163,7 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		t2=(Integer)hisList.size()
 		if(t2>t1) hisList=hisList[t2-t1..t2-1]
 		theCacheFLD[myId].runTimeHis=hisList
-		theCacheFLD=theCacheFLD
+		//theCacheFLD=theCacheFLD
 		releaseCacheLock()
 	}
 }
@@ -2199,7 +2205,7 @@ private void processSchedules(Map rtD, Boolean scheduleJob=false){
 	if(t0!=null){
 		getCacheLock()
 		theCacheFLD[myId].schedules=(List<Map>)[]+schedules
-		theCacheFLD=theCacheFLD
+		//theCacheFLD=theCacheFLD
 		releaseCacheLock()
 	}
 
@@ -2225,7 +2231,7 @@ private void processSchedules(Map rtD, Boolean scheduleJob=false){
 		if(t0!=null){
 			getCacheLock()
 			theCacheFLD[myId].nextSchedule=nextT
-			theCacheFLD=theCacheFLD
+			//theCacheFLD=theCacheFLD
 			releaseCacheLock()
 		}
 	}
@@ -2245,7 +2251,7 @@ private void updateLogs(Map rtD, Long lastExecute=null){
 			theCacheFLD[myId].lastExecuted=lastExecute
 			theCacheFLD[myId].temp=[:]+(Map)rtD.temp
 			theCacheFLD[myId].cachePersist=[:]+(Map)rtD.cachePersist
-			theCacheFLD=theCacheFLD
+			//theCacheFLD=theCacheFLD
 			releaseCacheLock()
 		}
 	}
@@ -2268,7 +2274,7 @@ private void updateLogs(Map rtD, Long lastExecute=null){
 				if(t1>5 && (Integer)state.toString().size()>75000){
 					t1 -= Math.min(50, Math.round(t1/2.0D))
 					logs=logs[0..t1]
-					//state.logs=logs //this mixes state and AS
+					if(!myPep) state.logs=logs //this mixes state and AS
 				}
 			}
 		}
@@ -2276,7 +2282,7 @@ private void updateLogs(Map rtD, Long lastExecute=null){
 		if(cacheMap!=null){
 			getCacheLock()
 			theCacheFLD[myId].logs=logs
-			theCacheFLD=theCacheFLD
+			//theCacheFLD=theCacheFLD
 			releaseCacheLock()
 		}
 		if(myPep)atomicState.logs=logs
@@ -2898,7 +2904,9 @@ private void executePhysicalCommand(Map rtD, device, String command, params=[], 
 		try{
 			//cleanup the params so that SONOS works
 			while ((Integer)nparams.size()>0 && nparams[(Integer)nparams.size()-1]==null)def a=nparams.pop()
-			Map msg=timer sBLK, rtD
+			Map msg
+			Boolean doL=(Integer)rtD.logging>2
+			if(doL) msg=timer sBLK, rtD
 			Boolean skip=false
 			if(!rtD.piston.o?.dco && !disableCommandOptimization && !(command in [sSCLRTEMP, sSCLR, sSHUE, sSSATUR])){
 				def cmd=PhysicalCommands()[command]
@@ -2916,26 +2924,28 @@ private void executePhysicalCommand(Map rtD, device, String command, params=[], 
 				}
 			}
 			//if we're skipping, we already have a message
-			String tstr=' physical command ['+"${(String)device.label ?: (String)device.name}".toString()+'].'+command+'('
+			String tstr
+			if(doL) tstr=' physical command ['+"${(String)device.label ?: (String)device.name}".toString()+'].'+command+'('
 			if(skip){
-				msg.m='Skipped execution of'+tstr+"$nparams".toString()+') because it would make no change to the device.'
+				if(doL) msg.m='Skipped execution of'+tstr+"$nparams".toString()+') because it would make no change to the device.'
 			}else{
-				String tailStr=')'
+				String tailStr
+				if(doL) tailStr=')'
 				if(delay>(Long)getPistonLimits.taskMaxDelay)delay=1000L
 				if(delay>0L){
 					pauseExecution(delay) //simulated in hubitat
-					tailStr="[delay: $delay])".toString()
+					if(doL) tailStr="[delay: $delay])".toString()
 				}
-				tstr='Executed'+tstr
+				if(doL) tstr='Executed'+tstr
 				if((Integer)nparams.size()>0){
-					msg.m=tstr+"$nparams".toString()+', '+tailStr
+					if(doL) msg.m=tstr+"$nparams".toString()+', '+tailStr
 					device."$command"(nparams as Object[])
 				}else{
-					msg.m=tstr+tailStr
+					if(doL) msg.m=tstr+tailStr
 					device."$command"()
 				}
 			}
-			if((Integer)rtD.logging>2)debug msg, rtD
+			if(doL)debug msg, rtD
 		}catch(all){
 			error "Error while executing physical command $device.$command($nparams):", rtD, -2, all
 		}
@@ -4391,7 +4401,8 @@ private static Long vcmd_cancelTasks(Map rtD, device, List params){
 private Boolean evaluateConditions(Map rtD, Map conditions, String collection, Boolean async){
 	if((Boolean)rtD.eric) myDetail rtD, "evaluateConditions", 1
 	Long t=now()
-	Map msg=timer sBLK, rtD
+	Map msg
+	if((Integer)rtD.logging>2)msg=timer sBLK, rtD
 	//override condition id
 	Integer c=(Integer)rtD.stack.c
 	Integer myC=conditions.$!=null ? (Integer)conditions.$:0
@@ -4497,9 +4508,9 @@ private Boolean evaluateConditions(Map rtD, Map conditions, String collection, B
 			if((result || (Integer)rtD.fastForwardTo!=0) && conditions.ts!=null && (List)(conditions.ts).length)Boolean a=executeStatements(rtD, (List)conditions.ts, async)
 			if((!result || (Integer)rtD.fastForwardTo!=0) && conditions.fs!=null && (List)(conditions.fs).length)Boolean a=executeStatements(rtD, (List)conditions.fs, async)
 		}
-		if((Integer)rtD.fastForwardTo==0){
+		if((Integer)rtD.fastForwardTo==0 && (Integer)rtD.logging>2){
 			msg.m="Condition group #${myC} evaluated $result (state ${(Boolean)rtD.conditionStateChanged ? 'changed':'did not change'})".toString()
-			if((Integer)rtD.logging>2)debug msg, rtD
+			debug msg, rtD
 		}
 	}
 	//restore condition id
@@ -4665,7 +4676,8 @@ private Boolean evaluateCondition(Map rtD, Map condition, String collection, Boo
 		myDetail rtD, myS, 1
 	}
 	Long t=now()
-	Map msg=timer sBLK, rtD
+	Map msg
+	if((Integer)rtD.logging>2)msg=timer sBLK, rtD
 	//override condition id
 	Integer c=(Integer)rtD.stack.c
 	Integer conditionNum=condition.$!=null ? (Integer)condition.$:0
@@ -4796,9 +4808,9 @@ private Boolean evaluateCondition(Map rtD, Map condition, String collection, Boo
 	if((!result || (Integer)rtD.fastForwardTo!=0) && condition.fs!=null && ((List)condition.fs).length!=0)Boolean a=executeStatements(rtD, (List)condition.fs, async)
 	//restore condition id
 	rtD.stack.c=c
-	if((Integer)rtD.fastForwardTo==0){
+	if((Integer)rtD.fastForwardTo==0 && (Integer)rtD.logging>2){
 		msg.m="Condition #${conditionNum} evaluated $result"
-		if((Integer)rtD.logging>2)debug msg, rtD
+		debug msg, rtD
 	}
 	if((Integer)rtD.fastForwardTo<=0 && (Boolean)condition.s && (String)condition.t==sCONDITION && condition.lo!=null && (String)condition.lo.t==sV){
 		switch ((String)condition.lo.v){
@@ -4842,11 +4854,14 @@ private Boolean evaluateComparison(Map rtD, String comparison, Map lo, Map ro=nu
 				//value.p=lo.operand.p
 				if(value && ((String)value.v.t==sDEVICE))value.v=evaluateExpression(rtD, (Map)value.v, sDYNAMIC)
 				if(!ro){
-					Map msg=timer sBLK, rtD
+					Map msg
+					if((Integer)rtD.logging>2)msg=timer sBLK, rtD
 					if(comparison=='event_occurs' && (String)lo.operand.t==sV && (String)rtD.event.name==(String)lo.operand.v)res=true
 					else res=(Boolean)"$fn"(rtD, value, null, null, tvalue, tvalue2)
-					msg.m="Comparison (${value?.v?.t}) ${value?.v?.v} $comparison = $res"
-					if((Integer)rtD.logging>2)debug msg, rtD
+					if((Integer)rtD.logging>2){
+						msg.m="Comparison (${value?.v?.t}) ${value?.v?.v} $comparison = $res"
+						debug msg, rtD
+					}
 				}else{
 					Boolean rres
 					res= (String)ro.operand.g==sANY ? false:true
@@ -4854,21 +4869,27 @@ private Boolean evaluateComparison(Map rtD, String comparison, Map lo, Map ro=nu
 					for (Map rvalue in (List)ro.values){
 						if(rvalue && ((String)rvalue.v.t==sDEVICE))rvalue.v=evaluateExpression(rtD, (Map)rvalue.v, sDYNAMIC)
 						if(!ro2){
-							Map msg=timer sBLK, rtD
+							Map msg
+							if((Integer)rtD.logging>2)msg=timer sBLK, rtD
 							rres=(Boolean)"$fn"(rtD, value, rvalue, null, tvalue, tvalue2)
-							msg.m="Comparison (${value?.v?.t}) ${value?.v?.v} $comparison  (${rvalue?.v?.t}) ${rvalue?.v?.v} = $rres"
-							if((Integer)rtD.logging>2)debug msg, rtD
+							if((Integer)rtD.logging>2){
+								msg.m="Comparison (${value?.v?.t}) ${value?.v?.v} $comparison  (${rvalue?.v?.t}) ${rvalue?.v?.v} = $rres"
+								debug msg, rtD
+							}
 						}else{
 							rres=(String)ro2.operand.g==sANY ? false:true
 							//if multiple right2 values, go through each
 							for (Map r2value in (List)ro2.values){
 								if(r2value && ((String)r2value.v.t==sDEVICE))r2value.v=evaluateExpression(rtD, (Map)r2value.v, sDYNAMIC)
-								Map msg=timer sBLK, rtD
+								Map msg
+								if((Integer)rtD.logging>2)msg=timer sBLK, rtD
 //if((Boolean)rtD.eric) myDetail rtD, "$fn $value   $rvalue    $r2value    $tvalue   $tvalue2", 1
 								Boolean r2res=(Boolean)"$fn"(rtD, value, rvalue, r2value, tvalue, tvalue2)
 //if((Boolean)rtD.eric) myDetail rtD, "$r2res  ${myObj(value?.v?.v)}    ${myObj(rvalue?.v?.v)}  $fn $value   $rvalue    $r2value    $tvalue   $tvalue2", -1
-								msg.m="Comparison (${value?.v?.t}) ${value?.v?.v} $comparison  (${rvalue?.v?.t}) ${rvalue?.v?.v} .. (${r2value?.v?.t}) ${r2value?.v?.v} = $r2res"
-								if((Integer)rtD.logging>2)debug msg, rtD
+								if((Integer)rtD.logging>2){
+									msg.m="Comparison (${value?.v?.t}) ${value?.v?.v} $comparison  (${rvalue?.v?.t}) ${rvalue?.v?.v} .. (${r2value?.v?.t}) ${r2value?.v?.v} = $r2res"
+									debug msg, rtD
+								}
 								rres= (String)ro2.operand.g==sANY ? rres||r2res : rres&&r2res
 								if(((String)ro2.operand.g==sANY && rres) || ((String)ro2.operand.g!=sANY && !rres))break
 							}
@@ -5233,9 +5254,8 @@ private void traverseExpressions(node, closure, param, parentNode=null){
 	}
 }
 
-private void updateDeviceList(Map rtD, List deviceIdList, Boolean clearCache=true){
+private void updateDeviceList(Map rtD, List deviceIdList){
 	app.updateSetting('dev', [type: /*isHubitat()?*/ 'capability'/*:'capability.device'*/, value: deviceIdList.unique()])// settings update do not happen till next execution
-//	if(clearCache)clearMyCache("updateDeviceList")
 }
 
 private void subscribeAll(Map rtD, Boolean doit=true){
@@ -5611,7 +5631,7 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 		List deviceIdList=rawDevices.collect{ it && it.value ? it.value.id:null }
 		rawDevices=null
 		Boolean a=deviceIdList.removeAll{ it==null }
-		updateDeviceList(rtD, deviceIdList, false)
+		updateDeviceList(rtD, deviceIdList)
 
 		state.subscriptions=ss
 		if((Integer)rtD.logging>1)trace msg, rtD
@@ -5629,7 +5649,7 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 		if(t0!=null){
 			getCacheLock()
 			theCacheFLD[myId].cache=[:]+(Map)rtD.cache
-			theCacheFLD=theCacheFLD
+			//theCacheFLD=theCacheFLD
 			releaseCacheLock()
 		}
 		state.cache=(Map)rtD.cache
@@ -6158,7 +6178,7 @@ private Map setVariable(Map rtD, String name, value){
 				if(t0!=null){
 					getCacheLock()
 					theCacheFLD[myId].vars=vars
-					theCacheFLD=theCacheFLD
+					//theCacheFLD=theCacheFLD
 					releaseCacheLock()
 				}
 				if((Boolean)rtD.pep)atomicState.vars=vars

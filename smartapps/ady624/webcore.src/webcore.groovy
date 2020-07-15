@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated July 14, 2020 for Hubitat
+ * Last Updated July 15, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200702_HE" }
@@ -647,8 +647,7 @@ void clearChldCaches(Boolean all=false){
 			if(t2==null) cldClearFLD[schld]=threshold-3600000L
 			else if( (all&&t4) || ( meta!=null && t4 && (Boolean)meta.a && t3!=null && t3>t2 && t3<threshold)){
 				cldClearFLD[schld]=t1
-				sendLocationEvent(name: myId, value: 'clearc', isStateChange: true, displayed: false, linkText: "Clear cache event", descriptionText: "Clear cache event for piston $chld.name")
-				//chld.clear1(true,false,false,false) //clears caches
+				Map a=chld.clearCache()
 			}
 		}
 	}
