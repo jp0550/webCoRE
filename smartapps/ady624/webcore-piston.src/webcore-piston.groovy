@@ -2086,7 +2086,7 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		updateDeviceList(rtD, rtD.devices*.value.id)
 		//t0=getCachedMaps('final2',true,false)
 	}
-	rtD.remove('devices')
+//	rtD.remove('devices')
 
 	if(rtD.gvCache!=null || rtD.gvStoreCache!=null){
 		LinkedHashMap tpiston=[:]+(LinkedHashMap)rtD.piston
@@ -5251,7 +5251,7 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 	Map msg=timer "Finished subscribing", rtD, -1
 	if(doit){
 		unsubscribe()
-		rtD.devices=null
+		rtD.devices=[:]
 		if((Integer)rtD.logging>1)trace "Subscribing to devices...", rtD, 1
 	}
 	Map devices=[:]
