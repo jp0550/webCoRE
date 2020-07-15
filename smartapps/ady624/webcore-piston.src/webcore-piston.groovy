@@ -311,6 +311,7 @@ void clear1(Boolean ccache=false, Boolean some=true, Boolean most=false, Boolean
 			tRtData=null
 		}
 	}
+	//if(ccache && some)clearMyCache(meth)
 	clearMyCache(meth)
 	if(ccache){
 		cleanState()
@@ -1050,8 +1051,10 @@ static void mb(){
 @Field static java.util.concurrent.Semaphore theLock13FLD=new java.util.concurrent.Semaphore(1)
 @Field static java.util.concurrent.Semaphore theLock14FLD=new java.util.concurrent.Semaphore(1)
 @Field static java.util.concurrent.Semaphore theLock15FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock16FLD=new java.util.concurrent.Semaphore(1)
 
 static Integer getSemaNum(String name){
+	if(name=='theCCC')return 16
 	Integer hash=smear(name.hashCode())
 	Integer stripes=16
 	return Math.abs(hash)%stripes
@@ -1076,6 +1079,7 @@ java.util.concurrent.Semaphore getSema(Integer snum){
 		case 13: return theLock13FLD
 		case 14: return theLock14FLD
 		case 15: return theLock15FLD
+		case 16: return theLock16FLD
 		default: log.error "bad hash result $snum"
 			return null
 	}
@@ -1084,6 +1088,14 @@ java.util.concurrent.Semaphore getSema(Integer snum){
 private static Integer smear(Integer hashCode) {
 	hashCode ^= (hashCode >>> 20) ^ (hashCode >>> 12)
 	return hashCode ^ (hashCode >>> 7) ^ (hashCode >>> 4)
+}
+
+void getCacheLock(){
+	Boolean waited=getTheLock('theCCC','cacheLock')
+}
+
+void releaseCacheLock(){
+	releaseTheLock('theCCC')
 }
 
 @Field volatile static Map<String,List> theQueuesFLD=[:]
@@ -1214,31 +1226,40 @@ private Map getTemporaryRunTimeData(Long startTime){
 @Field volatile static Map<String,Map> theCacheFLD=[:] // each piston has a map in here
 
 private void clearMyCache(String meth=sNULL){
+	Boolean clrd=false
 	String appStr=(app.id).toString()
-	String tsemaphoreName='sph'+appStr
+//	String tsemaphoreName='sph'+appStr
 	String myId=hashId(appStr)
 	if(!myId)return
-	Boolean a=getTheLock(tsemaphoreName, 'clearMyCache')
+//	Boolean a=getTheLock(tsemaphoreName, 'clearMyCache')
+	getCacheLock()
 	Map t0=(Map)theCacheFLD[myId]
 	if(t0){
-		List data=t0.collect{ it.key }
-		for(item in data)t0.remove((String)item)
+	//	List data=t0.collect{ it.key }
+	//	for(item in data)t0.remove((String)item)
 		theCacheFLD[myId]=null
 		theCacheFLD=theCacheFLD
-		if(eric())log.debug 'clearing piston data cache '+meth
+		clrd=true
 		t0=null
 	}
-	releaseTheLock(tsemaphoreName)
+	releaseCacheLock()
+	if(clrd && eric())log.debug 'clearing piston data cache '+meth
+//	releaseTheLock(tsemaphoreName)
 }
 
 private Map getCachedMaps(String meth=sNULL, Boolean retry=true, Boolean Upd=true){
 	String myId=hashId(app.id)
+	getCacheLock()
 	Map result=(Map)theCacheFLD[myId]
 	if(result!=null){
-		if(result.cache instanceof Map && result.state instanceof Map)return result
+		if(result.cache instanceof Map && result.state instanceof Map){
+			releaseCacheLock()
+			return result
+		}
 		theCacheFLD[myId]=null
 		theCacheFLD=theCacheFLD
 	}
+	releaseCacheLock()
 	if(retry){
 		Map a=getDSCache(meth,Upd)
 		if(!Upd)return a
@@ -1255,14 +1276,18 @@ private Map getDSCache(String meth, Boolean Upd=true){
 
 	Map pC=getParentCache()
 
+	getCacheLock()
 	Map result=(Map)theCacheFLD[myId]
+	releaseCacheLock()
 	if(result!=null) result.stateAccess=null
 	Boolean sendM=false
 	if(result==null){
 		String lockTyp='getDSCache'
 		String tsemaphoreName='sph'+appStr
 		Boolean a=getTheLock(tsemaphoreName, lockTyp)
+		getCacheLock()
 		result=(Map)theCacheFLD[myId]
+		releaseCacheLock()
 		if(result==null){
 			Long stateStart=now()
 			if(state.pep==null){ // upgrades of older pistons
@@ -1314,13 +1339,15 @@ private Map getDSCache(String meth, Boolean Upd=true){
 			t1.vars=t0 ? [:]+(Map)t0:[:]
 			t1.cachePersist=[:]
 			resetRandomValues(t1)
-			t1.devices= null //settings.dev && settings.dev instanceof List ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:]
+			t1.devices= settings.dev && settings.dev instanceof List ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:]
 
 			sendM=true
 			if(Upd){
 				t1.Cached=true
+				getCacheLock()
 				theCacheFLD[myId]=t1
 				theCacheFLD=theCacheFLD
+				releaseCacheLock()
 			}
 			result=t1
 			t1=null
@@ -1345,30 +1372,36 @@ void clearParentCache(String meth=sNULL){
 	Boolean a=getTheLock(semName, lockTyp)
 
 	Map t0=theParentCacheFLD
-	if(t0){
-		List data=t0.collect{ it.key }
-		for(item in data)t0.remove((String)item)
-	}
+//	if(t0){
+//		List data=t0.collect{ it.key }
+//		for(item in data)t0.remove((String)item)
+//	}
 	theParentCacheFLD=null
 	t0=null
-	mb()
+//	mb()
 
+	getCacheLock()
 	t0=theCacheFLD
-	if(t0){
-		List data=t0.collect{ it.key }
-		for(item in data)t0.remove((String)item)
-	}
 	theCacheFLD=[:] // all pistons reset their cache
-	t0=null
-	mb()
+	releaseCacheLock()
 
-	t0=theHashMapFLD
 	if(t0){
 		List data=t0.collect{ it.key }
 		for(item in data)t0.remove((String)item)
 	}
 	t0=null
+//	mb()
+
+	getCacheLock()
+	t0=theHashMapFLD
 	theHashMapFLD=[:]
+	releaseCacheLock()
+
+	if(t0){
+		List data=t0.collect{ it.key }
+		for(item in data)t0.remove((String)item)
+	}
+	t0=null
 
 	releaseTheLock(semName)
 
@@ -1697,8 +1730,10 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 	
 			tt0=getCachedMaps()
 			if(tt0!=null){
+				getCacheLock()
 				theCacheFLD[myId].schedules=schedules
 				theCacheFLD=theCacheFLD
+				releaseCacheLock()
 			}
 			tt0=null
 			if(myPep)atomicState.schedules=schedules
@@ -2018,11 +2053,13 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 	//overwrite state, might have changed meanwhile
 	Map t0=getCachedMaps()
 	if(t0!=null){
+		getCacheLock()
 		theCacheFLD[myId].cache=[:]+(Map)rtD.cache
 		theCacheFLD[myId].store=[:]+(Map)rtD.store
 		theCacheFLD[myId].state=[:]+(Map)rtD.state
 		theCacheFLD[myId].trace=[:]+(Map)rtD.trace
 		theCacheFLD=theCacheFLD
+		releaseCacheLock()
 	}
 	if(myPep){
 		atomicState.cache=(Map)rtD.cache
@@ -2047,7 +2084,7 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 
 	if((Boolean)rtD.updateDevices){
 		updateDeviceList(rtD, rtD.devices*.value.id)
-		//t0=getCachedMaps('final2')
+		//t0=getCachedMaps('final2',true,false)
 	}
 	rtD.remove('devices')
 
@@ -2110,6 +2147,7 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 
 	t0=getCachedMaps()
 	if(t0!=null){
+		getCacheLock()
 		theCacheFLD[myId].mem=mem()
 		theCacheFLD[myId].runStats=[:]+(Map)rtD.curStat
 		List hisList=(List)theCacheFLD[myId].runTimeHis
@@ -2120,6 +2158,7 @@ private void finalizeEvent(Map rtD, Map initialMsg, Boolean success=true){
 		if(t2>t1) hisList=hisList[t2-t1..t2-1]
 		theCacheFLD[myId].runTimeHis=hisList
 		theCacheFLD=theCacheFLD
+		releaseCacheLock()
 	}
 }
 
@@ -2158,8 +2197,10 @@ private void processSchedules(Map rtD, Boolean scheduleJob=false){
 	String myId=(String)rtD.id
 	t0=getCachedMaps()
 	if(t0!=null){
+		getCacheLock()
 		theCacheFLD[myId].schedules=(List<Map>)[]+schedules
 		theCacheFLD=theCacheFLD
+		releaseCacheLock()
 	}
 
 	if(scheduleJob){
@@ -2182,8 +2223,10 @@ private void processSchedules(Map rtD, Boolean scheduleJob=false){
 		state.nextSchedule=nextT
 		t0=getCachedMaps()
 		if(t0!=null){
+			getCacheLock()
 			theCacheFLD[myId].nextSchedule=nextT
 			theCacheFLD=theCacheFLD
+			releaseCacheLock()
 		}
 	}
 	rtD.schedules=[]
@@ -2198,10 +2241,12 @@ private void updateLogs(Map rtD, Long lastExecute=null){
 		state.lastExecuted=lastExecute
 		cacheMap=getCachedMaps()
 		if(cacheMap!=null){
+			getCacheLock()
 			theCacheFLD[myId].lastExecuted=lastExecute
 			theCacheFLD[myId].temp=[:]+(Map)rtD.temp
 			theCacheFLD[myId].cachePersist=[:]+(Map)rtD.cachePersist
 			theCacheFLD=theCacheFLD
+			releaseCacheLock()
 		}
 	}
 
@@ -2229,8 +2274,10 @@ private void updateLogs(Map rtD, Long lastExecute=null){
 		}
 		cacheMap=getCachedMaps()
 		if(cacheMap!=null){
+			getCacheLock()
 			theCacheFLD[myId].logs=logs
 			theCacheFLD=theCacheFLD
+			releaseCacheLock()
 		}
 		if(myPep)atomicState.logs=logs
 		else state.logs=logs
@@ -5580,8 +5627,10 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 		Map t0=getCachedMaps('subAll')
 		String myId=(String)rtD.id
 		if(t0!=null){
+			getCacheLock()
 			theCacheFLD[myId].cache=[:]+(Map)rtD.cache
 			theCacheFLD=theCacheFLD
+			releaseCacheLock()
 		}
 		state.cache=(Map)rtD.cache
 	}
@@ -5624,7 +5673,7 @@ private String sanitizeVariableName(String name){
 
 private getDevice(Map rtD, String idOrName){
 	if((String)rtD.locationId==idOrName || (String)rtD.oldLocationId==idOrName)return location
-	if(rtD.devices==null)rtD.devices= settings.dev && settings.dev instanceof List ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:]
+//	if(rtD.devices==null)rtD.devices= settings.dev && settings.dev instanceof List ? settings.dev.collectEntries{[(hashId(it.id)): it]} : [:]
 	def t0=rtD.devices[idOrName]
 	def device=t0!=null ? t0:rtD.devices.find{ (String)it.value.getDisplayName()==idOrName }?.value
 	if(device==null){
@@ -6107,8 +6156,10 @@ private Map setVariable(Map rtD, String name, value){
 
 				String myId=(String)rtD.id
 				if(t0!=null){
+					getCacheLock()
 					theCacheFLD[myId].vars=vars
 					theCacheFLD=theCacheFLD
+					releaseCacheLock()
 				}
 				if((Boolean)rtD.pep)atomicState.vars=vars
 				else state.vars=vars
@@ -7940,8 +7991,10 @@ private String hashId(id, Boolean updateCache=true){
 	if(result==sNULL){
 		result=':'+md5('core.'+myId)+':'
 		if(updateCache){
+			getCacheLock()
 			theHashMapFLD[myId]=result
-			mb()
+			releaseCacheLock()
+//			mb()
 		}
 	}
 	return result
