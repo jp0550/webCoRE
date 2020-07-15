@@ -22,7 +22,7 @@
 */
 
 static String version(){ return 'v0.3.110.20191009' }
-static String HEversion(){ return 'v0.3.110.20200702_HE' }
+static String HEversion(){ return 'v0.3.110.20200715_HE' }
 
 /** webCoRE DEFINITION					**/
 
@@ -1695,7 +1695,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 	rtD.stats.timing=[t:startTime, d:eventDelay>0L ? eventDelay:0L, l:Math.round(1.0D*now()-startTime)]
 
 	if(clearC){
-		if(rtD.lastExecuted==null || now()-(Long)rtD.lastExecuted > 1860000L) clear1(true,false,false,false)
+		if(rtD.lastExecuted==null || now()-(Long)rtD.lastExecuted > 3660000L) clear1(true,false,false,false)
 	}else{
 		startTime=now()
 		Map msg2
