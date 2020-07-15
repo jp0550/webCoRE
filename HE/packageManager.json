@@ -1,13 +1,13 @@
 {
   "packageName": "webCoRE",
   "author": "imnot_bob",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "minimumHEVersion": "2.1.9",
   "licenseFile": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/LICENSE",
   "releaseNotes": "Latest release for Hubitat to run webCoRE pistons locally on HE - bug fixes",
   "documentationLink": "https://wiki.webcore.co",
   "communityLink": "https://community.hubitat.com/t/webcore-for-hubitat-updates/11967",
-  "dateReleased": "2020-07-08",
+  "dateReleased": "2020-07-15",
   "apps": [
     {
       "id": "cb649f7b-d33d-42b8-82c3-79d1d2101fea",

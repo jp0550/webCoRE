@@ -21,7 +21,7 @@
  * Last Updated July 15, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
-static String HEversion(){ return "v0.3.110.20200702_HE" }
+static String HEversion(){ return "v0.3.110.20200715_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -626,7 +626,7 @@ void clearChldCaches(Boolean all=false){
 	String name=handle() + ' Piston'
 	Boolean updateCache=true
 	Long t1=now()
-	Long recTime=1860000L  // 31 min in ms
+	Long recTime=3660000L  // 61 min in ms
 	if(all) recTime=1000L
 	Long threshold=t1 - recTime
 	if(all)pStateFLD=[:]
