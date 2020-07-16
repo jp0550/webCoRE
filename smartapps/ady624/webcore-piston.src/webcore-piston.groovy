@@ -1883,7 +1883,7 @@ private Boolean executeEvent(Map rtD, event){
 		myDetail rtD, myS, 1
 	}
 	try{
-		if(event instanceof com.hubitat.hub.domain.Event){
+/*		if(event instanceof com.hubitat.hub.domain.Event){
 			Map myEvent=[
 				date:(Date)event.date,
 				name:(String)event.name,
@@ -1894,7 +1894,7 @@ private Boolean executeEvent(Map rtD, event){
 				jsonData:event.jsonData,
 			]
 			rtD.event=myEvent
-		}else rtD.event=event
+		}else*/ rtD.event=event
 		Map pEvt=(Map)state.lastEvent
 		if(pEvt==null)pEvt=[:]
 		rtD.previousEvent=pEvt
