@@ -18,11 +18,11 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update July 15, 2020 for Hubitat
+ * Last update July 16, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
-static String HEversion(){ return 'v0.3.110.20200715_HE' }
+static String HEversion(){ return 'v0.3.110.20200716_HE' }
 
 /** webCoRE DEFINITION					**/
 
@@ -181,6 +181,7 @@ static Boolean eric1(){ return false }
 @Field static final String sHTTPSTSOK='$httpStatusOk'
 @Field static final String sIFTTTSTSCODE='$iftttStatusCode'
 @Field static final String sIFTTTSTSOK='$iftttStatusOk'
+@Field static final String sTSLF='theSerialLockFLD'
 
 /** CONFIGURATION PAGES				**/
 
@@ -297,15 +298,13 @@ void clear1(Boolean ccache=false, Boolean some=true, Boolean most=false, Boolean
 		state.store=[:]
 		state.pauses=0L
 		clearMyCache(meth)
-		String appStr=(app.id).toString()
+		String appStr=app.id.toString()
 		String tsemaphoreName='sph'+appStr
 		theSemaphoresFLD[tsemaphoreName]=0L
-		mb()
-		//theSemaphoresFLD=theSemaphoresFLD
+		theSemaphoresFLD=theSemaphoresFLD
 		String queueName='aevQ'+appStr
 		theQueuesFLD[queueName]=[]
-		mb()
-		//theQueuesFLD=theQueuesFLD // this forces volatile cache flush
+		theQueuesFLD=theQueuesFLD // this forces volatile cache flush
 		if(act && !dis){
 			tRtData=getTemporaryRunTimeData(now())
 			Map rtD=getRunTimeData(tRtData, null, true, true) //reinitializes cache variables; caches piston
@@ -315,7 +314,6 @@ void clear1(Boolean ccache=false, Boolean some=true, Boolean most=false, Boolean
 	}
 	clearMyCache(meth)
 	if(ccache){
-		//cleanState()
 		clearMyPiston(meth)
 	}
 }
@@ -594,7 +592,7 @@ static String decodeEmoji(String value){
 @Field static Map<String,Map> thePistonCacheFLD=[:]
 
 private void clearMyPiston(String meth=sNULL){
-	String pisName=(app.id).toString()
+	String pisName=app.id.toString()
 	if((Integer)pisName.length()==0)return
 	Boolean cleared=false
 	Map pData=(Map)thePistonCacheFLD[pisName]
@@ -614,7 +612,7 @@ private void clearMyPiston(String meth=sNULL){
 
 private LinkedHashMap recreatePiston(Boolean shorten=false, Boolean useCache=true){
 	if(shorten && useCache){
-		String pisName=(app.id).toString()
+		String pisName=app.id.toString()
 		Map pData=(Map)thePistonCacheFLD[pisName]
 		if(pData==null || pData.cnt==null){
 			pData=[cnt:0, pis:null]
@@ -659,7 +657,7 @@ Map setup(LinkedHashMap data, chunks){
 	}
 	clearMyCache('setup')
 
-	String appStr=(app.id).toString()
+	String appStr=app.id.toString()
 	String tsemaphoreName='sph'+appStr
 	Boolean aa=getTheLock(tsemaphoreName, 'setup')
 
@@ -901,7 +899,6 @@ Map pausePiston(){
 	state.state=[:]+(Map)rtD.state
 	state.remove('lastEvent')
 	clear1(true,false,false,false)	// calls clearMyCache(meth) && clearMyPiston
-	//app.clearSetting('dev')
 	Map nRtd=shortRtd(rtD)
 	rtD=null
 	return nRtd
@@ -1057,9 +1054,11 @@ static void mb(){
 @Field static java.util.concurrent.Semaphore theLock14FLD=new java.util.concurrent.Semaphore(1)
 @Field static java.util.concurrent.Semaphore theLock15FLD=new java.util.concurrent.Semaphore(1)
 @Field static java.util.concurrent.Semaphore theLock16FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock17FLD=new java.util.concurrent.Semaphore(1)
 
 static Integer getSemaNum(String name){
 	if(name=='theCCC')return 16
+	if(name==sTSLF)return 17
 	Integer hash=smear(name.hashCode())
 	Integer stripes=16
 	return Math.abs(hash)%stripes
@@ -1085,6 +1084,7 @@ java.util.concurrent.Semaphore getSema(Integer snum){
 		case 14: return theLock14FLD
 		case 15: return theLock15FLD
 		case 16: return theLock16FLD
+		case 17: return theLock17FLD
 		default: log.error "bad hash result $snum"
 			return null
 	}
@@ -1117,7 +1117,7 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 	Boolean waited=false
 
 	if(semaphore!=sNULL){
-		String appStr=(app.id).toString()
+		String appStr=app.id.toString()
 		String tsemaphoreName='sph'+appStr
 
 		String lockTyp='lockOrQueue1'
@@ -1133,8 +1133,7 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 			lastSemaphore=tt0
 			if(lastSemaphore==0L || tt1-lastSemaphore>100000L){
 				theSemaphoresFLD[tsemaphoreName]=tt1
-				mb()
-			//	theSemaphoresFLD=theSemaphoresFLD
+				theSemaphoresFLD=theSemaphoresFLD
 				semaphoreName=tsemaphoreName
 				semaphoreDelay=waited ? tt1-startTime:0L
 				r_semaphore=tt1
@@ -1143,7 +1142,7 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 			if(queue){
 				if(event!=null){
 					String queueName='aevQ'+appStr
-					def myEvent=[
+					Map myEvent=[
 						t:(Long)((Date)event.date).getTime(),
 						name:(String)event.name,
 						value:event.value,
@@ -1152,13 +1151,13 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 						physical:!!event.physical,
 						jsonData:event?.jsonData,
 					]+(event instanceof com.hubitat.hub.domain.Event ? [:]:[
-						index:event?.index,
-						recovery:event?.recovery,
-						schedule:event?.schedule,
-						contentType:(String)event?.contentType,
-						responseData:event?.responseData,
-						responseCode:event?.responseCode,
-						setRtData:event?.setRtData
+						index:event.index,
+						recovery:event.recovery,
+						schedule:event.schedule,
+						contentType:(String)event.contentType,
+						responseData:event.responseData,
+						responseCode:event.responseCode,
+						setRtData:event.setRtData
 					])
 					if(event.device!=null){
 						myEvent.device=[id:event.device?.id, name:event.device?.name, label:event.device?.label]
@@ -1170,8 +1169,7 @@ private Map lockOrQueueSemaphore(String semaphore, event, Boolean queue, Map rtD
 					evtQ=evtQ!=null ? evtQ:[]
 					Boolean a=evtQ.push(myEvent)
 					theQueuesFLD[queueName]=evtQ
-					mb()
-					//theQueuesFLD=theQueuesFLD
+					theQueuesFLD=theQueuesFLD
 					didQ=true
 
 					qsize=(Integer)evtQ.size()
@@ -1210,7 +1208,7 @@ private Map getTemporaryRunTimeData(Long startTime){
 	Map t1
 	if(thePhysCommandsFLD==null){
 		String lockTyp='getTemporary'
-		String semName='theSerialLockFLD'
+		String semName=sTSLF
 		Boolean a=getTheLock(semName,lockTyp,true)
 		if(thePhysCommandsFLD==null){
 			Map comparison=Comparisons()
@@ -1234,7 +1232,7 @@ private Map getTemporaryRunTimeData(Long startTime){
 
 private void clearMyCache(String meth=sNULL){
 	Boolean clrd=false
-	String appStr=(app.id).toString()
+	String appStr=app.id.toString()
 //	String tsemaphoreName='sph'+appStr
 	String myId=hashId(appStr)
 	if(!myId)return
@@ -1277,7 +1275,7 @@ private Map getCachedMaps(String meth=sNULL, Boolean retry=true, Boolean Upd=tru
 }
 
 private Map getDSCache(String meth, Boolean Upd=true){
-	String appStr=(app.id).toString()
+	String appStr=app.id.toString()
 	String appId=hashId(appStr)
 	String myId=appId
 
@@ -1375,17 +1373,12 @@ private Map getDSCache(String meth, Boolean Upd=true){
 
 void clearParentCache(String meth=sNULL){
 	String lockTyp='clearParentCache'
-	String semName='theSerialLockFLD'
+	String semName=sTSLF
 	Boolean a=getTheLock(semName, lockTyp)
 
 	Map t0=theParentCacheFLD
-//	if(t0){
-//		List data=t0.collect{ it.key }
-//		for(item in data)t0.remove((String)item)
-//	}
 	theParentCacheFLD=null
 	t0=null
-//	mb()
 
 	getCacheLock()
 	t0=theCacheFLD
@@ -1397,7 +1390,6 @@ void clearParentCache(String meth=sNULL){
 		for(item in data)t0.remove((String)item)
 	}
 	t0=null
-//	mb()
 
 	getCacheLock()
 	t0=theHashMapFLD
@@ -1419,7 +1411,7 @@ private Map getParentCache(){
 	String lockTyp='getParentCache'
 	Map result=theParentCacheFLD
 	if(result==null){
-		String semName='theSerialLockFLD'
+		String semName=sTSLF
 		Boolean a=getTheLock(semName, lockTyp)
 		result=theParentCacheFLD
 		Boolean sendM=false
@@ -1495,7 +1487,7 @@ private Map getRunTimeData(Map rtD=null, Map retSt=null, Boolean fetchWrappers=f
 	rtD.schedules=[]
 	rtD.cancelations=[statements:[], conditions:[], all:false]
 	rtD.updateDevices=false
-	rtD.systemVars=[:]+getSystemVariables
+	rtD.systemVars=getSystemVariables()
 
 	Map atomState=getCachedMaps('getRTD')
 	atomState=atomState!=null?atomState:[:]
@@ -1516,7 +1508,7 @@ private Map getRunTimeData(Map rtD=null, Map retSt=null, Boolean fetchWrappers=f
 
 	if(doSubScribe || fetchWrappers){
 		subscribeAll(rtD, fetchWrappers)
-		String pisName=(app.id).toString()
+		String pisName=app.id.toString()
 		Map pData=(Map)thePistonCacheFLD[pisName]
 		if(shorten && pisName!=sBLK && pData!=null && pData.pis==null){
 			pData.pis=[:]+(LinkedHashMap)rtD.piston
@@ -1848,7 +1840,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 // any queued events?
 	String msgt
 	if((Integer)rtD.logging>2)msgt='Exiting'
-	String queueName='aevQ'+(app.id).toString()
+	String queueName='aevQ'+app.id.toString()
 	String semName=(String)rtD.semaphoreName
 	while(doSerialization && !callMySelf && semName!=sNULL){
 		String lockTyp='handleEvents'
@@ -1858,8 +1850,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 			if((Long)theSemaphoresFLD[semName]<=(Long)rtD.semaphore){
 				if((Integer)rtD.logging>2) msgt='Released Lock and exiting'
 				theSemaphoresFLD[semName]=0L
-				mb()
-				//theSemaphoresFLD=theSemaphoresFLD
+				theSemaphoresFLD=theSemaphoresFLD
 			}
 			releaseTheLock(semName)
 			break
@@ -1867,8 +1858,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		List evtList=evtQ.sort{ (Long)it.t }
 		def theEvent=evtList.remove(0)
 		theQueuesFLD[queueName]=evtList
-		mb()
-		//theQueuesFLD=theQueuesFLD
+		theQueuesFLD=theQueuesFLD
 		releaseTheLock(semName)
 
 		Integer qsize=(Integer)evtQ.size()
@@ -1893,7 +1883,18 @@ private Boolean executeEvent(Map rtD, event){
 		myDetail rtD, myS, 1
 	}
 	try{
-		rtD.event=event
+		if(event instanceof com.hubitat.hub.domain.Event){
+			Map myEvent=[
+				date:(Date)event.date,
+				name:(String)event.name,
+				value:event.value,
+				descriptionText:(String)event.descriptionText,
+				unit:event.unit,
+				physical:event.physical,
+				jsonData:event.jsonData,
+			]
+			rtD.event=myEvent
+		}else rtD.event=event
 		Map pEvt=(Map)state.lastEvent
 		if(pEvt==null)pEvt=[:]
 		rtD.previousEvent=pEvt
@@ -2501,8 +2502,8 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 						rtD.cache[sidx]=index
 					}
 					rtD.systemVars[sDLLRINDX].v=index
-					if((String)statement.t==sEACH && (Integer)rtD.fastForwardTo==0)setSystemVariableValue(rtD, sDLLRDEVICE, index<(Integer)devices.size() ? [devices[(Integer)index]]:[])
-					if(counterVariable!=sNULL && (Integer)rtD.fastForwardTo==0)def m=setVariable(rtD, counterVariable, (String)statement.t==sEACH ? (index<(Integer)devices.size() ? [devices[(Integer)index]]:[]):index)
+					if((String)statement.t==sEACH && (Integer)rtD.fastForwardTo==0)setSystemVariableValue(rtD, sDLLRDEVICE, index<(Integer)devices.size() ? [devices[index.toInteger()]]:[])
+					if(counterVariable!=sNULL && (Integer)rtD.fastForwardTo==0)def m=setVariable(rtD, counterVariable, (String)statement.t==sEACH ? (index<(Integer)devices.size() ? [devices[index.toInteger()]]:[]):index)
 					//do the loop
 					perform=executeStatements(rtD, (List)statement.s, async)
 					if(!perform){
@@ -2520,8 +2521,8 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 					if((Integer)rtD.fastForwardTo!=0)break
 					index=index+stepValue
 					rtD.systemVars[sDLLRINDX].v=index
-					if((String)statement.t==sEACH && (Integer)rtD.fastForwardTo==0)setSystemVariableValue(rtD, sDLLRDEVICE, index<(Integer)devices.size() ? [devices[(Integer)index]]:[])
-					if(counterVariable!=sNULL && (Integer)rtD.fastForwardTo==0)def n=setVariable(rtD, counterVariable, (String)statement.t==sEACH ? (index<(Integer)devices.size()? [devices[(Integer)index]]:[]):index)
+					if((String)statement.t==sEACH && (Integer)rtD.fastForwardTo==0)setSystemVariableValue(rtD, sDLLRDEVICE, index<(Integer)devices.size() ? [devices[index.toInteger()]]:[])
+					if(counterVariable!=sNULL && (Integer)rtD.fastForwardTo==0)def n=setVariable(rtD, counterVariable, (String)statement.t==sEACH ? (index<(Integer)devices.size()? [devices[index.toInteger()]]:[]):index)
 					rtD.cache[sidx]=index
 					if((stepValue>0.0D && index>endValue) || (stepValue<0.0D && index<endValue)){
 						perform=false
@@ -3311,7 +3312,7 @@ private void requestWakeUp(Map rtD, Map statement, Map task, Long timeOrDelay, S
 	Integer ps= (String)statement.tcp==sB || (String)statement.tcp==sP ? 1:0
 	Boolean a=cs.removeAll{ it==0 }
 // state to save across a sleep
-	Map schedule=[
+	Map mmschedule=[
 		t:time,
 		s:(Integer)statement.$,
 		i:task?.$!=null ? (Integer)task.$:0,
@@ -3330,7 +3331,7 @@ private void requestWakeUp(Map rtD, Map statement, Map task, Long timeOrDelay, S
 // currentEvent in case of httpRequest
 		]
 	]
-	a=((List)rtD.schedules).push(schedule)
+	a=((List)rtD.schedules).push(mmschedule)
 }
 
 private Long do_setLevel(Map rtD, device, List params, String attr, val=null){
@@ -8733,7 +8734,7 @@ private void getLocalVariables(Map rtD, List vars, Map atomState){
 }
 
 private Map getSystemVariablesAndValues(Map rtD){
-	Map result=[:]+getSystemVariables
+	Map result=getSystemVariables()
 	for(variable in result){
 		String keyt1=(String)variable.key
 		if(variable.value.d!=null && (Boolean)variable.value.d) variable.value.v=getSystemVariableValue(rtD, keyt1)
@@ -8746,95 +8747,97 @@ private Map getSystemVariablesAndValues(Map rtD){
 }
 
 // UI will not display anything that starts with $current or $previous; variables without d: true will not display variable value
-@Field static final Map getSystemVariables=[
-		'$args':[t:'dynamic', v:null],
-		'$json':[t:'dynamic', d:true],
-		'$places':[t:'dynamic', d:true],
-		'$response':[t:'dynamic', d:true],
-		'$nfl':[t:'dynamic', d:true],
-		'$weather':[t:'dynamic', d:true],
-		'$incidents':[t:'dynamic', d:true],
-		'$hsmTripped':[t:'boolean', d:true],
-		'$hsmStatus':[t:'string', d:true],
-		'$httpContentType':[t:'string', v:null],
-		'$httpStatusCode':[t:'integer', v:null],
-		'$httpStatusOk':[t:'boolean', v:null],
-		'$currentEventAttribute':[t:'string', v:null],
-		'$currentEventDescription':[t:'string', v:null],
-		'$currentEventDate':[t:'datetime', v:null],
-		'$currentEventDelay':[t:'integer', v:null],
-		'$currentEventDevice':[t:'device', v:null],
-		'$currentEventDeviceIndex':[t:'integer', v:null],
-		'$currentEventDevicePhysical':[t:'boolean', v:null],
-//		'$currentEventReceived':[t:'datetime', v:null],
-		'$currentEventValue':[t:'dynamic', v:null],
-		'$currentEventUnit':[t:'string', v:null],
-//		'$currentState':[t:'string', v:null],
-//		'$currentStateDuration':[t:'string', v:null],
-//		'$currentStateSince':[t:'datetime', v:null],
-//		'$nextScheduledTime':[t:'datetime', v:null],
-		'$name':[t:'string', d:true],
-		'$state':[t:'string', d:true],
-		'$device':[t:'device', v:null],
-		'$devices':[t:'device', v:null],
-		'$index':[t:'decimal', v:null],
-		'$iftttStatusCode':[t:'integer', v:null],
-		'$iftttStatusOk':[t:'boolean', v:null],
-		'$location':[t:'device', v:null],
-		'$locationMode':[t:'string', d:true],
-		'$localNow':[t:'datetime', d:true],
-		'$now':[t:'datetime', d:true],
-		'$hour':[t:'integer', d:true],
-		'$hour24':[t:'integer', d:true],
-		'$minute':[t:'integer', d:true],
-		'$second':[t:'integer', d:true],
-		'$meridian':[t:'string', d:true],
-		'$meridianWithDots':[t:'string', d:true],
-		'$day':[t:'integer', d:true],
-		'$dayOfWeek':[t:'integer', d:true],
-		'$dayOfWeekName':[t:'string', d:true],
-		'$month':[t:'integer', d:true],
-		'$monthName':[t:'string', d:true],
-		'$year':[t:'integer', d:true],
-		'$midnight':[t:'datetime', d:true],
-		'$noon':[t:'datetime', d:true],
-		'$sunrise':[t:'datetime', d:true],
-		'$sunset':[t:'datetime', d:true],
-		'$nextMidnight':[t:'datetime', d:true],
-		'$nextNoon':[t:'datetime', d:true],
-		'$nextSunrise':[t:'datetime', d:true],
-		'$nextSunset':[t:'datetime', d:true],
-		'$time':[t:'string', d:true],
-		'$time24':[t:'string', d:true],
-		'$utc':[t:'datetime', d:true],
-		'$mediaId':[t:'string', d:true],
-		'$mediaUrl':[t:'string', d:true],
-		'$mediaType':[t:'string', d:true],
-		'$mediaSize':[t:'integer', d:true],
-		'$previousEventAttribute':[t:'string', v:null],
-		'$previousEventDescription':[t:'string', v:null],
-		'$previousEventDate':[t:'datetime', v:null],
-		'$previousEventDelay':[t:'integer', v:null],
-		'$previousEventDevice':[t:'device', v:null],
-		'$previousEventDeviceIndex':[t:'integer', v:null],
-		'$previousEventDevicePhysical':[t:'boolean', v:null],
-//		'$previousEventExecutionTime':[t:'integer', v:null],
-//		'$previousEventReceived':[t:'datetime', v:null],
-		'$previousEventValue':[t:'dynamic', v:null],
-		'$previousEventUnit':[t:'string', v:null],
-//		'$previousState':[t:'string', v:null],
-//		'$previousStateDuration':[t:'string', v:null],
-//		'$previousStateSince':[t:'datetime', v:null],
-		'$random':[t:'decimal', d:true],
-		'$randomColor':[t:'string', d:true],
-		'$randomColorName':[t:'string', d:true],
-		'$randomLevel':[t:'integer', d:true],
-		'$randomSaturation':[t:'integer', d:true],
-		'$randomHue':[t:'integer', d:true],
-		'$temperatureScale':[t:'string', d:true],
-		'$version':[t:'string', d:true],
-		'$versionH':[t:'string', d:true]
+private static Map<String,Map> getSystemVariables(){
+	return [
+		'$args':[t:sDYNAMIC, v:null],
+		'$json':[t:sDYNAMIC, d:true],
+		'$places':[t:sDYNAMIC, d:true],
+		'$response':[t:sDYNAMIC, d:true],
+		'$nfl':[t:sDYNAMIC, d:true],
+		'$weather':[t:sDYNAMIC, d:true],
+		'$incidents':[t:sDYNAMIC, d:true],
+		'$hsmTripped':[t:sBOOLEAN, d:true],
+		'$hsmStatus':[t:sSTRING, d:true],
+		'$httpContentType':[t:sSTRING, v:null],
+		'$httpStatusCode':[t:sINTEGER, v:null],
+		'$httpStatusOk':[t:sBOOLEAN, v:null],
+		'$currentEventAttribute':[t:sSTRING, v:null],
+		'$currentEventDescription':[t:sSTRING, v:null],
+		'$currentEventDate':[t:sDATETIME, v:null],
+		'$currentEventDelay':[t:sINTEGER, v:null],
+		'$currentEventDevice':[t:sDEVICE, v:null],
+		'$currentEventDeviceIndex':[t:sINTEGER, v:null],
+		'$currentEventDevicePhysical':[t:sBOOLEAN, v:null],
+//		'$currentEventReceived':[t:sDATETIME, v:null],
+		'$currentEventValue':[t:sDYNAMIC, v:null],
+		'$currentEventUnit':[t:sSTRING, v:null],
+//		'$currentState':[t:sSTRING, v:null],
+//		'$currentStateDuration':[t:sSTRING, v:null],
+//		'$currentStateSince':[t:sDATETIME, v:null],
+//		'$nextScheduledTime':[t:sDATETIME, v:null],
+		'$name':[t:sSTRING, d:true],
+		'$state':[t:sSTRING, d:true],
+		'$device':[t:sDEVICE, v:null],
+		'$devices':[t:sDEVICE, v:null],
+		'$index':[t:sDECIMAL, v:null],
+		'$iftttStatusCode':[t:sINTEGER, v:null],
+		'$iftttStatusOk':[t:sBOOLEAN, v:null],
+		'$location':[t:sDEVICE, v:null],
+		'$locationMode':[t:sSTRING, d:true],
+		'$localNow':[t:sDATETIME, d:true],
+		'$now':[t:sDATETIME, d:true],
+		'$hour':[t:sINTEGER, d:true],
+		'$hour24':[t:sINTEGER, d:true],
+		'$minute':[t:sINTEGER, d:true],
+		'$second':[t:sINTEGER, d:true],
+		'$meridian':[t:sSTRING, d:true],
+		'$meridianWithDots':[t:sSTRING, d:true],
+		'$day':[t:sINTEGER, d:true],
+		'$dayOfWeek':[t:sINTEGER, d:true],
+		'$dayOfWeekName':[t:sSTRING, d:true],
+		'$month':[t:sINTEGER, d:true],
+		'$monthName':[t:sSTRING, d:true],
+		'$year':[t:sINTEGER, d:true],
+		'$midnight':[t:sDATETIME, d:true],
+		'$noon':[t:sDATETIME, d:true],
+		'$sunrise':[t:sDATETIME, d:true],
+		'$sunset':[t:sDATETIME, d:true],
+		'$nextMidnight':[t:sDATETIME, d:true],
+		'$nextNoon':[t:sDATETIME, d:true],
+		'$nextSunrise':[t:sDATETIME, d:true],
+		'$nextSunset':[t:sDATETIME, d:true],
+		'$time':[t:sSTRING, d:true],
+		'$time24':[t:sSTRING, d:true],
+		'$utc':[t:sDATETIME, d:true],
+		'$mediaId':[t:sSTRING, d:true],
+		'$mediaUrl':[t:sSTRING, d:true],
+		'$mediaType':[t:sSTRING, d:true],
+		'$mediaSize':[t:sINTEGER, d:true],
+		'$previousEventAttribute':[t:sSTRING, v:null],
+		'$previousEventDescription':[t:sSTRING, v:null],
+		'$previousEventDate':[t:sDATETIME, v:null],
+		'$previousEventDelay':[t:sINTEGER, v:null],
+		'$previousEventDevice':[t:sDEVICE, v:null],
+		'$previousEventDeviceIndex':[t:sINTEGER, v:null],
+		'$previousEventDevicePhysical':[t:sBOOLEAN, v:null],
+//		'$previousEventExecutionTime':[t:sINTEGER, v:null],
+//		'$previousEventReceived':[t:sDATETIME, v:null],
+		'$previousEventValue':[t:sDYNAMIC, v:null],
+		'$previousEventUnit':[t:sSTRING, v:null],
+//		'$previousState':[t:sSTRING, v:null],
+//		'$previousStateDuration':[t:sSTRING, v:null],
+//		'$previousStateSince':[t:sDATETIME, v:null],
+		'$random':[t:sDECIMAL, d:true],
+		'$randomColor':[t:sSTRING, d:true],
+		'$randomColorName':[t:sSTRING, d:true],
+		'$randomLevel':[t:sINTEGER, d:true],
+		'$randomSaturation':[t:sINTEGER, d:true],
+		'$randomHue':[t:sINTEGER, d:true],
+		'$temperatureScale':[t:sSTRING, d:true],
+		'$version':[t:sSTRING, d:true],
+		'$versionH':[t:sSTRING, d:true]
 	]
+}
 
 private getSystemVariableValue(Map rtD, String name){
 	switch (name){

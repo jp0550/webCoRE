@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated July 15, 2020 for Hubitat
+ * Last Updated July 16, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
-static String HEversion(){ return "v0.3.110.20200715_HE" }
+static String HEversion(){ return "v0.3.110.20200716_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
