@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated July 16, 2020 for Hubitat
+ * Last Updated July 21, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200716_HE" }
@@ -964,7 +964,8 @@ private Map api_get_base_result(Boolean updateCache=false){
 			fuelStreamUrls: getFuelStreamUrls(instanceId),
 		],
 		location: [
-			hubs: location.getHubs().findAll{ !((String)it.name).contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: (String)it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
+			//hubs: location.getHubs().findAll{ !((String)it.name).contains(':') }.collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: (String)it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
+			hubs: location.getHubs().collect{ [id: it.id /*hashId(it.id, updateCache)*/, name: (String)location.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]},
 			incidents: alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold },
 			//incidents: isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold },
 			id: locationId,
@@ -2650,15 +2651,20 @@ def webCoREHandler(event){
 	if(data && data.variable && ((String)data.event == 'variable') && event.value && event.value.startsWith('@@')){
 		Map variable=data.variable
 		String vType=(String)variable.type ?: 'dynamic'
+
+		String t='updateGlobal'
+		Boolean didw=getTheLock(t)
+
 		Map vars=atomicState.vars ?: [:]
 		def oldVar=vars[(String)variable.name] ?: [t:'', v:'']
 		if(((String)oldVar.t != vType) || (oldVar.v != variable.value)){ // only notify if it is a change for us.
 			vars[(String)variable.name]=[t: vType, v: variable.value]
 			atomicState.vars=vars
+			releaseTheLock(t)
 			clearGlobalPistonCache("variable event")
 // notify my child instances
 			sendVariableEvent([name: (String)variable.name, value: variable.value, type: vType], true)
-		}
+		} else releaseTheLock(t)
 		return
 	}
 	switch (event.value){
