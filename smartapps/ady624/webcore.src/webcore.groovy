@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated July 21, 2020 for Hubitat
+ * Last Updated August 1, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200716_HE" }
@@ -3257,7 +3257,7 @@ Map getChildCommands(){
 	start				: [ n: "Start",																							],
 	startActivity			: [ n: "Start activity...",			d: "Start activity \"{0}\"",									p: [[n:"Activity", t:"string"]],		],
 	startLevelChange		: [ n: "Start Level Change...",			d: "Start Level Change \"{0}\"",				p: [[n:"Direction", t:"string"]],						],
-	stopLevelChange			: [ n: "Start Level Change...",			d: "Stop Level Change",																],
+	stopLevelChange			: [ n: "Stop Level Change...",			d: "Stop Level Change",																],
 	stop				: [ n: "Stop",																							],
 	strobe				: [ n: "Strobe",											a: "alarm",				v: "strobe",					],
 	take				: [ n: "Take a picture",																					],
