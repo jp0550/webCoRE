@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 1, 2020 for Hubitat
+ * Last Updated August 11, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200716_HE" }
@@ -389,15 +389,21 @@ def pageSettings(){
 		}
 
 		section(sectionTitleStr("Custom Endpoints - Advanced")){
-			paragraph "Custom Endpoints allows use of a local hub address and optionally a local WebCoRE server"
+			paragraph "Custom Endpoints allows use of a local webserver for webCoRE IDE pages and local hub API endpoint address.  webCoRE servers are still used for instance registration, non-local backup / restore / import, send email, NFL, store media, and optionally fuel streams"
 			input "customEndpoints", "bool", submitOnChange: true, title: "Use custom endpoints?", default: false, required: true
 			if((Boolean)customEndpoints){
-				input "customHubUrl", "string", title: "Custom hub (local) url different from https://cloud.hubitat.com", submitOnChange: true,default: null, required: false
 				Boolean req=false
-				if((Boolean)customEndPoints && (String)customHubUrl) req=true
-				input "customWebcoreInstanceUrl", "string", title: "Custom webcore server instance url different from dashboard.webcore.co", default: null, required: req
-				if((String)customHubUrl) paragraph "If you enter a custom hub url you MUST use a custom webcore server instance url, as dashboard.webcore.co site is restricted to Hubitat and Smartthing's cloud access only"
+				if((Boolean)customEndPoints && (Boolean)localHubUrl) req=true
+				input "customWebcoreInstanceUrl", "string", title: "Custom webcore webserver (local webserver url different from dashboard.webcore.co)", default: null, required: req
+				if((Boolean)localHubUrl && !customWebcoreInstanceUrl) paragraph "If you use a local hub API url you MUST use a custom webcore server url, as dashboard.webcore.co site is restricted to Hubitat and Smartthing's cloud API access only"
+				input "localHubUrl", "bool", title: "Use local hub URL for API access?", submitOnChange: true, default: false, required: false
+			} else {
+				app.clearSetting('localHubUrl')
+				app.clearSetting('customWebcoreInstanceUrl')
 			}
+			state.endpoint=sNULL
+			state.endpointLocal=sNULL
+			if((String)state.accessToken) updateEndpoint()
 		}
 
 		section(sectionTitleStr("Logging")){
@@ -490,9 +496,10 @@ def pageRebuildCache(){
 
 def pageResetEndpoint(){
 	revokeAccessToken()
-	Boolean success=initializeWebCoREEndpoint()
 	lastRecoveredFLD=0L
 	lastRegFLD=0L
+	lastRegTryFLD=0L
+	Boolean success=initializeWebCoREEndpoint()
 	updated()
 	dynamicPage(name: "pageResetEndpoint", title: "", install: false, uninstall: false){
 		section(){
@@ -580,12 +587,13 @@ void updated(){
 
 Map getChildPstate(){
 	def msettings=atomicState.settings
+	if((String)state.accessToken) updateEndpoint()
 	return [
 		sCv: version(),
 		sHv: HEversion(),
 		stsettings: msettings,
 		powerSource: state.powerSource ?: 'mains',
-		region: (String)(state.endpoint).contains('graph-eu') ? 'eu' : 'us',
+		region: ((String)state.endpoint).contains('graph-eu') ? 'eu' : 'us',
 		instanceId: getInstanceSid(),
 		locationId: getLocationSid(),
 		enabled: (Boolean)atomicState.disabled!=true,
@@ -676,7 +684,7 @@ private void initialize(){
 
 	refreshDevices()
 
-	if((String)state.accessToken && !state.endpoint) updateEndpoint((String)state.accessToken)
+	if((String)state.accessToken) updateEndpoint()
 	registerInstance()
 
 	checkWeather()
@@ -713,41 +721,49 @@ Map getWCendpoints(){
 	Map t0=[:]
 	String ep
 	String epl
-	if(isCustomEndpoint()){
-		ep=customServerUrl()
-		epl=ep
-	}else{
-		ep=apiServerUrl("$hubUID/apps/${app.id}".toString())
-		epl=localApiServerUrl("${app.id}".toString())
-	}
+	ep=apiServerUrl("$hubUID/apps/${app.id}".toString())
+	epl=localApiServerUrl("${app.id}".toString())
+
+	if((Boolean)customEndpoints && (Boolean)localHubUrl) ep=epl
+	if(ep.endsWith('/'))ep=ep.substring(0,ep.length()-1)
+	if(epl.endsWith('/'))epl=epl.substring(0,epl.length()-1)
+
 	t0.ep=ep
 	t0.epl=epl
 	t0.at=state.accessToken
 	return t0
 }
 
-private void updateEndpoint(String accessToken){
-	if(isCustomEndpoint()){
-		state.endpoint=customServerUrl('?access_token='+accessToken)
-		state.endpointLocal=customServerUrl('?access_token='+accessToken)
-	}else{
-		state.endpoint=apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}".toString())
-		state.endpointLocal=localApiServerUrl("${app.id}/?access_token=${accessToken}".toString())
+private void updateEndpoint(){
+	String accessToken=(String)state.accessToken
+	String newEP
+	String newEPLocal
+	newEP=apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}".toString())
+	newEPLocal=localApiServerUrl("${app.id}/?access_token=${accessToken}".toString())
+	if((Boolean)customEndpoints && (Boolean)localHubUrl) newEP=newEPLocal
+	if(newEP!=(String)state.endpoint){
+		state.endpoint=newEP
+		state.endpointLocal=newEPLocal
+		lastRegFLD=0L
+		lastRegTryFLD=0L
+		registerInstance()
 	}
 }
 
 private Boolean initializeWebCoREEndpoint(Boolean disableRetry=false){
 	if(!(String)state.endpoint){
-		String accessToken
-		try{
-			accessToken=createAccessToken() // this fills in state.accessToken
-		} catch(e){
-			error "An error has occurred during endpoint initialization: ", null, e
-			state.endpoint=sNULL
-			state.endpointLocal=sNULL
+		String accessToken=(String)state.accessToken
+		if(!accessToken){
+			try{
+				accessToken=createAccessToken() // this fills in state.accessToken
+			} catch(e){
+				error "An error has occurred during endpoint initialization: ", null, e
+				state.endpoint=sNULL
+				state.endpointLocal=sNULL
+			}
 		}
 		if(accessToken){
-			updateEndpoint(accessToken)
+			updateEndpoint()
 		} else if(!disableRetry){
 			enableOauth()
 			return initializeWebCoREEndpoint(true)
@@ -1006,7 +1022,7 @@ private getFuelStreamUrls(String iid){
 		]
 	}	
 	
-	String baseUrl=isCustomEndpoint() ? customServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/".toString())
+	String baseUrl=isCustomEndpoint() ? customApiServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/".toString())
 	
 	String params=baseUrl.contains((String)state.accessToken) ? "" : "access_token=${state.accessToken}".toString()
 	
@@ -1200,7 +1216,7 @@ private api_intf_dashboard_piston_get(){
 }
 
 private void checkResultSize(Map result, Boolean requireDb=false){
-	if(!isCustomEndpoint() || ((String)customHubUrl).contains(hubUID)){
+	if(!isCustomEndpoint() || !(Boolean)localHubUrl){
 		String jsonData=groovy.json.JsonOutput.toJson(result)
 		//data saver for Hubitat ~100K limit	
 		Integer responseLength=jsonData.getBytes("UTF-8").length
@@ -1263,7 +1279,7 @@ private api_intf_dashboard_piston_backup(){
 					if(pd){
 						pd.instance=[id: getInstanceSid(), name: (String)app.label]
 						Boolean a=result.pistons.push(pd)
-						if(!isCustomEndpoint() || ((String)customHubUrl).contains(hubUID)){
+						if(!isCustomEndpoint() || !(Boolean)localHubUrl){
 							String jsonData=groovy.json.JsonOutput.toJson(result)
 							Integer responseLength=jsonData.getBytes("UTF-8").length
 							if(responseLength > 110 * 1024){
@@ -2065,38 +2081,41 @@ private getDashboardApp(Boolean install=false){
 	return dashboardApp
 }
 
-private String customServerUrl(String path){
+private String customApiServerUrl(String path){
 	path = path ?: ""
 	if(!path.startsWith("/")){
 		path="/" + path
 	}
 	
-	if( ((String)customHubUrl).contains(hubUID)){
-		return (String)customHubUrl + "/" + app.id.toString() + path
+	if( !(Boolean)localHubUrl){
+		return (String)localHubUrl + "/" + app.id.toString() + path
 	}
-	return (String)customHubUrl + "/apps/api/" + app.id.toString() + path
+	//epl=localApiServerUrl("${app.id}".toString())
+	return localAPiServerUrl(app.id.toString()) + path
+	//return (String)localHubUrl + "/apps/api/" + app.id.toString() + path
 }
 
 
-private String getDashboardInitUrl(Boolean register=false){
-	String url=register ? getDashboardRegistrationUrl() : getDashboardUrl()
+private String getDashboardInitUrl(Boolean reg=false){
+	String url=reg ? getDashboardRegistrationUrl() : getDashboardUrl()
 	if(!url) return sNULL
-	String t0
+	String t0=url + (reg ? "register/" : "init/")
+	String t1
 	if(isCustomEndpoint()){
-		//return url + (register ? "register/" : "init/") +	(
-		t0=url + (register ? "register/" : "init/") +	(
-			customServerUrl('/?access_token=' + state.accessToken) ).bytes.encodeBase64()
+		t1=customApiServerUrl('/')
+		//customApiServerUrl('/?access_token=' + state.accessToken) ).bytes.encodeBase64()
 	}else{
-		//return url + (register ? "register/" : "init/") +
-		t0=url + (register ? "register/" : "init/") +
-			(apiServerUrl("").replace("https://", '').replace(".api.smartthings.com", "").replace(":443", "").replace("/", "") +
-			((hubUID ?: state.accessToken) + app.id).replace("-", "") + (isHubitat() ? '/?access_token=' + state.accessToken : '')).bytes.encodeBase64()
+		t1= apiServerUrl("")
 	}
+	t0=t0+(
+		t1.replace('http://','').replace('https://', '').replace('.api.smartthings.com', '').replace(':443', '').replace('/', '') +
+		(hubUID.toString() + app.id.toString()).replace("-", "") + '/?access_token=' + (String)state.accessToken ).bytes.encodeBase64()
 	//log.debug "Url: $t0"
 	return t0
 }
 
 private String getDashboardRegistrationUrl(){
+	if((String)state.accessToken) updateEndpoint()
 	if(!(String)state.endpoint) return sNULL
 	return "https://api.${domain()}/dashboard/".toString()
 }
@@ -2295,7 +2314,8 @@ private String getInstanceSid(){
 @Field volatile static Long lastRegTryFLD
 
 private void registerInstance(Boolean force=true){
-	if((Boolean)state.installed && (Boolean)settings.agreement && !isCustomEndpoint()){
+	//if((Boolean)state.installed && (Boolean)settings.agreement && !isCustomEndpoint()){
+	if((Boolean)state.installed && (Boolean)settings.agreement){
 		if(!force){
 			Long lastReg=lastRegFLD
 			lastReg=lastReg ?: 0L
@@ -2395,7 +2415,7 @@ String generatePistonName(){
 String getDashboardUrl(){
 	if(!(String)state.endpoint) return sNULL
 
-	if((Boolean)customEndpoints && ((String)customWebcoreInstanceUrl ?: "") != ""){
+	if((Boolean)customEndpoints && (String)customWebcoreInstanceUrl){
 		return (String)customWebcoreInstanceUrl + "/"
 	}else{
 		return "https://dashboard.${domain()}/".toString()
@@ -2787,6 +2807,7 @@ void startHandler(evt){
 	debug "startHandler called"
 	lastRecoveredFLD=0L
 	lastRegFLD=0L
+	lastRegTryFLD=0L
 	runIn(20, startWork)
 }
 
@@ -2917,7 +2938,7 @@ private void error(message, Integer shift=-2, err=null)	{ Map a=log message, shi
 private Map timer(String message, Integer shift=-2, err=null)	{ log message, shift, err, 'timer' }
 
 private Boolean isCustomEndpoint(){
-	(Boolean)customEndpoints && ((String)customHubUrl ?: "") != ""
+	(Boolean)customEndpoints && (Boolean)localHubUrl
 }
 
 /******************************************************************************/

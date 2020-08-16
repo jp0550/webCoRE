@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update July 26, 2020 for Hubitat
+ * Last update August 15, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -842,7 +842,7 @@ private void cleanCode(item){
 	if(item.lo2!=null)cleanCode(item.lo2)
 	if(item.lo3!=null)cleanCode(item.lo3)
 	if(item.ro!=null){
-		if(fndEmptyOper(item.ro))item.remove('ro')
+		if(item.ro instanceof String || fndEmptyOper(item.ro))item.remove('ro')
 		else cleanCode(item.ro)
 	}
 	if(item.ro2!=null){
