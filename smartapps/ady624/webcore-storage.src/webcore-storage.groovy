@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update July 2, 2020 for Hubitat
+ * Last update August 21, 2020 for Hubitat
  */
 public static String version(){ return "v0.3.110.20191009" }
-public static String HEversion(){ return "v0.3.110.20200702_HE" }
+public static String HEversion(){ return "v0.3.110.20200821_HE" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -348,7 +348,7 @@ public Map getWData(){
 	String weatherType = state.weatherType ?: null
 	if(theObsFLD && weatherType == 'apiXU'){
 		obs = theObsFLD //state.obs
-		String t0 = "${obs.current.last_updated}"
+		String t0 = "${obs.current.last_updated}".toString()
 		String t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
 		Integer s = GetTimeDiffSeconds(t1, null, "getApiXUData").toInteger()
 		if(s > (60*60*6)){ // if really old
@@ -562,11 +562,11 @@ Integer getWUConditionCode(String code){
 }
 
 String getWUIconNum(Integer wCode)	 {
-	def imgItem = imgNames.find{ it.code == wCode }
-	return (imgItem ? imgItem.img : '44')
+	Map imgItem = imgNames.find{ (Integer)it.code == wCode }
+	return (imgItem ? (String)imgItem.img : '44')
 }
 
-@Field final Map	conditionFactor = [
+@Field final Map<Integer,List>	conditionFactor = [
 	1000: ['Sunny', 1, 'sunny'],						1003: ['Partly cloudy', 0.8, 'partlycloudy'],
 	1006: ['Cloudy', 0.6, 'cloudy'],					1009: ['Overcast', 0.5, 'cloudy'],
 	1030: ['Mist', 0.5, 'fog'],						1063: ['Patchy rain possible', 0.8, 'chancerain'],
@@ -593,13 +593,13 @@ String getWUIconNum(Integer wCode)	 {
 	1279: ['Patchy light snow with thunder', 0.5, 'tstorms'],		1282: ['Moderate or heavy snow with thunder', 0.3, 'tstorms']
 ]
 
-private getImgName(wCode, is_day){
-	def url = "https://cdn.rawgit.com/adey/bangali/master/resources/icons/weather/"
-	def imgItem = imgNames.find{ it.code == wCode && it.day == is_day }
-	return (url + (imgItem ? imgItem.img : 'na') + '.png')
+private String getImgName(Integer wCode, is_day){
+	String url = "https://cdn.rawgit.com/adey/bangali/master/resources/icons/weather/"
+	Map imgItem = imgNames.find{ (Integer)it.code == wCode && (Integer)it.day == is_day }
+	return (url + (imgItem ? (String)imgItem.img : 'na') + '.png')
 }
 
-@Field final List imgNames = [
+@Field final List<Map> imgNames = [
 	[code: 1000, day: 1, img: '32', ],	// DAY - Sunny
 	[code: 1003, day: 1, img: '30', ],	// DAY - Partly cloudy
 	[code: 1006, day: 1, img: '28', ],	// DAY - Cloudy
@@ -801,7 +801,7 @@ String getStdIcon(String code){
 	return (LUitem ? LUitem.stdIcon : '')
 }
 
-@Field final List LUTable = [
+@Field final List<Map> LUTable = [
 [ ccode: 'breezy', altIcon: '23.png', ctext: 'Breezy', owmIcon: '50d', stdIcon: 'partlycloudy', luxpercent: 0.8 ],
 [ ccode: 'breezyfoggy', altIcon: '48.png', ctext: 'Breezy and Foggy', owmIcon: '50d', stdIcon: 'fog', luxpercent: 0.2 ],
 [ ccode: 'breezymostlycloudy', altIcon: '51.png', ctext: 'Breezy and Mostly Cloudy', owmIcon: '04d', stdIcon: 'cloudy', luxpercent: 0.6 ],

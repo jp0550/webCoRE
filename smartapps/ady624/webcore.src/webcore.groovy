@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 11, 2020 for Hubitat
+ * Last Updated August 21, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
-static String HEversion(){ return "v0.3.110.20200716_HE" }
+static String HEversion(){ return "v0.3.110.20200821_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -154,8 +154,8 @@ def pageMain(){
 
 private static String sectionTitleStr(String title)	{ return '<h3>'+title+'</h3>' }
 private static String inputTitleStr(String title)	{ return '<u>'+title+'</u>' }
-private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
-private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
+//private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
+//private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
 
 private static String imgTitle(String imgSrc, String titleStr, String color=(String)null, Integer imgWidth=30, Integer imgHeight=0){
 	String imgStyle=''
@@ -586,7 +586,7 @@ void updated(){
 }
 
 Map getChildPstate(){
-	def msettings=atomicState.settings
+	LinkedHashMap msettings=(LinkedHashMap)atomicState.settings
 	if((String)state.accessToken) updateEndpoint()
 	return [
 		sCv: version(),
@@ -938,7 +938,8 @@ private Map api_get_base_result(Boolean updateCache=false){
 	String currentDeviceVersion=(String)state.deviceVersion
 	String name=handle() + ' Piston'
 	Long incidentThreshold=Math.round(now() - 604800000.0D)
-	List alerts=state.hsmAlerts ?: []
+	List alerts=(List)state.hsmAlerts
+	alerts=alerts ?: []
 	
 	String instanceId=getInstanceSid()
 	String locationId=getLocationSid()
@@ -947,8 +948,9 @@ private Map api_get_base_result(Boolean updateCache=false){
 //	def t0=location.getHubs().collect{ [id: hashId(it.id, updateCache), name: it.name, firmware: isHubitat() ? getHubitatVersion()[it.id] : it.getFirmwareVersionString(), physical: it.getType().toString().contains('PHYSICAL'), powerSource: it.isBatteryInUse() ? 'battery' : 'mains' ]}
 //	error "api_get_base_result: hubs ${location.getHubs()} t0: ${t0}"
 //	error "api_get_base_result: locstatus ${location.hsmStatus} statehsm: ${state.hsmStatus} shm ${transformHsmStatus(location.hsmStatus ?: state.hsmStatus)}"
+	String myN= (String)app.label ?: (String)app.name
 	Map result=[
-		name: (String)location.name + ' \\ ' + ((String)app.label ?: (String)app.name),
+		name: (String)location.name + ' \\ ' + myN,
 		instance: [
 			account: [id: getAccountSid()],
 			pistons: getChildApps().findAll{ (String)it.name == name }.sort{ (String)it.label }.collect{
@@ -967,7 +969,7 @@ private Map api_get_base_result(Boolean updateCache=false){
 			},
 			id: instanceId,
 			locationId: locationId,
-			name: (String)app.label ?: (String)app.name,
+			name: myN,
 			uri: (String)state.endpoint,
 			deviceVersion: currentDeviceVersion,
 			coreVersion: version(),
@@ -1088,7 +1090,7 @@ private api_intf_dashboard_load(){
 
 private api_intf_dashboard_devices(){
 	Map result
-	if (verifySecurityToken((String)params.token)){
+	if(verifySecurityToken((String)params.token)){
 		String offset="${params.offset}".toString()
 		result=api_get_devices_result(offset.isInteger() ? offset.toInteger() : 0)
 	}else{
@@ -1204,7 +1206,6 @@ private api_intf_dashboard_piston_get(){
 	}else{
 		result=api_get_error_result(sERRTOK)
 	}
-	
 
 	//for accuracy, use the time as close as possible to the render
 	result.now=now()
@@ -1275,7 +1276,7 @@ private api_intf_dashboard_piston_backup(){
 			if(pistonId){
 				def piston=getChildApps().find{ hashId(it.id) == pistonId }
 				if(piston){
-					def pd=(Map)piston.get(true)
+					Map pd=(Map)piston.get(true)
 					if(pd){
 						pd.instance=[id: getInstanceSid(), name: (String)app.label]
 						Boolean a=result.pistons.push(pd)
@@ -1304,7 +1305,7 @@ private String decodeEmoji(String value){
 }
 
 
-private api_intf_dashboard_piston_set_save(String id, String data, chunks){
+private Map api_intf_dashboard_piston_set_save(String id, String data, Map<String,String>chunks){
 	def piston=getChildApps().find{ hashId(it.id) == id }
 	String myS="Dashboard: Request received to set_save"
 	if(piston){
@@ -1318,8 +1319,8 @@ private api_intf_dashboard_piston_set_save(String id, String data, chunks){
 			log.trace s.substring(a * cs, x)
 		}
 	*/
-		def p=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(decodeEmoji(new String(data.decodeBase64(), "UTF-8")))
-		def result=(Map)piston.setup(p, chunks)
+		LinkedHashMap p=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(decodeEmoji(new String(data.decodeBase64(), "UTF-8")))
+		Map result=(Map)piston.setup(p, chunks)
 		broadcastPistonList()
 		return result
 	}
@@ -1329,12 +1330,12 @@ private api_intf_dashboard_piston_set_save(String id, String data, chunks){
 
 //set is used for small pistons, for large data, using set.start, set.chunk, and set.end
 private api_intf_dashboard_piston_set(){
-	def result
+	Map result
 	debug "Dashboard: Request received to set a piston"
 	if(verifySecurityToken((String)params.token)){
-		def data=params?.data
+		String data=(String)params?.data
 		//save the piston
-		def saved=api_intf_dashboard_piston_set_save(params?.id, data, ['chunk:0' : data])
+		Map saved=api_intf_dashboard_piston_set_save((String)params?.id, data, ['chunk:0' : data])
 		if(saved){
 			if(saved.rtData){
 				updateRunTimeData((Map)saved.rtData)
@@ -1350,14 +1351,14 @@ private api_intf_dashboard_piston_set(){
 	render contentType: sAPPJAVA, data: "${params.callback}(${groovy.json.JsonOutput.toJson(result)})"
 }
 
-@Field volatile static LinkedHashMap pPistonChunksFLD
+@Field volatile static LinkedHashMap<String, Object> pPistonChunksFLD
 
 private api_intf_dashboard_piston_set_start(){
 	Map result
 	debug "Dashboard: Request received to set a piston (chunked start)"
 	if(verifySecurityToken((String)params.token)){
-		def chunks="${params?.chunks}"
-		chunks=chunks.isInteger() ? chunks.toInteger() : 0
+		String chunkstr="${params?.chunks}".toString()
+		Integer chunks=chunkstr.isInteger() ? chunkstr.toInteger() : 0
 		if((chunks > 0) && (chunks < 100)){
 			theHashMapFLD=[:]
 			//atomicState.chunks=[id: params?.id, count: chunks]
@@ -1383,7 +1384,7 @@ private api_intf_dashboard_piston_set_chunk(){
 		String data=(String)params?.data
 		//def chunks=atomicState.chunks
 		mb()
-		def chunks=pPistonChunksFLD
+		LinkedHashMap<String,Object>chunks=pPistonChunksFLD
 		if(chunks && (Integer)chunks.count && (chunk >= 0) && (chunk < (Integer)chunks.count)){
 			chunks["chunk:$chunk".toString()]=data
 			//atomicState.chunks=chunks
@@ -1405,7 +1406,7 @@ private api_intf_dashboard_piston_set_end(){
 	if(verifySecurityToken((String)params.token)){
 		//def chunks=atomicState.chunks
 		mb()
-		def chunks=pPistonChunksFLD
+		LinkedHashMap<String,Object> chunks=pPistonChunksFLD
 		if(chunks && (Integer)chunks.count){
 			Boolean ok=true
 			String data=""
@@ -1428,7 +1429,7 @@ private api_intf_dashboard_piston_set_end(){
 			mb()
 			if(ok){
 				//save the piston
-				def saved=api_intf_dashboard_piston_set_save((String)chunks.id, data, chunks.findAll{ it.key.startsWith('chunk:') })
+				Map saved=api_intf_dashboard_piston_set_save((String)chunks.id, data, chunks.findAll{ it.key.startsWith('chunk:') })
 				if(saved){
 					if(saved.rtData){
 						updateRunTimeData((Map)saved.rtData)
@@ -1683,7 +1684,8 @@ private api_intf_variable_set(){
 		Map localVars
 		if(!pid){
 			Boolean chgd=false
-			globalVars=atomicState.vars ?: [:]
+			globalVars=(Map)atomicState.vars
+			globalVars=globalVars ?: [:]
 			if(name && !value){
 				//deleting a variable
 				globalVars.remove(name)
@@ -1795,7 +1797,8 @@ private api_intf_settings_set(){
 	Map result
 	debug "Dashboard: Request received to set settings"
 	if(verifySecurityToken((String)params.token)){
-		def msettings=params.settings ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.settings.decodeBase64(), "UTF-8")) : null
+		String pset=(String)params.settings
+		LinkedHashMap msettings=pset ? (LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(pset.decodeBase64(), "UTF-8")) : null
 		atomicState.settings=msettings
 
 		clearParentPistonCache("dashboard changed settings")
@@ -1815,9 +1818,9 @@ private api_intf_dashboard_piston_evaluate(){
 	if(verifySecurityToken((String)params.token)){
 		def piston=getChildApps().find{ hashId(it.id) == (String)params.id }
 		if(piston){
-			def expression=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.expression.decodeBase64(), "UTF-8"))
+			LinkedHashMap expression=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(new String(params.expression.decodeBase64(), "UTF-8"))
 			Map msg=timer "Evaluating expression"
-			result=[status: sSUCC, value: piston.proxyEvaluateExpression(null /* getRunTimeData()*/, expression, params.dataType)]
+			result=[status: sSUCC, value: piston.proxyEvaluateExpression(null /* getRunTimeData()*/, expression, (String)params.dataType)]
 			trace msg
 		}else{
 			result=api_get_error_result(sERRID)
@@ -2137,6 +2140,7 @@ Map listAvailableDevices(Boolean raw=false, Boolean updateCache=false, Integer o
 			result.devices=[:]
 			if(devices){
 			devices=devices[offset..-1]
+			Integer dsz=(Integer)devices.size()
 			result.complete=!devices.indexed().find{ idx, dev ->
 //				log.debug "Loaded device at ${idx} after ${now() - time}ms. Data size is ${result.toString().size()}"
 				result.devices[hashId(dev.id)]=[
@@ -2158,9 +2162,9 @@ Map listAvailableDevices(Boolean raw=false, Boolean updateCache=false, Integer o
 				if(responseLength > (50 * 1024)){
 					stop=true // Stop if large
 				}
-				if(now() - time > 4000) stop=true
-				if (idx < devices.size() - 1 && stop){
-					result.nextOffset=offset + idx + 1
+				if(now()-time > 4000) stop=true
+				if(idx < dsz-1 && stop){
+					result.nextOffset= offset+idx+1
 					return true
 				}
 				false
@@ -2182,16 +2186,19 @@ Map listAvailableDevices(Boolean raw=false, Boolean updateCache=false, Integer o
 	return result
 }
 
-//To add devices to the poll list:
-//sendLocationEvent(name: "startZwavePoll", value: devList)
+/*
+ Not implemented zwave poller control:
+ To add devices to the poll list:
+ sendLocationEvent(name: "startZwavePoll", value: devList)
 
-//To remove devices from the poll list:
-//sendLocationEvent(name: "stopZwavePoll", value: devList)
+ To remove devices from the poll list:
+ sendLocationEvent(name: "stopZwavePoll", value: devList)
 
-//Z-Wave Poller only supports Generic Z-Wave Dimmer and Generic Z-Wave Switch. It won't work with other drivers, as there is a handshake with the driver.
+ Z-Wave Poller only supports Generic Z-Wave Dimmer and Generic Z-Wave Switch. It won't work with other drivers, as there is a handshake with the driver.
 
-//You can determine if Z-Wave Poller is installed with this:
-//isAppInstalled("hubitat", "Z-Wave Poller", "SYSTEM")
+ You can determine if Z-Wave Poller is installed with this:
+ isAppInstalled("hubitat", "Z-Wave Poller", "SYSTEM")
+*/
 
 private static String transformCommand(command, Map overrides){
 	Map override=overrides[command.getName()]
@@ -2209,15 +2216,18 @@ private void setPowerSource(String powerSource, Boolean atomic=true){
 }
 
 Map listAvailableVariables(){
-	return (atomicState.vars ?: [:]).sort{ (String)it.key }
+	Map myV=(Map)atomicState.vars
+	return (myV ?: [:]).sort{ (String)it.key }
 }
 
 private Map listAvailableVariables1(){
-	return (state.vars ?: [:]).sort{ (String)it.key }
+	Map myV=(Map)state.vars
+	return (myV ?: [:]).sort{ (String)it.key }
 }
 
 Map getGStore(){
-	return (atomicState.store ?: [:]).sort{ (String)it.key }
+	Map myS=(Map)atomicState.store
+	return (myS ?: [:]).sort{ (String)it.key }
 }
 
 List getPushDev(){
@@ -2231,8 +2241,8 @@ private void initTokens(){
 
 private Boolean verifySecurityToken(String tokenId){
 	//trace "verifySecurityToken ${tokenId}"
-	Map tokens=state.securityTokens
-	if(tokens==null || tokenId==sNULL) return false
+	LinkedHashMap<String,Long> tokens=state.securityTokens
+	if(!tokens || !tokenId) return false
 	Long threshold=now()
 	Boolean modified=false
 	//remove all expired tokens
@@ -2243,9 +2253,9 @@ private Boolean verifySecurityToken(String tokenId){
 	if(modified){
 		atomicState.securityTokens=tokens
 	}
-	Long token=tokens[tokenId]
+	Long token=(Long)tokens[tokenId]
 	if(token==null || token < now()){
-		if(tokenId!=sNULL && tokens) error "Dashboard: Authentication failed due to an invalid token"
+		if(tokens) error "Dashboard: Authentication failed due to an invalid token"
 		return false
 	}
 	return true
@@ -2254,7 +2264,7 @@ private Boolean verifySecurityToken(String tokenId){
 private String createSecurityToken(){
 	trace "Dashboard: Generating new security token after a successful PIN authentication"
 	String token=UUID.randomUUID().toString()
-	Map tokens=atomicState.securityTokens ?: [:]
+	LinkedHashMap<String,Long> tokens=(LinkedHashMap<String,Long>)atomicState.securityTokens ?: [:]
 	Long mexpiry=0L
 	String eo=((String)settings.expiry).toLowerCase().replace("every ", "").replace("(recommended)", "").replace("(not recommended)", "").trim()
 	switch(eo){
@@ -2438,68 +2448,6 @@ private String mem(Boolean showBytes=true){
 	return Math.round(100.0D * (bytes/ 100000.0D)) + "%${showBytes ? " ($bytes bytes)" : ""}"
 }
 
-/*
-Map getRunTimeData(semaphore=null, fetchWrappers=false){
-	Long startTime=now()
-// we never ask parent to lock
-	semaphore=semaphore ?: 0
-	Long semaphoreDelay=0
-	String semaphoreName=semaphore ? "sph$semaphore" : ''
-	Boolean waited=false
-	if(semaphore){		
-		//if we need to wait for a semaphore
-		def lastSemaphore
-		while (semaphore){
-			lastSemaphore=lastSemaphore ?: (atomicState[semaphoreName] ?: 0)
-			if(!lastSemaphore || (now() - lastSemaphore > 100000)){
-				semaphoreDelay=waited ? now() - startTime : 0
-				semaphore=now()
-				atomicState[semaphoreName]=semaphore
-				break
-			}
-			waited=true
-			pause(250)
-		}
-	}
-	return [
-		enabled: !settings.disabled,
-		//attributes: attributes(),
-		semaphore: semaphore,
-		semaphoreName: semaphoreName,
-		semaphoreDelay: semaphoreDelay,
-		//commands: [
-		//	physical: commands(),
-		//	virtual: virtualCommands(),
-		//	overrides: commandOverrides()
-		//],
-		//comparisons: comparisons(),
-		coreVersion: version(),
-		hcoreVersion: HEversion(),
-		contacts: [:],
-		devices: (!!fetchWrappers ? listAvailableDevices(true) : [:]),
-		//virtualDevices: virtualDevices(),
-		//globalVars: listAvailableVariables(),
-		//globalStore: getGStore(), //state.store ?: [:],
-		settings: state.settings ?: [:],
-		//lifx: state.lifx ?: [:],
-		powerSource: state.powerSource ?: 'mains',
-		region: ((String)state.endpoint).contains('graph-eu') ? 'eu' : 'us',
-		instanceId: getInstanceSid(),
-		//sunTimes: getSunTimes(),
-		//started: startTime,
-		ended: now(),
-		generatedIn: now() - startTime,
-		//redirectContactBook: settings.redirectContactBook,
-		//logPExec: settings.logPistonExecutions,
-		//useLocalFuelStreams : useLocalFuelStreams(),
-		wAtSem : waited
-	] + (isHubitat() ? [	
-		//hsmStatus: location.hsmStatus //,
-//		colors: getColors()
-	] : [:])
-}
-*/
-
 @Field volatile static Map p_executionFLD=[:]
 
 void pCallupdateRunTimeData(Map data){
@@ -2521,7 +2469,8 @@ void updateRunTimeData(Map data){
 		String t='updateGlobal'
 		Boolean didw=getTheLock(t)
 
-		Map vars=atomicState.vars ?: [:]
+		Map vars=(Map)atomicState.vars
+		vars=vars ?: [:]
 		Boolean modified=false
 		for(var in (Map)data.gvCache){
 			String varName=(String)var.key
@@ -2540,7 +2489,8 @@ void updateRunTimeData(Map data){
 		String t='updateGlobal'
 		Boolean didw=getTheLock(t)
 
-		Map store=atomicState.store ?: [:]
+		Map store=(Map)atomicState.store
+		store=store ?: [:]
 		Boolean modified=false
 		for(var in (Map)data.gvStoreCache){
 			if(var.value == null){
@@ -2613,7 +2563,7 @@ Boolean executePiston(String pistonId, data, source){
 
 Map getWData(){
 	def storageApp=getStorageApp(true)
-	def t0=[:]
+	Map t0=[:]
 	if(storageApp){
 		t0=storageApp.getWData()
 	}
@@ -2675,7 +2625,8 @@ def webCoREHandler(event){
 		String t='updateGlobal'
 		Boolean didw=getTheLock(t)
 
-		Map vars=atomicState.vars ?: [:]
+		Map vars=(Map)atomicState.vars
+		vars=vars ?: [:]
 		def oldVar=vars[(String)variable.name] ?: [t:'', v:'']
 		if(((String)oldVar.t != vType) || (oldVar.v != variable.value)){ // only notify if it is a change for us.
 			vars[(String)variable.name]=[t: vType, v: variable.value]
@@ -2758,7 +2709,7 @@ List t1=getLocationEventsSince('hsmAlert', new Date() - 10)
 	String locStat=(String)location.hsmStatus
 	String evV=evt.value
 
-	List alerts=atomicState.hsmAlerts
+	List alerts=(List)atomicState.hsmAlerts
 	alerts=alerts ?: []
 	Boolean aa=alerts.push(alert)
 	if(locStat == 'allDisarmed' || evV == 'cancel') alerts=[]
@@ -2780,7 +2731,7 @@ List t1=getLocationEventsSince('hsmAlert', new Date() - 10)
 private List getIncidents(){
 	Long incidentThreshold=Math.round(now() - 604800000.0D) // 1 week
 	String locStat=(String)location.hsmStatus
-	List alerts=atomicState.hsmAlerts
+	List alerts=(List)atomicState.hsmAlerts
 	alerts=alerts ?: []
 	Integer osz=(Integer)alerts.size()
 	if(osz == 0) return []
@@ -2871,7 +2822,7 @@ private Map log(message, Integer shift=-2, err=null, String cmd=sNULL){
 		return [m: message, t: now(), s: shift, e: err]
 	}
 	if(message instanceof Map){
-		shift=message.s
+		//shift=(Integer)message.s
 		err=message.e
 		message=(String)message.m + " (${now() - (Long)message.t}ms)"
 	}
@@ -3040,11 +2991,11 @@ private Boolean isCustomEndpoint(){
 	releasableButton		: [ n: "Releasable Button",		d: "releaseable buttons",		a: "released",		m: true, /*s: "numberOfButtons,numButtons", i: "buttonNumber",*/			]
 ]
 
-private Map capabilities(){
+private static Map capabilities(){
 	return capabilitiesFLD
 }
 
-Map getChildAttributes(){
+static Map getChildAttributes(){
 	Map result=attributesFLD
 	Map cleanResult=[:]
 	result.each{
@@ -3175,9 +3126,9 @@ Map getChildAttributes(){
 	pushed				: [ n: "pushed button",			t: "integer",	m: true,	/*s: "numberOfButtons",	i: "buttonNumber"*/			]
 ]
 
-private Map attributes(){
+/*private Map attributes(){
 	return attributesFLD
-}
+}*/
 
 /* Push command has multiple overloads in hubitat */
 private static Map commandOverrides(){
@@ -3348,7 +3299,7 @@ Map getChildCommands(){
 	pushMomentary			: [ n: "Push"																						]
 ]
 
-private Map commands(){
+private static Map commands(){
 	return commandsFLD
 }
 
@@ -3437,7 +3388,7 @@ private static Map virtualCommands(){
 }
 
 
-Map getChildComparisons(){
+static Map getChildComparisons(){
 	Map result=comparisonsFLD
 	Map cleanResult=[:]
 	cleanResult.conditions=[:]
@@ -3551,9 +3502,9 @@ Map getChildComparisons(){
 	]
 ]
 
-private Map comparisons(){
+/*private Map comparisons(){
 	return comparisonsFLD
-}
+}*/
 
 @Field static final Map functionsFLD=[
 	age			: [ t: "integer",						],
@@ -3651,14 +3602,14 @@ private Map comparisons(){
 	encodeuricomponent	: [ t: "string",	d: "encodeURIComponent"			],
 ]
 
-private Map functions(){
+/*private Map functions(){
 	return functionsFLD
 }
 
 def getIftttKey(){
 	def module=state.modules?.IFTTT
 	return (module && module.connected ? module.key : null)
-}
+}*/
 /*
 def getLifxToken(){
 	def module=state.modules?.LIFX
@@ -3875,7 +3826,7 @@ private Map virtualDevices(Boolean updateCache=false){
 	[name:"Yellow",	rgb:"#FFFF00",	h:60,	s:100,	l:50],	[name:"Yellow Green",	rgb:"#9ACD32",	h:80,	s:61,	l:50]
 ]
 
-List getColors(){
+static List getColors(){
 	return myColorsFLD
 }
 
