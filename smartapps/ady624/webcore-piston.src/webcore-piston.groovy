@@ -281,7 +281,7 @@ def pageMain(){
 				input 'maxStats', "number", title:'Max number of timing history stats', description:'Max number of stats', range: '2..300', defaultValue:100
 				input 'maxLogs', "number", title:'Max number of history logs', description:'Max number of logs', range: '0..300', defaultValue:100
 			}
-			if(eric() || setting.logging?.toInteger()>2){
+			if(eric() || settings.logging?.toInteger()>2){
 				section('Debug'){
 					href 'pageDumpPiston', title:'Dump piston structure', description:''
 					href 'pageDumpPiston1', title:'Dump cached piston structure', description:''
@@ -1027,6 +1027,11 @@ Map clearCache(){
 	return [:]
 }
 
+Map clearLogsQ(){
+	handleEvents([date:new Date(), device:location, name:'clearl', value:now()])
+	return [:]
+}
+
 private Map getCachedAtomicState(){
 	Long atomStart=now()
 	def atomState
@@ -1627,6 +1632,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 	}
 
 	Boolean clearC=evntName=='clearc'
+	Boolean clearL=evntName=='clearl'
 
 	Boolean act=(Boolean)tmpRtD.active
 	Boolean dis=!(Boolean)tmpRtD.enabled
@@ -1638,6 +1644,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 			info msg, tmpRtD
 		}
 		updateLogs(tmpRtD)
+		if(clearL) clear1(true,true,false,false)
 		if(clearC) clear1(true,false,false,false)
 		return
 	}
@@ -1704,8 +1711,9 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 	rtD.tPause=0L
 	rtD.stats.timing=[t:startTime, d:eventDelay>0L ? eventDelay:0L, l:Math.round(1.0D*now()-startTime)]
 
-	if(clearC){
-		if(rtD.lastExecuted==null || now()-(Long)rtD.lastExecuted > 3660000L) clear1(true,false,false,false)
+	if(clearC||clearL){
+		if(clearL) clear1(true,true,false,false)
+		else if(rtD.lastExecuted==null || now()-(Long)rtD.lastExecuted > 3660000L) clear1(true,false,false,false)
 	}else{
 		startTime=now()
 		Map msg2

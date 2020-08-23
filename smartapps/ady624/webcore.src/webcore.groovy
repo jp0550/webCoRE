@@ -61,6 +61,7 @@ preferences{
 	page(name: "pageRebuildCache")
 	page(name: "pageResetEndpoint")
 	page(name: "pageCleanups")
+	page(name: "pageLogCleanups")
 	page(name: "pageRemove")
 }
 
@@ -428,6 +429,9 @@ def pageSettings(){
 		}
 
                 if(eric()){
+			section("Child Log Cleanups"){
+				href "pageLogCleanups", title: "Cleanup Logs & state", description: "Tap to clear"
+			}
 			section("Child Cleanups"){
 				href "pageCleanups", title: "Cleanup piston state", description: "Tap to clear"
 			}
@@ -500,6 +504,7 @@ def pageResetEndpoint(){
 	lastRegFLD=0L
 	lastRegTryFLD=0L
 	Boolean success=initializeWebCoREEndpoint()
+	clearParentPistonCache("reset endpoint")
 	updated()
 	dynamicPage(name: "pageResetEndpoint", title: "", install: false, uninstall: false){
 		section(){
@@ -514,6 +519,15 @@ def pageCleanups(){
 	return dynamicPage(name:'pageCleanups', title:'', install: false, uninstall:false){
 		section('Clear'){
 			paragraph 'Optimization caches have been cleared.'
+		}
+	}
+}
+
+def pageLogCleanups(){
+	clearChldCaches(true,true)
+	return dynamicPage(name:'pageLogCleanups', title:'', install: false, uninstall:false){
+		section('Clear'){
+			paragraph 'Logs been cleared.'
 		}
 	}
 }
@@ -629,33 +643,44 @@ private void clearParentPistonCache(String meth=null, Boolean frcResub=false){
 
 @Field static Map<String,Long> cldClearFLD=[:]
 
-void clearChldCaches(Boolean all=false){
-// clear child caches if has not run in 30 mins
+void clearChldCaches(Boolean all=false, Boolean clrLogs=false){
+// clear child caches if has not run in 61 mins
 	String name=handle() + ' Piston'
-	Boolean updateCache=true
+	if(all||clrLogs)pStateFLD=[:]
 	Long t1=now()
-	Long recTime=3660000L  // 61 min in ms
-	if(all) recTime=1000L
-	Long threshold=t1 - recTime
-	if(all)pStateFLD=[:]
 	List t0=getChildApps().findAll{ (String)it.name == name }
 	if(t0){
-		t0.sort().each{ chld ->
-			String myId=hashId(chld.id, updateCache)
-			Map meta=(Map)pStateFLD[myId]
-			if(meta==null){	
-				meta=(Map)chld.curPState()
-				pStateFLD[myId]=meta
-				pStateFLD=pStateFLD
-			}
-			String schld=chld.id.toString()
-			Long t2=cldClearFLD[schld]
-			Long t3=(Long)meta?.t
-			Boolean t4=(Boolean)meta?.heCached
-			if(t2==null) cldClearFLD[schld]=threshold-3600000L
-			else if( (all&&t4) || ( meta!=null && t4 && (Boolean)meta.a && t3!=null && t3>t2 && t3<threshold)){
+		if(clrLogs){
+			t0.sort().each{ chld ->
+				Map a=chld.clearLogsQ()
+				String schld=chld.id.toString()
 				cldClearFLD[schld]=t1
-				Map a=chld.clearCache()
+			}
+		}else{
+			Boolean updateCache=true
+			Long recTime=3660000L  // 61 min in ms
+			if(all) recTime=1000L
+			Long threshold=t1 - recTime
+			t0.sort().each{ chld ->
+				String myId=hashId(chld.id, updateCache)
+				Map meta=(Map)pStateFLD[myId]
+				if(meta==null){	
+					meta=(Map)chld.curPState()
+					pStateFLD[myId]=meta
+					pStateFLD=pStateFLD
+				}
+				String schld=chld.id.toString()
+				Long t2=cldClearFLD[schld]
+				Long t3=(Long)meta?.t
+				Boolean t4=(Boolean)meta?.heCached
+				if(t2==null){
+					t2=threshold-3600000L
+					cldClearFLD[schld]=t2
+				}
+				else if( (all&&t4) || ( meta!=null && t4 && (Boolean)meta.a && t3!=null && t3>t2 && t3<threshold)){
+					cldClearFLD[schld]=t1
+					Map a=chld.clearCache()
+				}
 			}
 		}
 	}
@@ -1966,6 +1991,7 @@ void recoveryHandler(){
 		verFLD=version()
 		HverFLD=HEversion()
 		mb()
+		clearParentPistonCache("ver check")
 		updated()
 	}
 
@@ -2014,13 +2040,14 @@ void finishRecovery(){
 private void cleanUp(){
 try{
 	List pistons=getChildApps().collect{ hashId(it.id) }
-	for (item in state.findAll{ (it.key.startsWith('sph') && (it.value == 0)) || it.key.contains('-') || (it.key.startsWith(':') && !(it.key in pistons)) }){
+	for (item in state.findAll{ (it.key.startsWith('sph') || it.key.contains('-') ) }){
 		state.remove(item.key)
 	}
 
 	List data=[ 'version', 'versionHE', 'chunks', 'hash', 'virtualDevices', 'updateDevices', 'semaphore', 'pong', 'modules', 'globalVars', 'devices', 'migratedStorage', 'lastRecovered', 'lastReg', 'lastRegTry']
 	for(String foo in data)state.remove(foo)
 
+	String name=handle() + ' Piston'
 	List t0=getChildApps().findAll{ (String)it.name == name }
 	if(t0){
 		t0.each{
