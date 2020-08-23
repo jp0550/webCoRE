@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 21, 2020 for Hubitat
+ * Last Updated August 23, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200821_HE" }
@@ -459,6 +459,13 @@ private pageChangePassword(){
 		section(){
 			href "pageSavePassword", title: "Clear all Security Tokens", description: "Tap to clear all security tokens in use by browsers"
 		}
+		if(settings.PIN){
+			section(){
+				paragraph "The webCoRE dashboard uses an access token to communicate with the webCoRE app on your Hubitat Hub. In some cases you may choose to invalidate it periodically for increased security.", required: false
+				paragraph "If your dashboard fails to load and no log messages appear in Hubitat console 'Logs' when you refresh the dashboard, resetting the access token may restore access to webCoRE.", required: false
+				href "pageResetEndpoint", title: "Reset access token", description: "WARNING: External URLs for triggering pistons or accessing piston URLs will need to be updated"
+			}
+		}
 	}
 }
 
@@ -466,13 +473,6 @@ private pageSectionPIN(){
 	section(){
 		input "PIN", "password", title: "Choose a security password for your dashboard", required: true
 		input "expiry", "enum", options: ["Every hour", "Every day", "Every week", "Every month (recommended)", "Every three months", "Never (not recommended)"], defaultValue: "Every month (recommended)", title: "Choose how often the dashboard login expires", required: true
-	}
-	if(settings.PIN){
-		section(){
-			paragraph "The webCoRE dashboard uses an access token to communicate with the webCoRE app on your Hubitat Hub. In some cases you may choose to invalidate it periodically for increased security.", required: false
-			paragraph "If your dashboard fails to load and no log messages appear in Hubitat console 'Logs' when you refresh the dashboard, resetting the access token may restore access to webCoRE.", required: false
-			href "pageResetEndpoint", title: "Reset access token", description: "WARNING: External URLs for triggering pistons or accessing piston URLs will need to be updated"
-		}
 	}
 }
 
@@ -1148,11 +1148,35 @@ private api_intf_dashboard_piston_create(){
 	Map result
 	debug "Dashboard: Request received to create a new piston"
 	if(verifySecurityToken((String)params.token)){
-		def piston=addChildApp("ady624", handle()+" Piston", (String)params.name!=sNULL ? (String)params.name : generatePistonName())
-		if((String)params.author!=sNULL || (String)params.bin!=sNULL){
-			piston.config([bin: (String)params.bin, author: (String)params.author, initialVersion: version()])
+		String pname=(String)params.name!=sNULL ? (String)params.name : generatePistonName()
+		def apps=getChildApps()
+		Boolean found=false
+		while(!found){
+			for(app in apps){
+				if((String)app.label == pname){
+					found=true
+					break
+				}
+			}
+			break
 		}
-		result=[status: sSUCC, id: hashId(piston.id)]
+		if(!found){
+			try{
+				def piston=addChildApp("ady624", handle()+" Piston", pname)
+				debug "created piston $piston.id   params $params"
+				if((String)params.author!=sNULL || (String)params.bin!=sNULL){
+					piston.config([bin: (String)params.bin, author: (String)params.author, initialVersion: version()])
+				}
+				debug "Created Piston "+pname
+				result=[status: sSUCC, id: hashId(piston.id)]
+			}catch(a){
+				error "Please install the webCoRE Piston app"
+				result=[status: sERROR, error: "ERR_UNKNOWN"]
+			}
+		}else{
+			error "create piston: Name in use "+pname
+			result=[status: sERROR, error: "ERR_UNKNOWN"]
+		}
 	}else{
 		result=api_get_error_result(sERRTOK)
 	}

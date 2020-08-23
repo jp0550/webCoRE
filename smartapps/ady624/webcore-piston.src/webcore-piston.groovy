@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 21, 2020 for Hubitat
+ * Last update August 23, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -281,7 +281,7 @@ def pageMain(){
 				input 'maxStats', "number", title:'Max number of timing history stats', description:'Max number of stats', range: '2..300', defaultValue:100
 				input 'maxLogs', "number", title:'Max number of history logs', description:'Max number of logs', range: '0..300', defaultValue:100
 			}
-			if(eric()){
+			if(eric() || setting.logging?.toInteger()>2){
 				section('Debug'){
 					href 'pageDumpPiston', title:'Dump piston structure', description:''
 					href 'pageDumpPiston1', title:'Dump cached piston structure', description:''
@@ -2986,7 +2986,7 @@ private void executePhysicalCommand(Map rtD, device, String command, params=[], 
 
 private void scheduleTimer(Map rtD, Map timer, Long lastRun=0L){
 	//if already scheduled once during this run, don't do it again
-	if(((List)rtD.schedules).find{ (Integer)it.s==(Integer)timer.$ })return
+	if(((List<Map>)rtD.schedules).find{ (Integer)it.s==(Integer)timer.$ })return
 	String mySt
 	if((Boolean)rtD.eric){
 		mySt="scheduleTimer $timer     $lastRun"
@@ -3171,7 +3171,7 @@ private void scheduleTimeCondition(Map rtD, Map condition){
 	if((Boolean)rtD.eric) myDetail rtD, "scheduleTimeCondition", 1
 	Integer conditionNum=(Integer)condition.$
 	//if already scheduled once during this run, don't do it again
-	if(((List)rtD.schedules).find{ (Integer)it.s==conditionNum && (Integer)it.i==0 })return
+	if(((List<Map>)rtD.schedules).find{ (Integer)it.s==conditionNum && (Integer)it.i==0 })return
 	Map comparison=Comparisons().conditions[(String)condition.co]
 	Boolean trigger=false
 	if(comparison==null){
