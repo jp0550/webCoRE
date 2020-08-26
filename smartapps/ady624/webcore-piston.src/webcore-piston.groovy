@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 23, 2020 for Hubitat
+ * Last update August 25, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -1645,7 +1645,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 		}
 		updateLogs(tmpRtD)
 		if(clearL) clear1(true,true,false,false)
-		if(clearC) clear1(true,false,false,false)
+		else if(clearC) clear1(true,false,false,false)
 		return
 	}
 
@@ -6253,7 +6253,7 @@ Map setLocalVariable(String name, value){ // called by parent (IDE)to set value 
 /** EXPRESSION FUNCTIONS							**/
 
 Map proxyEvaluateExpression(LinkedHashMap mrtD, Map expression, String dataType=sNULL){
-	LinkedHashMaprtD=getRunTimeData(rtD)
+	LinkedHashMap rtD=getRunTimeData(rtD)
 	resetRandomValues(rtD)
 	try{
 		Map result=evaluateExpression(rtD, expression, dataType)
