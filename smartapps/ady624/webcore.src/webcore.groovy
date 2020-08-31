@@ -402,6 +402,7 @@ def pageSettings(){
 				app.clearSetting('localHubUrl')
 				app.clearSetting('customWebcoreInstanceUrl')
 			}
+			state.endpointCloud=sNULL
 			state.endpoint=sNULL
 			state.endpointLocal=sNULL
 			if((String)state.accessToken) updateEndpoint()
@@ -544,6 +545,7 @@ def pageRemove(){
 
 void revokeAccessToken(){
 	state.accessToken=null
+	state.endpointCloud=sNULL
 	state.endpoint=sNULL
 	state.endpointLocal=sNULL
 	resetFuelStreamList()
@@ -607,7 +609,7 @@ Map getChildPstate(){
 		sHv: HEversion(),
 		stsettings: msettings,
 		powerSource: state.powerSource ?: 'mains',
-		region: ((String)state.endpoint).contains('graph-eu') ? 'eu' : 'us',
+		region: ((String)state.endpointCloud).contains('graph-eu') ? 'eu' : 'us',
 		instanceId: getInstanceSid(),
 		locationId: getLocationSid(),
 		enabled: (Boolean)atomicState.disabled!=true,
@@ -765,6 +767,7 @@ private void updateEndpoint(){
 	String newEPLocal
 	newEP=apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}".toString())
 	newEPLocal=localApiServerUrl("${app.id}/?access_token=${accessToken}".toString())
+	state.endpointCloud=newEP
 	if(isCustomEndpoint()) newEP=newEPLocal
 	if(newEP!=(String)state.endpoint){
 		state.endpoint=newEP
@@ -776,13 +779,14 @@ private void updateEndpoint(){
 }
 
 private Boolean initializeWebCoREEndpoint(Boolean disableRetry=false){
-	if(!(String)state.endpoint){
+	if(!(String)state.endpoint || !(String)state.endpointCloud){
 		String accessToken=(String)state.accessToken
 		if(!accessToken){
 			try{
 				accessToken=createAccessToken() // this fills in state.accessToken
 			} catch(e){
 				error "An error has occurred during endpoint initialization: ", null, e
+				state.endpointCloud=sNULL
 				state.endpoint=sNULL
 				state.endpointLocal=sNULL
 			}
@@ -1039,7 +1043,7 @@ private Map api_get_devices_result(Integer offset=0, Boolean updateCache=false){
 
 private getFuelStreamUrls(String iid){
 	if(!useLocalFuelStreams()){
-		String region=((String)state.endpoint).contains('graph-eu') ? 'eu' : 'us'
+		String region=((String)state.endpointCloud).contains('graph-eu') ? 'eu' : 'us'
 		String baseUrl='https://api-' + region + '-' + iid[32] + '.webcore.co:9287/fuelStreams'
 		Map headers=[ 'Auth-Token' : iid ]
 
@@ -1049,7 +1053,7 @@ private getFuelStreamUrls(String iid){
 		]
 	}	
 	
-	String baseUrl=isCustomEndpoint() ? customApiServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/".toString())
+	String baseUrl=isCustomEndpoint() && useLocalFuelStreams ? customApiServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/".toString())
 	
 	String params=baseUrl.contains((String)state.accessToken) ? "" : "access_token=${state.accessToken}".toString()
 	
@@ -2386,11 +2390,12 @@ private void registerInstance(Boolean force=true){
 			lastRegTry=lastRegTry ?: 0L
 			if(lastRegTry!=0 && (now() - lastRegTry < 1800000L)) return // 30 min in ms
 		}
+		if((String)state.accessToken) updateEndpoint()
 		lastRegTryFLD=now()
 		String accountId=getAccountSid()
 		String locationId=getLocationSid()
 		String instanceId=getInstanceSid()
-		String endpoint=(String)state.endpoint
+		String endpoint=(String)state.endpointCloud
 		String region=endpoint.contains('graph-eu') ? 'eu' : 'us'
 		String name=handle() + ' Piston'
 		def pistons=getChildApps().findAll{ (String)it.name == name }.collect{
@@ -2434,7 +2439,7 @@ private void registerInstance(Boolean force=true){
 }
 
 void myDone(resp, data){
-	String endpoint=(String)state.endpoint
+	String endpoint=(String)state.endpointCloud
 	String region=endpoint.contains('graph-eu') ? 'eu' : 'us'
 	String instanceId=getInstanceSid()
 	debug "register resp: ${resp?.status} using api-${region}-${instanceId[32]}.webcore.co:9247"
