@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 25, 2020 for Hubitat
+ * Last update August 30, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -278,8 +278,8 @@ def pageMain(){
 				input 'dev', "capability.*", title:'Devices', description:'Piston devices', multiple:true
 				input 'logging', "enum", title:'Logging Level', options:[0:"None", 1:"Minimal", 2:"Medium", 3:"Full"], description:'Piston logging', defaultValue:state.logging? state.logging.toString() : '0'
 				input 'logsToHE', "bool", title:'Piston logs are also displayed in HE console logs?', description:"Logs are available in webCoRE console; also display in HE console 'Logs'?", defaultValue:false
-				input 'maxStats', "number", title:'Max number of timing history stats', description:'Max number of stats', range: '2..300', defaultValue:100
-				input 'maxLogs', "number", title:'Max number of history logs', description:'Max number of logs', range: '0..300', defaultValue:100
+				input 'maxStats', "number", title:'Max number of timing history stats', description:'Max number of stats', range: '2..300', defaultValue:50
+				input 'maxLogs', "number", title:'Max number of history logs', description:'Max number of logs', range: '0..300', defaultValue:50
 			}
 			if(eric() || settings.logging?.toInteger()>2){
 				section('Debug'){
@@ -326,10 +326,11 @@ def pageClear(){
 	}
 }
 
-void clear1(Boolean ccache=false, Boolean some=true, Boolean most=false, Boolean all=false){
+void clear1(Boolean ccache=false, Boolean some=true, Boolean most=false, Boolean all=false,Boolean reset=false){
 	String meth='clear1'
 	if(some)state.logs=[]
 	if(most){ state.trace=[:];state.stats=[:] }
+	if(reset){app.clearSetting('maxLogs'); app.clearSetting('maxStats')}
 	if(all){
 		meth +=' all'
 		LinkedHashMap<String,Object> tRtData=getTemporaryRunTimeData(now())
@@ -1612,8 +1613,8 @@ void executeHandler(event){
 	taskShortDelay: 150L,
 	taskLongDelay: 500L,
 	taskMaxDelay: 1000L,
-	maxStats: 100,
-	maxLogs: 100,
+	maxStats: 50,
+	maxLogs: 50,
 ]
 
 void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
@@ -1644,7 +1645,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 			info msg, tmpRtD
 		}
 		updateLogs(tmpRtD)
-		if(clearL) clear1(true,true,false,false)
+		if(clearL) clear1(true,true,true,false,true)
 		else if(clearC) clear1(true,false,false,false)
 		return
 	}
@@ -1712,7 +1713,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 	rtD.stats.timing=[t:startTime, d:eventDelay>0L ? eventDelay:0L, l:Math.round(1.0D*now()-startTime)]
 
 	if(clearC||clearL){
-		if(clearL) clear1(true,true,false,false)
+		if(clearL) clear1(true,true,true,false,true)
 		else if(rtD.lastExecuted==null || now()-(Long)rtD.lastExecuted > 3660000L) clear1(true,false,false,false)
 	}else{
 		startTime=now()
@@ -8802,23 +8803,22 @@ private void getLocalVariables(Map rtD, List<Map> vars, Map atomState){
 	}
 }
 
-private Map getSystemVariablesAndValues(Map rtD){
-	Map<String,Map> result=getSystemVariables()
+private LinkedHashMap getSystemVariablesAndValues(Map rtD){
+	LinkedHashMap<String,LinkedHashMap> result=getSystemVariables()
+	LinkedHashMap<String,LinkedHashMap> t0=(LinkedHashMap)rtD.cachePersist
+	rtD.args=t0[sDOLARGS]
 	for(variable in result){
 		String keyt1=(String)variable.key
 		if(variable.value.d!=null && (Boolean)variable.value.d) variable.value.v=getSystemVariableValue(rtD, keyt1)
-		else{
-			Map t0=(Map)rtD.cachePersist
-			if(t0[keyt1]!=null)variable.value.v=t0[keyt1].v
-		}
+		else if(t0[keyt1]!=null)variable.value.v=t0[keyt1].v
 	}
 	return result
 }
 
 // UI will not display anything that starts with $current or $previous; variables without d: true will not display variable value
-private static Map<String,Map> getSystemVariables(){
+private static LinkedHashMap<String,LinkedHashMap> getSystemVariables(){
 	return [
-		'$args':[t:sDYN, v:null],
+		'$args':[t:sDYN, d:true],
 		'$json':[t:sDYN, d:true],
 		'$places':[t:sDYN, d:true],
 		'$response':[t:sDYN, d:true],
@@ -8910,7 +8910,7 @@ private static Map<String,Map> getSystemVariables(){
 
 private getSystemVariableValue(Map rtD, String name){
 	switch (name){
-	//case '$args': return "${rtD.args}".toString()
+	case '$args': return "${rtD.args}".toString()
 	case '$json': return "${rtD.json}".toString()
 	case '$places': return "${rtD.settings?.places}".toString()
 	case '$response': return "${rtD.response}".toString()
@@ -9012,10 +9012,8 @@ private getSystemVariableValue(Map rtD, String name){
 }
 
 private static void setSystemVariableValue(Map rtD, String name, value, Boolean cachePersist=true){
-	Map var=(Map)rtD.systemVars[name]
-	if(var==null || var.d!=null)return
-	rtD.systemVars[name].v=value
-
+	Map<String,Object> var=(Map)rtD.systemVars[name]
+	if(var==null)return
 	if(cachePersist){
 		if(name in [
 			sDOLARGS,
@@ -9025,12 +9023,13 @@ private static void setSystemVariableValue(Map rtD, String name, value, Boolean 
 			sIFTTTSTSCODE,
 			sIFTTTSTSOK ]){
 
-			Map t0=(Map)rtD.cachePersist
-			if(name==sDOLARGS)t0[name]=[:]+var+[v:"${value}".toString()]
-			else t0[name]=[:]+var+[v:value]
+			LinkedHashMap<String,LinkedHashMap> t0=(LinkedHashMap)rtD.cachePersist
+			t0[name]=[:]+var+[v:value]
 			rtD.cachePersist=t0
 		}
 	}
+	if(var.d!=null)return
+	rtD.systemVars[name].v=value
 }
 
 private static getRandomValue(Map rtD, String name){

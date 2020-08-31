@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 23, 2020 for Hubitat
+ * Last Updated August 30, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200821_HE" }
@@ -65,7 +65,7 @@ preferences{
 	page(name: "pageRemove")
 }
 
-private static Boolean eric(){ return true}
+private static Boolean eric(){ return false}
 
 @Field static final String sNULL=(String)null
 @Field static final String sAPPJAVA="application/javascript;charset=utf-8"
@@ -428,12 +428,12 @@ def pageSettings(){
 			input "recovery", "enum", title: "Run recovery", options: ["Never", "Every 5 minutes", "Every 10 minutes", "Every 15 minutes", "Every 30 minutes", "Every 1 hour", "Every 3 hours"], description: "Allows recovery procedures to run every so often", defaultValue: "Every 30 minutes", required: true
 		}
 
-                if(eric()){
+		if((Boolean)getLogging().debug || eric()){
 			section("Child Log Cleanups"){
-				href "pageLogCleanups", title: "Cleanup Logs & state", description: "Tap to clear"
+				href "pageLogCleanups", title: "Clear Logs, trace, stats & caches", description: "Tap to clear"
 			}
 			section("Child Cleanups"){
-				href "pageCleanups", title: "Cleanup piston state", description: "Tap to clear"
+				href "pageCleanups", title: "Clear piston caches", description: "Tap to clear"
 			}
 		}
 
@@ -2145,7 +2145,7 @@ private String customApiServerUrl(String path){
 		return (String)localHubUrl + "/" + app.id.toString() + path
 	}
 	//epl=localApiServerUrl("${app.id}".toString())
-	return localAPiServerUrl(app.id.toString()) + path
+	return localApiServerUrl(app.id.toString()) + path
 	//return (String)localHubUrl + "/apps/api/" + app.id.toString() + path
 }
 
@@ -2857,7 +2857,7 @@ private String temperatureUnit(){
 /*** DEBUG FUNCTIONS														***/
 /******************************************************************************/
 
-private Map getLogging(){
+private Map<String,Boolean> getLogging(){
 	String logging=settings?.logging
 	return [
 		error: true,
@@ -2879,7 +2879,7 @@ private Map log(message, Integer shift=-2, err=null, String cmd=sNULL){
 	}
 	String myMsg=(String)message
 	cmd=cmd ? cmd : 'debug'
-	Map myLog=getLogging()
+	Map<String,Boolean> myLog=getLogging()
 	if(cmd != 'error' && cmd != 'warn'){
 		if(!((Boolean)myLog.info) && cmd=='info') return [:]
 		if(!((Boolean)myLog.trace) && cmd=='trace') return [:]
