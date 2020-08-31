@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 30, 2020 for Hubitat
+ * Last Updated August 31, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200821_HE" }
@@ -1053,7 +1053,7 @@ private getFuelStreamUrls(String iid){
 		]
 	}	
 	
-	String baseUrl=isCustomEndpoint() && useLocalFuelStreams ? customApiServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/".toString())
+	String baseUrl=isCustomEndpoint() && useLocalFuelStreams() ? customApiServerUrl("/") : apiServerUrl("$hubUID/apps/${app.id}/".toString())
 	
 	String params=baseUrl.contains((String)state.accessToken) ? "" : "access_token=${state.accessToken}".toString()
 	
