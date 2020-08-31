@@ -749,7 +749,7 @@ Map getWCendpoints(){
 	ep=apiServerUrl("$hubUID/apps/${app.id}".toString())
 	epl=localApiServerUrl("${app.id}".toString())
 
-	if((Boolean)customEndpoints && (Boolean)localHubUrl) ep=epl
+	if(isCustomEndpoint()) ep=epl
 	if(ep.endsWith('/'))ep=ep.substring(0,ep.length()-1)
 	if(epl.endsWith('/'))epl=epl.substring(0,epl.length()-1)
 
@@ -765,7 +765,7 @@ private void updateEndpoint(){
 	String newEPLocal
 	newEP=apiServerUrl("$hubUID/apps/${app.id}/?access_token=${accessToken}".toString())
 	newEPLocal=localApiServerUrl("${app.id}/?access_token=${accessToken}".toString())
-	if((Boolean)customEndpoints && (Boolean)localHubUrl) newEP=newEPLocal
+	if(isCustomEndpoint()) newEP=newEPLocal
 	if(newEP!=(String)state.endpoint){
 		state.endpoint=newEP
 		state.endpointLocal=newEPLocal
@@ -2140,15 +2140,15 @@ private String customApiServerUrl(String path){
 	if(!path.startsWith("/")){
 		path="/" + path
 	}
-	
 	if( !(Boolean)localHubUrl){
-		return (String)localHubUrl + "/" + app.id.toString() + path
+		return apiServerUrl("$hubUID/apps/${app.id}".toString()) + path
 	}
-	//epl=localApiServerUrl("${app.id}".toString())
 	return localApiServerUrl(app.id.toString()) + path
-	//return (String)localHubUrl + "/apps/api/" + app.id.toString() + path
 }
 
+private Boolean isCustomEndpoint(){
+	(Boolean)customEndpoints && (Boolean)localHubUrl
+}
 
 private String getDashboardInitUrl(Boolean reg=false){
 	String url=reg ? getDashboardRegistrationUrl() : getDashboardUrl()
@@ -2938,10 +2938,6 @@ private void trace(message, Integer shift=-2, err=null)	{ Map a=log message, shi
 private void warn(message, Integer shift=-2, err=null)	{ Map a=log message, shift, err, 'warn' }
 private void error(message, Integer shift=-2, err=null)	{ Map a=log message, shift, err, 'error' }
 private Map timer(String message, Integer shift=-2, err=null)	{ log message, shift, err, 'timer' }
-
-private Boolean isCustomEndpoint(){
-	(Boolean)customEndpoints && (Boolean)localHubUrl
-}
 
 /******************************************************************************/
 /*** DATABASE																***/
