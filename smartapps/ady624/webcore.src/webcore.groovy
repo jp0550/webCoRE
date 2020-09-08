@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated September 6, 2020 for Hubitat
+ * Last Updated September 8, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200906_HE" }
@@ -1972,7 +1972,7 @@ private api_execute(){
 	debug "Dashboard or web request received to execute a piston from IP $remoteAddr  Referer: ${request.headers.Referer}"
 //log.debug "params ${params} request: ${request}"
 	if(params){
-		for(Map param in params){
+		for(param in params){
 			if(!((String)param.key in ['access_token', 'pistonIdOrName'])){
 				data[(String)param.key]=param.value
 			}
