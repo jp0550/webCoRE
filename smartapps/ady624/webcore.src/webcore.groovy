@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated August 31, 2020 for Hubitat
+ * Last Updated September 6, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
-static String HEversion(){ return "v0.3.110.20200821_HE" }
+static String HEversion(){ return "v0.3.110.20200906_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -68,6 +68,7 @@ preferences{
 private static Boolean eric(){ return false}
 
 @Field static final String sNULL=(String)null
+@Field static final String sCOLON=':'
 @Field static final String sAPPJAVA="application/javascript;charset=utf-8"
 @Field static final String sSUCC="ST_SUCCESS"
 @Field static final String sERRID="ERR_INVALID_ID"
@@ -363,20 +364,41 @@ def pageSettings(){
 			input "pushDevice", "capability.notification", title: "Notification device for pushMessage (HE PhoneApp or pushOver)", multiple: true, required: false, submitOnChange: true
 		}
 	
-		String defaultLoc=weatherType == 'DarkSky' ? "${location.latitude},${location.longitude}".toString() : "${location.zipCode}".toString()
-		String mreq=weatherType
-		String zipDesc=weatherType == 'DarkSky' ? "Override latitude,longitude (Default: ${location.latitude},${location.longitude})?".toString() : "Override zip code (${location.zipCode}), or set city name or latitude,longitude?".toString()
 		section(sectionTitleStr('enable \$weather via external provider')){
-			input "weatherType", "enum", title: "Weather Type to enable?", defaultValue: '', submitOnChange: true, required: false, options:['apiXU', 'DarkSky', '']
-			if(weatherType!=''){
-				input "apixuKey", "text", title: mreq+" key?", required: !!weatherType
+			input "weatherType", "enum", title: "Weather Type to enable?", defaultValue: '', submitOnChange: true, required: false, options:['apiXU', 'DarkSky','OpenWeatherMap', '']
+			String defaultLoc
+			String defaultLoc1
+			String mreq=settings.weatherType ? (String)settings.weatherType : sNULL
+			String zipDesc
+			String zipDesc1
+			if(mreq){
+				input "apixuKey", "text", title: mreq+" key?", required: true
+				switch(mreq){
+				case 'apiXU':
+					defaultLoc="${location.zipCode}".toString()
+					zipDesc="Override zip code (${location.zipCode}), or set city name or latitude,longitude?".toString()
+					break
+				case 'DarkSky':
+					defaultLoc="${location.latitude},${location.longitude}".toString()
+					zipDesc="Override latitude,longitude (Default: ${location.latitude},${location.longitude})?".toString()
+					break
+				case 'OpenWeatherMap':
+					defaultLoc="${location.latitude}".toString()
+					defaultLoc1="${location.longitude}".toString()
+					zipDesc="Override latitude (Default: ${location.latitude})?".toString()
+					zipDesc1="Override longitude (Default: ${location.longitude})?".toString()
+					break
+				default:
+					break
+				}
 				input "zipCode", "text", title: zipDesc, defaultValue: defaultLoc, required: false
+				if(mreq=='OpenWeatherMap') input "zipCode1", "text", title: zipDesc1, defaultValue: defaultLoc1, required: false
 			}
 		}
 
 		section(sectionTitleStr("Fuel Streams")){
-			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFuelStreams != null) ? settings.localFuelStreams : true , submitOnChange: true
-			if(settings.localFuelStreams){
+			input "localFuelStreams", "bool", title: "Use local fuel streams?", defaultValue: (settings.localFuelStreams != null) ? (Boolean)settings.localFuelStreams : true , submitOnChange: true
+			if((Boolean)settings.localFuelStreams){
 				href "pageFuelStreams", title: "Fuel Streams", description: "Tap to manage fuel streams"		
 			}
 		}
@@ -728,13 +750,16 @@ private void initialize(){
 
 private void checkWeather(){
 	if(settings.weatherType || state.storAppOn){
-		def storageApp=getStorageApp( (settings.weatherType && settings.apixuKey) )
+		Boolean t0=settings.weatherType && settings.apixuKey 
+		def storageApp=getStorageApp(t0)
 		if(storageApp!=null){
 			state.storAppOn=true
-			storageApp.settingsToState("weatherType", settings.weatherType)
+			String weatherTyp= settings.weatherType ? (String)settings.weatherType : sNULL
+			storageApp.settingsToState("weatherType", weatherTyp)
 			storageApp.settingsToState("apixuKey", settings.apixuKey)
 			storageApp.settingsToState("zipCode", settings.zipCode)
-			if(settings.weatherType && settings.apixuKey){
+			if(weatherType=='OpenWeatherMap') storageApp.settingsToState("zipCode1", (String)settings.zipCode1)
+			if(t0){
 				storageApp.startWeather()
 			}else{
 				storageApp.stopWeather()
@@ -927,7 +952,7 @@ Boolean getTheLock(String meth=sNULL){
         return wait
 }
 
-void releaseTheLock(String meth=sNULL){
+static void releaseTheLock(String meth=sNULL){
         lockTimeFLD=null
         def sema=theSerialLockFLD
         sema.release()
@@ -1041,7 +1066,7 @@ private Map api_get_devices_result(Integer offset=0, Boolean updateCache=false){
 	]
 }
 
-private getFuelStreamUrls(String iid){
+private Map<String,Map> getFuelStreamUrls(String iid){
 	if(!useLocalFuelStreams()){
 		String region=((String)state.endpointCloud).contains('graph-eu') ? 'eu' : 'us'
 		String baseUrl='https://api-' + region + '-' + iid[32] + '.webcore.co:9287/fuelStreams'
@@ -1766,7 +1791,7 @@ private api_intf_variable_set(){
 			def piston=getChildApps().find{ hashId(it.id) == pid }
 			if(piston){
 				localVars=(Map)piston.setLocalVariable(name, value.v)
-				clearBaseResult('api_intf_variable_set')
+				//clearBaseResult('api_intf_variable_set')
 				result=[status: sSUCC] + [id: pid, localVars: localVars]
 			}else{
 				result=api_get_error_result(sERRID)
@@ -1905,14 +1930,15 @@ private api_intf_dashboard_piston_activity(){
 def api_ifttt(){
 	def data=[:]
 	//def remoteAddr=isHubitat() ? "UNKNOWN" : request.getHeader("X-FORWARDED-FOR") ?: request.getRemoteAddr()
-	def remoteAddr=request.'X-forwarded-for'
-	debug "Request received ifttt call IP $remoteAddr  Referer: ${request.Referer}"
+	def remoteAddr=request.headers.'X-forwarded-for' ?: request.headers.Host
+	if(remoteAddr==null)remoteAddr=request.'X-forwarded-for' ?: request.Host
+	debug "Request received ifttt call IP $remoteAddr  Referer: ${request.headers.Referer}"
 //log.debug "params ${params}"
 	if(params){
 		data.params=[:]
 		for(param in params){
-			if(!(param.key in ['access_token', 'theAccessToken', 'appId', 'action', 'controller'])){
-				data[param.key]=param.value
+			if(!((String)param.key in ['access_token', 'theAccessToken', 'appId', 'action', 'controller'])){
+				data[(String)param.key]=param.value
 			}
 		}
 	}
@@ -1946,8 +1972,7 @@ private api_execute(){
 	debug "Dashboard or web request received to execute a piston from IP $remoteAddr  Referer: ${request.headers.Referer}"
 //log.debug "params ${params} request: ${request}"
 	if(params){
-		data=[:]
-		for(param in params){
+		for(Map param in params){
 			if(!((String)param.key in ['access_token', 'pistonIdOrName'])){
 				data[(String)param.key]=param.value
 			}
@@ -1955,7 +1980,7 @@ private api_execute(){
 	}
 	data=data + (request?.JSON ?: [:])
 	data.remoteAddr=remoteAddr
-	data.referer=request.Referer
+	data.referer=request.headers.Referer
 	String pistonIdOrName=(String)params?.pistonIdOrName
 	def piston=getChildApps().find{ ((String)it.label == pistonIdOrName) || (hashId(it.id) == pistonIdOrName) }
 	if(piston!=null){
@@ -1972,7 +1997,7 @@ private api_execute(){
 @Field static java.util.concurrent.Semaphore theMBLockFLD=new java.util.concurrent.Semaphore(0)
 
 // Memory Barrier
-void mb(String meth=sNULL){
+static void mb(String meth=sNULL){
 	if((Boolean)theMBLockFLD.tryAcquire()){
 		theMBLockFLD.release()
 	}
@@ -2117,12 +2142,12 @@ private getStorageApp(Boolean install=false){
 }
 
 private getDashboardApp(Boolean install=false){
-	if(!enableDashNotifications) return null
+	if(!settings.enableDashNotifications) return null
 	String name=handle() + ' Dashboard'
 	String label=(String)app.label + ' (dashboard)'
 	def dashboardApp=getChildApps().find{ (String)it.name == name }
 	if(dashboardApp!=null){
-		if(!enableDashNotifications){
+		if(!settings.enableDashNotifications){
 			app.deleteChildApp(dashboardApp.id)
 			return null
 		}
@@ -2144,14 +2169,14 @@ private String customApiServerUrl(String path){
 	if(!path.startsWith("/")){
 		path="/" + path
 	}
-	if( !(Boolean)localHubUrl){
+	if( !(Boolean)settings.localHubUrl){
 		return apiServerUrl("$hubUID/apps/${app.id}".toString()) + path
 	}
 	return localApiServerUrl(app.id.toString()) + path
 }
 
 private Boolean isCustomEndpoint(){
-	(Boolean)customEndpoints && (Boolean)localHubUrl
+	(Boolean)settings.customEndpoints && (Boolean)settings.localHubUrl
 }
 
 private String getDashboardInitUrl(Boolean reg=false){
@@ -2190,7 +2215,7 @@ Map listAvailableDevices(Boolean raw=false, Boolean updateCache=false, Integer o
 		if(raw){
 			result=devices.collectEntries{ dev -> [(hashId(dev.id, updateCache)): dev]}
 		}else{
-			Map overrides=commandOverrides()
+			Map<String,Map> overrides=commandOverrides()
 			Integer deviceCount=devices.size()
 			result.devices=[:]
 			if(devices){
@@ -2255,12 +2280,12 @@ Map listAvailableDevices(Boolean raw=false, Boolean updateCache=false, Integer o
  isAppInstalled("hubitat", "Z-Wave Poller", "SYSTEM")
 */
 
-private static String transformCommand(command, Map overrides){
-	Map override=overrides[command.getName()]
-	if(override && override.s == command.getArguments()?.toString()){
-		return override.r
+private static String transformCommand(command, Map<String,Map> overrides){
+	Map override=overrides[(String)command.getName()]
+	if(override && (String)override.s == command.getArguments()?.toString()){
+		return (String)override.r
 	}
-	return command.getName()
+	return (String)command.getName()
 }
 
 
@@ -2797,7 +2822,7 @@ private List getIncidents(){
 	//return (state.vars ?: [:]).sort{ (String)it.key }
 			//for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }){
 	List new3Alerts=[]
-	for(myE in newAlerts2){
+	for(myE in new2Alerts){
 		if(myE.v=='cancel') new3Alerts=[]
 		else Boolean aa=new3Alerts.push(myE)
 	}
@@ -2847,23 +2872,23 @@ private String hashId(id, Boolean updateCache=true){
 	String myId=id.toString()
 	result=(String)theHashMapFLD[myId]
 	if(result==sNULL){
-		result=':'+md5('core.' + myId)+':'
+		result=sCOLON+md5('core.' + myId)+sCOLON
 		theHashMapFLD[myId]=result
 		mb()
 	}
 	return result
 }
 
-private String temperatureUnit(){
+/*private String temperatureUnit(){
 	return "°" + location.temperatureScale
-}
+}*/
 
 /******************************************************************************/
 /*** DEBUG FUNCTIONS														***/
 /******************************************************************************/
 
 private Map<String,Boolean> getLogging(){
-	String logging=settings?.logging
+	String logging=settings?.logging ? (String)settings.logging : sNULL
 	return [
 		error: true,
 		warn: true,
@@ -3183,14 +3208,14 @@ static Map getChildAttributes(){
 }*/
 
 /* Push command has multiple overloads in hubitat */
-private static Map commandOverrides(){
+private static Map<String,Map> commandOverrides(){
 	return ( [ //s: command signature
 		push	: [c: "push",	s: null , r: "pushMomentary"],
 		flash	: [c: "flash",	s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
 	] ) as HashMap
 }
 
-Map getChildCommands(){
+static Map getChildCommands(){
 	Map result=commands()
 	Map cleanResult=[:]
 	result.each{

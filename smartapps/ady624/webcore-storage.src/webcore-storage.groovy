@@ -16,10 +16,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update August 21, 2020 for Hubitat
+ * Last update September 6, 2020 for Hubitat
  */
 public static String version(){ return "v0.3.110.20191009" }
-public static String HEversion(){ return "v0.3.110.20200821_HE" }
+public static String HEversion(){ return "v0.3.110.20200906_HE" }
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
 /******************************************************************************/
@@ -42,9 +42,13 @@ preferences {
 	//UI pages
 	page(name: "pageSettings")
 	page(name: "pageSelectDevices")
+	page(name: "pageDumpWeather")
 }
 
 import groovy.transform.Field
+
+@Field static final String sBLK=''
+@Field static final String sCOLON=':'
 
 /******************************************************************************/
 /*** 																		***/
@@ -78,7 +82,8 @@ def pageSettings(){
 		}
 */
 		section(){
-			paragraph "Under Construction, managed by webCoRE App."
+			href 'pageDumpWeather', title:'Dump weather structure', description:''
+//			paragraph "Under Construction, managed by webCoRE App."
 		}
 	}
 }
@@ -111,11 +116,11 @@ private pageSelectDevices(){
 
 private static String sectionTitleStr(String title)	{ return '<h3>'+title+'</h3>' }
 private static String inputTitleStr(String title)	{ return '<u>'+title+'</u>' }
-private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
-private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
+//private static String pageTitleStr(String title)	{ return '<h1>'+title+'</h1>' }
+//private static String paraTitleStr(String title)	{ return '<b>'+title+'</b>' }
 
 private static String imgTitle(String imgSrc, String titleStr, String color=(String)null, Integer imgWidth=30, Integer imgHeight=0){
-	String imgStyle = ''
+	String imgStyle = sBLK
 	imgStyle += imgWidth ? "width: ${imgWidth}px !important;" : ""
 	imgStyle += imgHeight ? "${imgWidth ? " " : ""}height: ${imgHeight}px !important;" : ""
 	if(color!=(String)null){ return """<div style="color: ${color}; font-weight: bold;"><img style="${imgStyle}" src="${imgSrc}"> ${titleStr}</img></div>""".toString()
@@ -143,17 +148,17 @@ void updated(){
 }
 
 public void startWeather(){
-	String myKey = state.apixuKey ?: null
-	String weatherType = state.weatherType ?: null
+	String myKey = (String)state.apixuKey ?: (String)null
+	String weatherType = (String)state.weatherType ?: (String)null
 	if(myKey && weatherType){
 		unschedule()
-		runEvery30Minutes(updateAPIXUdata)
-		updateAPIXUdata()
+		runEvery30Minutes(updateWeatherD)
+		updateWeatherD()
 	}
 }
 
 public void stopWeather(){
-	state.apixuKey = null
+	state.apixuKey = (String)null
 	unschedule()
 	stateRemove("obs")
 }
@@ -162,20 +167,40 @@ private void initialize(){
 	//update parent if this is managed devices.
 	//parent.refreshDevices()
 	stateRemove("obs")
+	stateRemove('hash')
 }
 
 
-public void updateAPIXUdata(){
-	String myKey = state.apixuKey ?: null
-	String weatherType = state.weatherType ?: null
+public void updateWeatherD(){
+	String myKey = (String)state.apixuKey ?: (String)null
+	String weatherType = (String)state.weatherType ?: (String)null
 	String myZip = state.zipCode
-	if(state.zipCode==null || state.zipCode == ''){
-		myZip = weatherType == 'DarkSky' ? location.latitude+','+location.longitude : location.zipCode
+	String myZip1 = state.zipCode1
+	if((String)state.zipCode==(String)null || (String)state.zipCode == sBLK){
+		switch(weatherType){
+		case 'apiXU':
+			myZip = location.zipCode
+			break
+		case 'DarkSky':
+			myZip = location.latitude+','+location.longitude
+			break
+		case 'OpenWeatherMap':
+			myZip = location.latitude
+			myZip1 = location.longitude
+		}
 	}
 	if(myKey && myZip && weatherType){
 		String myUri
-		if(weatherType == 'apiXU') myUri = "https://api.apixu.com/v1/forecast.json?key=${myKey}&q=${myZip}&days=7"
-		if(weatherType == 'DarkSky') myUri = "https://api.darksky.net/forecast/${myKey}/" + "${myZip}" + "?units=us&exclude=minutely,flags"
+		switch(weatherType){
+		case 'apiXU':
+			myUri = 'https://api.apixu.com/v1/forecast.json?key=' +myKey+ '&q=' +myZip+ '&days=7'
+			break
+		case 'DarkSky':
+			myUri = 'https://api.darksky.net/forecast/'+myKey+'/' + myZip + '?units=us&exclude=minutely,flags'
+			break
+		case 'OpenWeatherMap':
+			myUri = 'https://api.openweathermap.org/data/2.5/onecall?lat=' + myZip + '&lon=' + myZip1 + '&exclude=minutely,hourly&mode=json&units=imperial&appid=' + myKey 
+		}
 		if(myUri){
 			Map params = [ uri: myUri ]
 			try {
@@ -193,7 +218,7 @@ public void ahttpRequestHandler(resp, callbackData){
 	def json = [:]
 	def obs = [:]
 //	def err
-	String weatherType = state.weatherType ?: null
+	String weatherType = (String)state.weatherType ?: (String)null
 	if((resp.status == 200) && resp.data){
 		try {
 			json = resp.getJson()
@@ -203,16 +228,20 @@ public void ahttpRequestHandler(resp, callbackData){
 		}
 
 		if(!json) return
+		json.weatherType=weatherType
+
 		if(weatherType == 'apiXU'){
 			if(json.forecast && json.forecast.forecastday){
+				List<Map> lt0=(List)json.forecast.forecastday
 				for(Integer i = 0; i <= 6; i++){
-					def t0 = json.forecast.forecastday[i]?.day?.condition?.code
+					Integer t0 = lt0[i]?.day?.condition?.code
 					if(!t0) continue
 					String t1 = getWUIconName(t0,1)
-					json.forecast.forecastday[i].day.condition.wuicon_name = t1
+					lt0[i].day.condition.wuicon_name = t1
 					String t2 = getWUIconNum(t0)
-					json.forecast.forecastday[i].day.condition.wuicon = t2
+					lt0[i].day.condition.wuicon = t2
 				}
+				json.forecast.forecastday=lt0
 			}
 			Integer tt0 = json.current.condition.code
 			String tt1 = getWUIconName(tt0,1)
@@ -236,24 +265,25 @@ public void ahttpRequestHandler(resp, callbackData){
 			json.name = location.name
 			json.zipCode = location.zipCode
 			if(json.currently){
-				def t0 = json.currently
-				String c_code = getdsIconCode(t0.icon, t0.summary, !is_day)
+				Map t0 = (Map)json.currently
+				String c_code = getdsIconCode((String)t0.icon, (String)t0.summary, !is_day)
 				json.currently.condition_code = c_code
 				json.currently.condition_text = getcondText(c_code)
 
-				c_code = getdsIconCode(t0.icon, t0.summary)
+				c_code = getdsIconCode((String)t0.icon, (String)t0.summary)
 				String c1 = getStdIcon(c_code)
 				Integer wuCode = getWUConditionCode(c1)
 				String tt2 = getWUIconNum(wuCode)
 				json.currently.code = wuCode
 				json.currently.wuicon = tt2
 
-				t0 = json?.daily?.data[0]
-				String f_code = getdsIconCode(t0?.icon, t0?.summary, !is_day)
+				List<Map> lt0=(List)json?.daily?.data
+				t0 = lt0 ? (Map)lt0[0] : [:]
+				String f_code = getdsIconCode((String)t0?.icon, (String)t0?.summary, !is_day)
 				json.currently.forecast_code = f_code
 				json.currently.forecast_text = getcondText(f_code)
 
-				f_code = getdsIconCode(t0.icon, t0.summary)
+				f_code = getdsIconCode((String)t0.icon, (String)t0.summary)
 				String f1 = getStdIcon(f_code)
 				wuCode = getWUConditionCode(f1)
 				//String tt1 = getWUIconName(wuCode,1)
@@ -263,17 +293,19 @@ public void ahttpRequestHandler(resp, callbackData){
 				json.currently.fwuicon = tt2
 			}
 			if(json.hourly && json.hourly.data){
+				List<Map> lt0=(List)json?.hourly?.data
+				List<Map> lt1=(List)json?.daily?.data
 				Integer hr = new Date(now()).hours
 				Integer indx = 0
 				for(Integer i = 0; i <= 50; i++){
-					def t0 = json.hourly.data[i]
+					Map t0 = (Map)lt0[i]
 					if(!t0) continue
 
-					t1 = json?.daily?.data[indx]
+					Map t1 = lt1 ? (Map)lt1[indx] : [:]
 
-					sunrise = t1.sunriseTime
-					sunset = t1.sunsetTime
-					time = t0.time
+					sunrise = (Long)t1.sunriseTime
+					sunset = (Long)t1.sunsetTime
+					time = (Long)t0.time.toLong()
 					is_day = true
 					if(sunrise <= time && sunset >= time){
 						;
@@ -281,27 +313,27 @@ public void ahttpRequestHandler(resp, callbackData){
 						is_day = false
 					}
 
-					String c_code = getdsIconCode(t0.icon, t0.summary, !is_day)
-					json.hourly.data[i].condition_code = c_code
-					json.hourly.data[i].condition_text = getcondText(c_code)
+					String c_code = getdsIconCode((String)t0.icon, (String)t0.summary, !is_day)
+					lt0[i].condition_code = c_code
+					lt0[i].condition_text = getcondText(c_code)
 
-					c_code = getdsIconCode(t0.icon, t0.summary)
+					c_code = getdsIconCode((String)t0.icon, (String)t0.summary)
 					String c1 = getStdIcon(c_code)
 					Integer wuCode = getWUConditionCode(c1)
 					String tt2 = getWUIconNum(wuCode)
-					json.hourly.data[i].code = wuCode
-					json.hourly.data[i].wuicon = tt2
+					lt0[i].code = wuCode
+					lt0[i].wuicon = tt2
 
-					String f_code = getdsIconCode(t1?.icon, t1?.summary)
-					json.hourly.data[i].forecast_code = f_code
-					json.hourly.data[i].forecast_text = getcondText(f_code)
+					String f_code = getdsIconCode((String)t1?.icon, (String)t1?.summary)
+					lt0[i].forecast_code = f_code
+					lt0[i].forecast_text = getcondText(f_code)
 
-					f_code = getdsIconCode(t1.icon, t1.summary)
+					f_code = getdsIconCode((String)t1.icon, (String)t1.summary)
 					String f1 = getStdIcon(f_code)
 					wuCode = getWUConditionCode(f1)
 					tt2 = getWUIconNum(wuCode)
-					json.hourly.data[i].fcode = wuCode
-					json.hourly.data[i].fwuicon = tt2
+					lt0[i].fcode = wuCode
+					lt0[i].fwuicon = tt2
 
 					hr+=1
 					if(hr != hr%24){
@@ -309,23 +341,28 @@ public void ahttpRequestHandler(resp, callbackData){
 						indx += 1
 					}
 				}
+				json.hourly.data=lt0
 			}
 			if(json.daily && json.daily.data){
+				List<Map> lt0=(List)json?.daily?.data
 				for(Integer i = 0; i <= 31; i++){
-					def t0 = json.daily.data[i]
+					Map t0 = lt0 ? (Map)lt0[i] : [:]
 					if(!t0) continue
-					String c_code = getdsIconCode(t0.icon, t0.summary)
-					json.daily.data[i].condition_code = c_code
-					json.daily.data[i].condition_text = getcondText(c_code)
+					String c_code = getdsIconCode((String)t0.icon, (String)t0.summary)
+					lt0[i].condition_code = c_code
+					lt0[i].condition_text = getcondText(c_code)
 
 					String c1 = getStdIcon(c_code)
 					Integer wuCode = getWUConditionCode(c1)
 					String tt2 = getWUIconNum(wuCode)
-					json.daily.data[i].code = wuCode
-					json.daily.data[i].wuicon = tt2
-
+					lt0[i].code = wuCode
+					lt0[i].wuicon = tt2
 				}
+				json.daily.data=lt0
 			}
+//			String jsonData = groovy.json.JsonOutput.toJson(json)
+//log.debug jsonData
+		} else if(weatherType == 'OpenWeatherMap'){
 //			String jsonData = groovy.json.JsonOutput.toJson(json)
 //log.debug jsonData
 		}
@@ -338,31 +375,149 @@ public void ahttpRequestHandler(resp, callbackData){
 		return
 	}
 	theObsFLD = json
-//	state.obs = json
 	//log.debug "$json"
 }
 
 public Map getWData(){
 	Map obs = [:]
-	//if(state.obs){
-	String weatherType = state.weatherType ?: null
-	if(theObsFLD && weatherType == 'apiXU'){
-		obs = theObsFLD //state.obs
-		String t0 = "${obs.current.last_updated}".toString()
-		String t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
-		Integer s = GetTimeDiffSeconds(t1, null, "getApiXUData").toInteger()
-		if(s > (60*60*6)){ // if really old
-			//stateRemove("obs")
-			log.warn "removing very old weather data $t0   $s"
-			theObsFLD = null
-			obs = [:]
-		} else return obs
-	}
-	if(theObsFLD && weatherType == 'DarkSky'){
-		obs = theObsFLD //state.obs
-		return obs
+	String weatherType = (String)state.weatherType ?: (String)null
+	if(theObsFLD){
+		if(weatherType == 'apiXU'){
+			obs = theObsFLD
+			String t0 = "${obs.current.last_updated}".toString()
+			String t1 = formatDt(Date.parse("yyyy-MM-dd HH:mm", t0))
+			Integer s = GetTimeDiffSeconds(t1, (String)null, "getApiXUData").toInteger()
+			if(s > (60*60*6)){ // if really old
+				log.warn "removing very old weather data $t0   $s"
+				theObsFLD = null
+				obs = [:]
+			}
+		}
+		if(weatherType == 'DarkSky' || weatherType == 'OpenWeatherMap'){
+			obs = theObsFLD
+		}
 	}
 	return obs
+}
+
+static String dumpListDesc(data, Integer level, List lastLevel, String listLabel, Boolean html=false){
+	String str=sBLK
+	Integer cnt=1
+	List newLevel=lastLevel
+
+	List list1=data?.collect{it}
+	Integer sz=(Integer)list1.size()
+	list1?.each{ par ->
+		Integer t0=cnt-1
+		String myStr="${listLabel}[${t0}]".toString()
+		if(par instanceof Map){
+			Map newmap=[:]
+			newmap[myStr]=(Map)par
+			Boolean t1= cnt==sz
+			newLevel[level]=t1
+			str += dumpMapDesc(newmap, level, newLevel, !t1, html)
+		}else if(par instanceof List || par instanceof ArrayList){
+			Map newmap=[:]
+			newmap[myStr]=par
+			Boolean t1= cnt==sz
+			newLevel[level]=t1
+			str += dumpMapDesc(newmap, level, newLevel, !t1, html)
+		}else{
+			String lineStrt='\n'
+			for(Integer i=0; i<level; i++){
+				lineStrt += (i+1<level)? (!lastLevel[i] ? '     │' : '      '):'      '
+			}
+			lineStrt += (cnt==1 && sz>1)? '┌─ ':(cnt<sz ? '├─ ' : '└─ ')
+			if(html)str += '<span>'
+			str += "${lineStrt}${listLabel}[${t0}]: ${par} (${getObjType(par)})".toString()
+			if(html)str += '</span>'
+		}
+		cnt=cnt+1
+	}
+	return str
+}
+
+static String dumpMapDesc(Map data, Integer level, List lastLevel, Boolean listCall=false, Boolean html=false){
+	String str=sBLK
+	Integer cnt=1
+	Integer sz=data?.size()
+	data?.each{ par ->
+		String lineStrt
+		List newLevel=lastLevel
+		Boolean thisIsLast= cnt==sz && !listCall
+		if(level>0){
+			newLevel[(level-1)]=thisIsLast
+		}
+		Boolean theLast=thisIsLast
+		if(level==0){
+			lineStrt='\n\n • '
+		}else{
+			theLast= theLast && thisIsLast
+			lineStrt='\n'
+			for(Integer i=0; i<level; i++){
+				lineStrt += (i+1<level)? (!newLevel[i] ? '     │' : '      '):'      '
+			}
+			lineStrt += ((cnt<sz || listCall) && !thisIsLast) ? '├─ ' : '└─ '
+		}
+		String objType=getObjType(par.value)
+		if(par.value instanceof Map){
+			if(html)str += '<span>'
+			str += "${lineStrt}${(String)par.key}: (${objType})".toString()
+			if(html)str += '</span>'
+			newLevel[(level+1)]=theLast
+			str += dumpMapDesc((Map)par.value, level+1, newLevel, false, html)
+		}
+		else if(par.value instanceof List || par.value instanceof ArrayList){
+			if(html)str += '<span>'
+			str += "${lineStrt}${(String)par.key}: [${objType}]".toString()
+			if(html)str += '</span>'
+			newLevel[(level+1)]=theLast
+			str += dumpListDesc(par.value, level+1, newLevel, sBLK, html)
+		}
+		else{
+			if(html)str += '<span>'
+			str += "${lineStrt}${(String)par.key}: (${par.value}) (${objType})".toString()
+			if(html)str += '</span>'
+		}
+		cnt=cnt+1
+	}
+	return str
+}
+
+static String myObj(obj){
+	if(obj instanceof String){return 'String'}
+	else if(obj instanceof Map){return 'Map'}
+	else if(obj instanceof List){return 'List'}
+	else if(obj instanceof ArrayList){return 'ArrayList'}
+	else if(obj instanceof Integer){return 'Int'}
+	else if(obj instanceof BigInteger){return 'BigInt'}
+	else if(obj instanceof Long){return 'Long'}
+	else if(obj instanceof Boolean){return 'Bool'}
+	else if(obj instanceof BigDecimal){return 'BigDec'}
+	else if(obj instanceof Float){return 'Float'}
+	else if(obj instanceof Byte){return 'Byte'}
+	else{ return 'unknown'}
+}
+
+static String getObjType(obj){
+	return "<span style='color:orange'>"+myObj(obj)+"</span>"
+}
+
+static String getMapDescStr(Map data){
+	String str
+	List lastLevel=[true]
+	str=dumpMapDesc(data, 0, lastLevel, false, true)
+	return str!=sBLK ? str:'No Data was returned'
+}
+
+def pageDumpWeather(){
+	Map obs = theObsFLD
+	String message=getMapDescStr(obs)
+	return dynamicPage(name:'pageDumpWeather', title:sBLK, uninstall:false){
+		section('Weather Data dump'){
+			paragraph message
+		}
+	}
 }
 
 def getTimeZone(){
@@ -387,7 +542,7 @@ String formatDt(dt){
 	return tf.format(dt)
 }
 
-Long GetTimeDiffSeconds(String strtDate, String stpDate=null, String methName=null){
+Long GetTimeDiffSeconds(String strtDate, String stpDate=(String)null, String methName=(String)null){
 	if((strtDate && !stpDate) || (strtDate && stpDate)){
 		//if(strtDate?.contains("dtNow")){ return 10000 }
 		Date now = new Date()
@@ -441,7 +596,7 @@ public Map listAvailableDevices(Boolean raw = false, Integer offset = 0){
 		response = devices.collectEntries{ dev -> [(hashId(dev.id)): dev]}
 	}else{
 		Integer deviceCount = devices.size()
-		Map overrides = commandOverrides()
+		Map<String,Map> overrides = commandOverrides()
 		response.devices = [:]
 		if(devices){
 		devices = devices[offset..-1]
@@ -479,12 +634,12 @@ public Map listAvailableDevices(Boolean raw = false, Integer offset = 0){
 	return response
 }
 
-private static String transformCommand(command, Map overrides){
-	Map override = overrides[command.getName()]
-	if(override && override.s == command.getArguments()?.toString()){
-		return override.r
+private static String transformCommand(command, Map<String,Map> overrides){
+	Map override = overrides[(String)command.getName()]
+	if(override && (String)override.s == command.getArguments()?.toString()){
+		return (String)override.r
 	}
-	return command.getName()
+	return (String)command.getName()
 }
 
 public Map getDashboardData(){
@@ -498,13 +653,13 @@ public Map getDashboardData(){
 	}
 }
 
-public String mem(showBytes = true){
-	def bytes = state.toString().length()
+public String mem(Boolean showBytes = true){
+	Integer bytes = state.toString().length()
 	return Math.round(100.00 * (bytes/ 100000.00)) + "%${showBytes ? " ($bytes bytes)" : ""}"
 }
 
 /* Push command has multiple overloads in hubitat */
-private static Map commandOverrides(){
+private static Map<String, Map> commandOverrides(){
 	return ( [ //s: command signature
 		push    : [c: "push",   s: null , r: "pushMomentary"],
 		flash   : [c: "flash",  s: null , r: "flashNative"] //flash native command conflicts with flash emulated command. Also needs "o" option on command described later
@@ -517,46 +672,42 @@ private static Map commandOverrides(){
 /***																		***/
 /******************************************************************************/
 private String md5(String md5){
-	try {
 		java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5")
 		byte[] array = md.digest(md5.getBytes())
-		String result = ""
+		String result = sBLK
 		for (Integer i = 0; i < array.length; ++i){
 			result += Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1,3)
 		}
 		return result
-	} catch (java.security.NoSuchAlgorithmException e){
-	}
-	return (String)null
 }
+
+@Field static Map theHashMapFLD=[:]
 
 private String hashId(id){
 	//enabled hash caching for faster processing
 	String myId=id.toString()
-	String result = state.hash ? state.hash[myId] : (String)null
+	String result = (String)theHashMapFLD[myId]
 	if(result==(String)null){
-		result=':'+md5('core.'+myId)+':'
-		def hash = state.hash ?: [:]
-		hash[myId] = result
-		state.hash = hash
-		}
+		result=sCOLON+md5('core.'+myId)+sCOLON
+		theHashMapFLD[myId]=result
+	}
 	return result
 }
 
-private isHubitat(){
+/*private isHubitat(){
  	return hubUID != null
-}
+}*/
 
 String getWUIconName(condition_code, Integer is_day=0)	 {
 	def cC = condition_code
-	String wuIcon = (conditionFactor[cC] ? conditionFactor[cC][2] : '')
+	String wuIcon = (conditionFactor[cC] ? (String)conditionFactor[cC][2] : sBLK)
 	if(is_day != 1 && wuIcon) wuIcon = 'nt_' + wuIcon
 	return wuIcon
 }
 
 Integer getWUConditionCode(String code){
 	for (myMap in conditionFactor){
-		if(myMap.value[2] == code) return myMap.key
+		if((String)myMap.value[2] == code) return myMap.key
 	}
 	return 0
 }
@@ -793,12 +944,12 @@ String getcondText(String wCode){
 	String code = wCode.contains('nt_') ? wCode.substring(3, wCode.size()-1) : wCode
 	//log.info("getImgName Input: wCode: " + code)
 	LUitem = LUTable.find{ it.ccode == code }
-	return (LUitem ? LUitem.ctext : '')
+	return (LUitem ? LUitem.ctext : sBLK)
 }
 
 String getStdIcon(String code){
 	LUitem = LUTable.find{ it.ccode == code }
-	return (LUitem ? LUitem.stdIcon : '')
+	return (LUitem ? LUitem.stdIcon : sBLK)
 }
 
 @Field final List<Map> LUTable = [
