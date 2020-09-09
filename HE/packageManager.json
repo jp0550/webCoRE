@@ -1,13 +1,13 @@
 {
   "packageName": "webCoRE",
   "author": "imnot_bob",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "minimumHEVersion": "2.2.2",
   "licenseFile": "https://raw.githubusercontent.com/imnotbob/webCoRE/hubitat-patches/LICENSE",
-  "releaseNotes": "Latest release for Hubitat to run webCoRE pistons locally on HE - bug fixes - Null pointer fix",
+  "releaseNotes": "Latest release for Hubitat to run webCoRE pistons locally on HE - bug fixes - typecast error",
   "documentationLink": "https://wiki.webcore.co",
   "communityLink": "https://community.hubitat.com/t/webcore-for-hubitat-updates/11967",
-  "dateReleased": "2020-09-06",
+  "dateReleased": "2020-09-08",
   "apps": [
     {
       "id": "cb649f7b-d33d-42b8-82c3-79d1d2101fea",
