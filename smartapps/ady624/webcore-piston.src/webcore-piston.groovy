@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update September 6, 2020 for Hubitat
+ * Last update September 10, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -369,10 +369,10 @@ def pageClearAll(){
 	}
 }
 
-static String dumpListDesc(data, Integer level, List lastLevel, String listLabel, Boolean html=false){
+static String dumpListDesc(data, Integer level, List<Boolean> lastLevel, String listLabel, Boolean html=false){
 	String str=sBLK
 	Integer cnt=1
-	List newLevel=lastLevel
+	List<Boolean> newLevel=lastLevel
 
 	List list1=data?.collect{it}
 	Integer sz=(Integer)list1.size()
@@ -406,13 +406,13 @@ static String dumpListDesc(data, Integer level, List lastLevel, String listLabel
 	return str
 }
 
-static String dumpMapDesc(data, Integer level, List lastLevel, Boolean listCall=false, Boolean html=false){
+static String dumpMapDesc(data, Integer level, List<Boolean> lastLevel, Boolean listCall=false, Boolean html=false){
 	String str=sBLK
 	Integer cnt=1
 	Integer sz=data?.size()
 	data?.each{ par ->
 		String lineStrt
-		List newLevel=lastLevel
+		List<Boolean> newLevel=lastLevel
 		Boolean thisIsLast= cnt==sz && !listCall
 		if(level>0){
 			newLevel[(level-1)]=thisIsLast
@@ -474,15 +474,19 @@ static String getObjType(obj){
 
 static String getMapDescStr(data){
 	String str
-	List lastLevel=[true]
+	List<Boolean> lastLevel=[true]
 	str=dumpMapDesc(data, 0, lastLevel, false, true)
 	return str!=sBLK ? str:'No Data was returned'
 }
 
 def pageDumpPiston1(){
+	LinkedHashMap rtD=getRunTimeData()
 	LinkedHashMap pis=recreatePiston(true, true)
-	String message=getMapDescStr(pis)
+	rtD.piston=pis
+	subscribeAll(rtD, false)
+	String message=getMapDescStr(rtD.piston)
 	rtD=null
+	pis=null
 	return dynamicPage(name:'pageDumpPiston1', title:sBLK, uninstall:false){
 		section('Cached Piston dump'){
 			paragraph message
@@ -491,8 +495,9 @@ def pageDumpPiston1(){
 }
 
 def pageDumpPiston(){
-	LinkedHashMap pis=recreatePiston(false, true)
-	String message=getMapDescStr(pis)
+	LinkedHashMap rtD=getRunTimeData()
+//	LinkedHashMap pis=recreatePiston(false, true)
+	String message=getMapDescStr(rtD.piston)
 	rtD=null
 	return dynamicPage(name:'pageDumpPiston', title:sBLK, uninstall:false){
 		section('Full Piston dump'){
@@ -1804,7 +1809,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 				Integer responseCode=408
 				Boolean statOk=false
 				String ttyp=(String)event.schedule.d
-				Boolean found=false
+				Boolean found=true
 				switch(ttyp){
 				case sHTTPR:
 					setSystemVariableValue(rtD, sHTTPCONTENT, sBLK)
@@ -1812,15 +1817,15 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 				case sSTOREM:
 					setSystemVariableValue(rtD, sHTTPSTSCODE, responseCode)
 					setSystemVariableValue(rtD, sHTTPSTSOK, statOk)
-					found=true
 					break
 				case sSENDE:
-					found=true
 					break
 				case sIFTTM:
 					setSystemVariableValue(rtD, sIFTTTSTSCODE, responseCode)
 					setSystemVariableValue(rtD, sIFTTTSTSOK, statOk)
-					found=true
+					break
+				default:
+					found=false
 					break
 				}
 				if(found){
@@ -1870,7 +1875,7 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 	String semName=(String)rtD.semaphoreName
 	while(doSerialization && semName!=sNULL){
 		Boolean a=getTheLock(semName, sHNDLEVT)
-		List evtQ=(List)theQueuesFLD[semName]
+		List<Map> evtQ=(List<Map>)theQueuesFLD[semName]
 		if(evtQ==null || evtQ==[]){
 			if((Long)theSemaphoresFLD[semName]<=(Long)rtD.semaphore){
 				if((Integer)rtD.logging>2) msgt='Released Lock and exiting'
@@ -1880,8 +1885,8 @@ void handleEvents(event, Boolean queue=true, Boolean callMySelf=false){
 			releaseTheLock(semName)
 			break
 		}
-		List evtList=evtQ.sort{ (Long)it.t }
-		def theEvent=evtList.remove(0)
+		List<Map> evtList=evtQ.sort{ (Long)it.t }
+		Map theEvent=evtList.remove(0)
 		theQueuesFLD[semName]=evtList
 		theQueuesFLD=theQueuesFLD
 		releaseTheLock(semName)
@@ -5494,7 +5499,7 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 				comparison=Comparisons().triggers[(String)condition.co]
 			}
 			if(comparison!=null){
-				condition.ct=(String)comparisonType.take(1)
+				condition.ct=(String)comparisonType.take(1) // modifies the code
 				Integer paramCount=comparison.p!=null ? (Integer)comparison.p: 0
 				for(Integer i=0; i<=paramCount; i++){
 					//get the operand to parse
@@ -6254,7 +6259,7 @@ Map setLocalVariable(String name, value){ // called by parent (IDE)to set value 
 /** EXPRESSION FUNCTIONS							**/
 
 Map proxyEvaluateExpression(LinkedHashMap mrtD, Map expression, String dataType=sNULL){
-	LinkedHashMap rtD=getRunTimeData(rtD)
+	LinkedHashMap rtD=getRunTimeData(mrtD)
 	resetRandomValues(rtD)
 	try{
 		Map result=evaluateExpression(rtD, expression, dataType)

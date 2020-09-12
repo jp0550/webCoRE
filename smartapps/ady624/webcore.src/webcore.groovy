@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated September 8, 2020 for Hubitat
+ * Last Updated September 12, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
 static String HEversion(){ return "v0.3.110.20200906_HE" }
@@ -2793,7 +2793,7 @@ List t1=getLocationEventsSince('hsmAlert', new Date() - 10)
 	List alerts=(List)atomicState.hsmAlerts
 	alerts=alerts ?: []
 	Boolean aa=alerts.push(alert)
-	if(locStat == 'allDisarmed' || evV == 'cancel') alerts=[]
+	if(locStat == 'allDisarmed' || evV == 'cancel' || evV=='cancelRuleAlerts') alerts=[]
 	atomicState.hsmAlerts=alerts
 	//atomicState.hsmAlert=alert
 
@@ -2823,7 +2823,7 @@ private List getIncidents(){
 			//for (capability in capabilities().findAll{ (!((String)it.value.d in [null, 'actuators', 'sensors'])) }.sort{ (String)it.value.d }){
 	List new3Alerts=[]
 	for(myE in new2Alerts){
-		if(myE.v=='cancel') new3Alerts=[]
+		if(myE.v=='cancel' || myE.v=='cancelRuleAlerts') new3Alerts=[]
 		else Boolean aa=new3Alerts.push(myE)
 	}
 	Integer nsz=new3Alerts.size()
