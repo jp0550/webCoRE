@@ -2766,17 +2766,20 @@ def hsmHandler(evt){
 def hsmAlertHandler(evt){
 //push incidents
 	String title="HSM Alert: $evt.value" + (evt.value == "rule" ? ",  $evt.descriptionText" : "")
+	String src="HSM Alert: $evt.value"
+	String msg="$evt.value Alert"
 
 	Map alert=[
 		date:evt.date.getTime(),
 		title: title,
-		message: "",
+		message: msg,
 		args: evt.data,
-		sourceType: "",
+		sourceType: src,
 		v:evt.value,
 		des:evt.descriptionText,
 		//d: evt.data
 	]
+			//incidents: isHubitat() ? [] : location.activeIncidents.collect{[date: it.date.time, title: it.getTitle(), message: it.getMessage(), args: it.getMessageArgs(), sourceType: it.getSourceType()]}.findAll{ it.date >= incidentThreshold },
 
 // this should search the db from hsmAlert events?
 /*
