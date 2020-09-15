@@ -2400,7 +2400,7 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 		while(repeat){
 			switch ((String)statement.t){
 			case sEVERY:
-				//we override current condition so that child statements can cancel on it
+				//we override current condition that child statements can cancel on it
 				Boolean ownEvent= rtD.event!=null && (String)rtD.event.name==sTIME && rtD.event.schedule!=null && (Integer)rtD.event.schedule.s==statementNum && (Integer)rtD.event.schedule.i<0
 
 				List<Map> schedules
@@ -2428,7 +2428,7 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 				value=true
 				break
 			case sREPEAT:
-				//we override current condition so that child statements can cancel on it
+				//we override current condition that child statements can cancel on it
 				rtD.stack.c=statementNum
 				if(!executeStatements(rtD, (List)statement.s, async)){
 					//stop processing
@@ -2468,7 +2468,7 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 			case sWHILE:
 				//check conditions for if and while
 				perform=evaluateConditions(rtD, statement, sC, async)
-				//we override current condition so that child statements can cancel on it
+				//we override current condition that child statements can cancel on it
 				rtD.stack.c=statementNum
 				if((Integer)rtD.ffTo==0 && !rtD.piston.o?.mps && (String)statement.t==sIF && (Integer)rtD.statementLevel==1 && perform){
 					//automatic piston state
@@ -5417,7 +5417,7 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 				break
 			case 'alarmSystemAlert':
 				subsId=tsubId
-				attribute="hsmAlerts"
+				attribute="hsmAlert"
 				break
 			case 'alarmSystemEvent':
 				subsId=tsubId
@@ -5647,7 +5647,7 @@ private void subscribeAll(Map rtD, Boolean doit=true){
 				error "Failed subscribing to $devStr.${a}, device not found", rtD
 			}
 		}else{
-			for(condition in (List)subscription.value.c)if(condition){ condition.s=false }
+			for(condition in (List)subscription.value.c)if(condition){ condition.s=false } // modifies the code
 			if(devices[devStr]){
 				devices[devStr].c=(Integer)devices[devStr].c-1
 			}
