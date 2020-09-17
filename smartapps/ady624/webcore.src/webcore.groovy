@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated September 12, 2020 for Hubitat
+ * Last Updated September 16, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
-static String HEversion(){ return "v0.3.110.20200906_HE" }
+static String HEversion(){ return "v0.3.110.20200916_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -2010,13 +2010,19 @@ static void mb(String meth=sNULL){
 void recoveryHandler(){
 	if(verFLD==sNULL || HverFLD==sNULL){
 		if((String)state.cV == version() && (String)state.hV == HEversion()){
+			atomicState.hsmAlerts=[] // reload or restart
+			state.hsmAlerts=[]
 			verFLD=version()
 			HverFLD=HEversion()
 			mb()
+			clearParentPistonCache("ver check")
+			clearBaseResult('ver check')
 		}
 	}
 	if(verFLD!=version() || HverFLD!=HEversion()){
 		info "webCoRE software Updated to "+version()+" HE: "+HEversion()
+		atomicState.hsmAlerts=[] // reload or restart
+		state.hsmAlerts=[]
 		verFLD=version()
 		HverFLD=HEversion()
 		mb()
@@ -2760,14 +2766,17 @@ def newIncidentHandler(evt){
 
 def hsmHandler(evt){
 	state.hsmStatus=evt.value
+	def a=getIncidents() // cause trimming
+	clearParentPistonCache("hsmHandler")
 	clearBaseResult('hsmHandler')
 }
 
 def hsmAlertHandler(evt){
 //push incidents
-	String title="HSM Alert: $evt.value" + (evt.value == "rule" ? ",  $evt.descriptionText" : "")
-	String src="HSM Alert: $evt.value"
-	String msg="$evt.value Alert"
+	String evV=evt.value.toString()
+	String title='HSM Alert: '+ evV + (evV == 'rule' ? ',  '+(String)$evt.descriptionText : "")
+	String src='HSM Alert:'+ evV
+	String msg='HSM '+evV+' Alert'
 
 	Map alert=[
 		date:evt.date.getTime(),
@@ -2791,25 +2800,18 @@ List t1=getLocationEventsSince('hsmAlert', new Date() - 10)
 		if(t2 && t2.value){ return stringToTime(t2.value) + 1000 }
 */
 	String locStat=(String)location.hsmStatus
-	String evV=evt.value
 
 	List alerts=(List)atomicState.hsmAlerts
 	alerts=alerts ?: []
 	Boolean aa=alerts.push(alert)
 	if(locStat == 'allDisarmed' || evV == 'cancel' || evV=='cancelRuleAlerts') alerts=[]
 	atomicState.hsmAlerts=alerts
-	//atomicState.hsmAlert=alert
 
-	def a=getIncidents() // cause trimming
+	if(alerts) def a=getIncidents() // cause trimming
 	clearParentPistonCache("hsmAlerts changed")
 	clearBaseResult('hsmAlertHandler')
 
-//	Long incidentThreshold=now() - 604800000 // 1 week
-//	List newAlerts=alerts.collect{it}.findAll{ (Long)it.date >= incidentThreshold }
-//	List new2Alerts=newAlerts.collect{it}.findAll{ !(locStat == 'disarmed' && ((String)it.v).contains('intrusion')) }
-//	atomicState.hsmAlerts=new2Alerts
-
-	info "HSM Alert: $evt.value" + (evV == "rule" ? ",  $evt.descriptionText" : "")
+	info 'HSM Alert: '+title
 }
 
 private List getIncidents(){
@@ -3538,7 +3540,7 @@ static Map getChildComparisons(){
 		arrives				: [ d: "arrives",									g:"e",		p: 2					],
 		event_occurs			: [ d: "event occurs",									g:"s",						],
 		executes			: [ d: "executes",									g:"v",		p: 1					],
-		changes			: [ d: "changes",			dd: "change",					g:"bdfis",						],
+		changes				: [ d: "changes",			dd: "change",					g:"bdfis",						],
 		changes_to			: [ d: "changes to",			dd: "change to",				g:"bdis",	p: 1,					],
 		changes_away_from		: [ d: "changes away from",		dd: "change away from",				g:"bdis",	p: 1,					],
 		changes_to_any_of		: [ d: "changes to any of",		dd: "change to any of",				g:"dis",	p: 1,	m: true,			],
@@ -3823,11 +3825,11 @@ private Map virtualDevices(Boolean updateCache=false){
 		mode:			[ n: 'Location mode',		t: 'enum',	o: getLocationModeOptions(updateCache),	x: true],
 		tile:			[ n: 'Piston tile',		t: 'enum',	o: ['1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10','11':'11','12':'12','13':'13','14':'14','15':'15','16':'16'],		m: true	],
 		rule:			[ n: 'Rule',			t: 'enum',	o: getRuleOptions(updateCache),		m: true ],
-		systemStart:		[ n: 'System Start', t: 'string',		],
+		systemStart:		[ n: 'System Start', t: 'string',		x: true],
 //ac - actions. hubitat doesn't reuse the status for actions
-		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),			x: true],
+		alarmSystemStatus:	[ n: 'Hubitat Safety Monitor status',t: 'enum',		o: getHubitatAlarmSystemStatusOptions(), ac: getAlarmSystemStatusActions(),		x: true],
 		alarmSystemEvent:	[ n: 'Hubitat Safety Monitor event',t: 'enum',		o: getAlarmSystemStatusActions(),	m: true],
-		alarmSystemAlert:	[ n: 'Hubitat Safety Monitor alert',t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true],
+		alarmSystemAlert:	[ n: 'Hubitat Safety Monitor alert',t: 'enum',		o: getAlarmSystemAlertOptions(),	m: true,			x: true],
 		alarmSystemRule:	[ n: 'Hubitat Safety Monitor rule',t: 'enum',		o: getAlarmSystemRuleOptions(),		m: true]	
 	]
 }

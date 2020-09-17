@@ -18,11 +18,11 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update September 10, 2020 for Hubitat
+ * Last update September 16, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
-static String HEversion(){ return 'v0.3.110.20200906_HE' }
+static String HEversion(){ return 'v0.3.110.20200916_HE' }
 
 /** webCoRE DEFINITION					**/
 
@@ -3343,6 +3343,12 @@ private void requestWakeUp(Map rtD, Map statement, Map task, Long timeOrDelay, S
 	Integer ps= (String)statement.tcp==sB || (String)statement.tcp==sP ? 1:0
 	Boolean a=cs.removeAll{ it==0 }
 // state to save across a sleep
+	Boolean fnd=false
+	def myResp=rtD.response
+	if(myResp.toString().size() > 10000) { myResp=[:]; fnd=true } // state can only be total 100KB
+	def myJson=rtD.json
+	if(myJson.toString().size() > 10000) { myJson=[:]; fnd=true }
+	if(fnd) debug 'trimming saved $response and/or $json for scheduled wakeup due to large size' , rtD
 	Map mmschedule=[
 		t:time,
 		s:(Integer)statement.$,
@@ -3356,8 +3362,8 @@ private void requestWakeUp(Map rtD, Map statement, Map task, Long timeOrDelay, S
 			index:rtD.systemVars[sDLLRINDX].v,
 			device:rtD.systemVars[sDLLRDEVICE].v,
 			devices:rtD.systemVars[sDLLRDEVS].v,
-			json:rtD.json ?: [:],
-			response:rtD.response ?: [:]
+			json:myJson ?: [:],
+			response:myResp ?: [:]
 // what about previousEvent httpContentType httpStatusCode httpStatusOk iftttStatusCode iftttStatusOk "\$mediaId" "\$mediaUrl" "\$mediaType" mediaData (big)
 // currentEvent in case of httpRequest
 		]
