@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update September 16, 2020 for Hubitat
+ * Last update September 24, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -2541,7 +2541,7 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 						rtD.cache[sidx]=index
 					}
 					rtD.systemVars[sDLLRINDX].v=index
-					if((String)statement.t==sEACH && (Integer)rtD.ffTo==0)setSystemVariableValue(rtD, sDLLRDEVICE, index<dsiz ? [devices[index.toInteger()]]:[])
+					if((String)statement.t==sEACH && ((Integer)rtD.ffTo==0||(Integer)rtD.ffTo==-9))setSystemVariableValue(rtD, sDLLRDEVICE, index<dsiz ? [devices[index.toInteger()]]:[])
 					if(counterVariable!=sNULL && (Integer)rtD.ffTo==0)def m=setVariable(rtD, counterVariable, (String)statement.t==sEACH ? (index<dsiz ? [devices[index.toInteger()]]:[]):index)
 					//do the loop
 					perform=executeStatements(rtD, (List)statement.s, async)
@@ -6739,7 +6739,7 @@ private Map evaluateExpression(Map rtD, Map expression, String dataType=sNULL){
 				if((String)items[idx].t==t1) v1=items[idx].v
 				else v1=evaluateExpression(rtD, (Map)items[idx], t1).v
 
-				//v2=evaluateExpression(rtD, (Map)items[idx+1], t2).v
+				//v2=evaluateExpression(rtD, (Map)items[idxPlus], t2).v
 				if((String)items[idxPlus].t==t2) v2=items[idxPlus].v
 				else v2=evaluateExpression(rtD, (Map)items[idxPlus], t2).v
 
@@ -8722,6 +8722,10 @@ private void initSunriseAndSunset(Map rtD){
 		t0=[
 			sunrise: (Long)((Date)sunTimes.sunrise).getTime(),
 			sunset: (Long)((Date)sunTimes.sunset).getTime(),
+			//todayssunrise: (Long)((Date)todaysSunrise).getTime(), // requires FW 2.2.3.132 or later
+			//todayssunset: (Long)((Date)todaysSunset).getTime(),
+			//tomorrowssunrise: (Long)((Date)tomorrowsSunrise).getTime(),
+			//tomorrowssunset: (Long)((Date)tomorrowsSunset).getTime(),
 			updated: t,
 			nextM: getNextMidnightTime()
 		]
