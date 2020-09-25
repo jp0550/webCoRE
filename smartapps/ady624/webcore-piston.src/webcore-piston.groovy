@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update September 24, 2020 for Hubitat
+ * Last update September 25, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -3492,6 +3492,11 @@ private Long cmd_setVideoLength(Map rtD, device, List params){
 	return 0L
 }
 
+private Long cmd_setVariable(Map rtD, device, List params){
+	def var=params[1]
+	executePhysicalCommand(rtD, device, 'setVariable', var)
+	return 0L
+}
 
 private Long vcmd_log(Map rtD, device, List params){
 	String command=params[0] ? (String)params[0]:sBLK
