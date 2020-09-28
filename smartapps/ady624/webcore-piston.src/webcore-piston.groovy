@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update September 25, 2020 for Hubitat
+ * Last update September 28, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -1950,12 +1950,12 @@ private Boolean executeEvent(Map rtD, event){
 		if(event!=null){
 			rtD.args= evntName==sTIME && event.schedule!=null && event.schedule.args!=null && event.schedule.args instanceof Map ? (Map)event.schedule.args:(event.jsonData!=null ? event.jsonData:[:])
 			if(evntName==sTIME && event.schedule!=null){
-				srcEvent=event.schedule.evt
-				Map tMap=event.schedule.stack
+				srcEvent=(Map)event.schedule.evt
+				Map tMap=(Map)event.schedule.stack
 				if(tMap!=null){
-					sysV[sDLLRINDX].v=tMap.index
-					sysV[sDLLRDEVICE].v=tMap.device
-					sysV[sDLLRDEVS].v=tMap.devices
+					sysV[sDLLRINDX].v=(Double)tMap.index
+					sysV[sDLLRDEVICE].v=(List)tMap.device
+					sysV[sDLLRDEVS].v=(List)tMap.devices
 					rtD.json=tMap.json ?: [:]
 					rtD.response=tMap.response ?: [:]
 					index=srcEvent?.index ?: 0
@@ -2385,10 +2385,10 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 	Integer c=(Integer)rtD.stack.c
 	Boolean stacked=true /* cancelable on condition change */
 	if(stacked)a=((List<Integer>)rtD.stack.cs).push(c)
-	Boolean parentConditionStateChanged=(Boolean)rtD.conditionStateChanged
+	Boolean svCSC=(Boolean)rtD.conditionStateChanged
 	//def parentAsync=async
-	Double parentIndex=rtD.systemVars[sDLLRINDX].v
-	def parentDevice=rtD.systemVars[sDLLRDEVICE].v
+	Double svIndex=(Double)rtD.systemVars[sDLLRINDX].v
+	List svDevice=(List)rtD.systemVars[sDLLRDEVICE].v
 	Boolean selfAsync= (String)statement.a==sONE || (String)statement.t==sEVERY || (String)statement.t==sON // execution method
 	async=async || selfAsync
 	Boolean myPep=(Boolean)rtD.pep
@@ -2663,7 +2663,7 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 				if(overBy>(Long)getPistonLimits.useBigDelay){
 					delay=(Long)getPistonLimits.taskLongDelay
 				}
-				String mstr="executeStatement: Execution time exceeded by ${overBy}ms, "
+				String mstr="executeStatement: Execution time exceeded by ${overBy}ms, ".toString()
 				if(repeat && overBy>(Long)getPistonLimits.executionTime){
 					error mstr+'Terminating', rtD
 					rtD.terminated=true
@@ -2714,16 +2714,16 @@ private Boolean executeStatement(Map rtD, Map statement, Boolean async=false){
 		Integer tc=((List<Integer>)rtD.stack.cs).pop()
 	}
 	rtD.stack.s=(Integer)((List<Integer>)rtD.stack.ss).pop()
-	rtD.systemVars[sDLLRINDX].v=parentIndex
-	rtD.systemVars[sDLLRDEVICE].v=parentDevice
-	rtD.conditionStateChanged=parentConditionStateChanged
+	rtD.systemVars[sDLLRINDX].v=svIndex
+	rtD.systemVars[sDLLRDEVICE].v=svDevice
+	rtD.conditionStateChanged=svCSC
 	Boolean ret=value || (Integer)rtD.ffTo!=0
 	if((Boolean)rtD.eric) myDetail rtD, mySt+" result: $ret".toString(), -1
 	return ret
 }
 
 private Long checkForSlowdown(Map rtD){
-	//return how Long over the time limit we are
+	//return how long over the time limit we are
 	Long overBy=0L
 	Long curRunTime=Math.round(1.0D*now()-(Long)rtD.timestamp-(Long)getPistonLimits.slTime)
 	if(curRunTime>overBy){
@@ -2756,7 +2756,7 @@ private Boolean executeAction(Map rtD, Map statement, Boolean async){
 		mySt='executeAction'
 		myDetail rtD, mySt, 1
 	}
-	def parentDevicesVar=rtD.systemVars[sDLLRDEVS].v
+	List svDevices=(List)rtD.systemVars[sDLLRDEVS].v
 	//if override
 	if((Integer)rtD.ffTo==0 && (String)statement.tsp!='a'){ // Task scheduling policy
 		cancelStatementSchedules(rtD, (Integer)statement.$)
@@ -2769,8 +2769,8 @@ private Boolean executeAction(Map rtD, Map statement, Boolean async){
 		if(task.$!=null && (Integer)task.$==(Integer)rtD.ffTo){
 			//resuming a waiting task, we need to bring back the devices
 			if(rtD.event && rtD.event.schedule && rtD.event.schedule.stack){
-				rtD.systemVars[sDLLRINDX].v=rtD.event.schedule.stack.index
-				rtD.systemVars[sDLLRDEVICE].v=rtD.event.schedule.stack.device
+				rtD.systemVars[sDLLRINDX].v=(Double)rtD.event.schedule.stack.index
+				rtD.systemVars[sDLLRDEVICE].v=(List)rtD.event.schedule.stack.device
 				if(rtD.event.schedule.stack.devices instanceof List){
 					deviceIds=(List)rtD.event.schedule.stack.devices
 					rtD.systemVars[sDLLRDEVS].v=deviceIds
@@ -2784,7 +2784,7 @@ private Boolean executeAction(Map rtD, Map statement, Boolean async){
 			break
 		}
 	}
-	rtD.systemVars[sDLLRDEVS].v=parentDevicesVar
+	rtD.systemVars[sDLLRDEVS].v=svDevices
 	if((Boolean)rtD.eric) myDetail rtD, mySt+" result: $result".toString(), -1
 	return result
 }
@@ -3359,9 +3359,9 @@ private void requestWakeUp(Map rtD, Map statement, Map task, Long timeOrDelay, S
 		evt:(Map)rtD.currentEvent,
 		args:rtD.args,
 		stack:[
-			index:rtD.systemVars[sDLLRINDX].v,
-			device:rtD.systemVars[sDLLRDEVICE].v,
-			devices:rtD.systemVars[sDLLRDEVS].v,
+			index:(Double)rtD.systemVars[sDLLRINDX].v,
+			device:(List)rtD.systemVars[sDLLRDEVICE].v,
+			devices:(List)rtD.systemVars[sDLLRDEVS].v,
 			json:myJson ?: [:],
 			response:myResp ?: [:]
 // what about previousEvent httpContentType httpStatusCode httpStatusOk iftttStatusCode iftttStatusOk "\$mediaId" "\$mediaUrl" "\$mediaType" mediaData (big)
@@ -4055,7 +4055,7 @@ private Long vcmd_setHSLColor(Map rtD, device, List params){
 private Long vcmd_wolRequest(Map rtD, device, List params){
 	String mac=(String)params[0]
 	String secureCode=(String)params[1]
-	mac=mac.replace(":", sBLK).replace(sMINUS, sBLK).replace(sDOT, sBLK).replace(sSPC, sBLK).toLowerCase()
+	mac=mac.replace(sCOLON, sBLK).replace(sMINUS, sBLK).replace(sDOT, sBLK).replace(sSPC, sBLK).toLowerCase()
 
 	sendHubCommand(HubActionClass().newInstance(
 		"wake on lan $mac".toString(),
@@ -6104,10 +6104,11 @@ private Map getVariable(Map rtD, String name){
 	if(name==sNULL)return [t:sERROR, v:'Invalid empty variable name']
 	Map result
 	String tname=name
+	Map err=[t:sERROR, v:"Variable '$tname' not found".toString()]
 	if((Boolean)tname.startsWith(sAT)){
 		loadGlobalCache()
 		def tresult=globalVarsFLD[tname]
-		if(!(tresult instanceof Map))result=[t:sERROR, v:"Variable '$tname' not found"]
+		if(!(tresult instanceof Map))result=err
 		else{
 			result=(Map)tresult
 			result.v=cast(rtD, result.v, (String)result.t)
@@ -6141,7 +6142,7 @@ private Map getVariable(Map rtD, String name){
 				result=getIncidents(rtD, tname.substring(10))
 			}else{
 				def tresult=rtD.systemVars[tname]
-				if(!(tresult instanceof Map))result=[t:sERROR, v:"Variable '$tname' not found"]
+				if(!(tresult instanceof Map))result=err
 				else result=(Map)tresult
 				if(result!=null && result.d){
 					result=[t: (String)result.t, v: getSystemVariableValue(rtD, tname)]
@@ -6150,7 +6151,7 @@ private Map getVariable(Map rtD, String name){
 		}else{
 			def tlocalVar=rtD.localVars[tname]
 			if(!(tlocalVar instanceof Map)){
-				result=[t:sERROR, v:"Variable '$tname' not found"]
+				result=err
 			}else{
 				result=[t: (String)tlocalVar.t, v: tlocalVar.v]
 				//make a local copy of the list
@@ -6753,7 +6754,7 @@ private Map evaluateExpression(Map rtD, Map expression, String dataType=sNULL){
 				switch (o){
 					case sQM:
 					case sCOLON:
-						error "Invalid ternary operator. Ternary operator's syntax is (condition ? trueValue:falseValue ). Please check your syntax and try again.", rtD
+						error "Invalid ternary operator. Ternary operator's syntax is (condition ? trueValue:falseValue ). Please check your syntax.", rtD
 						v=sBLK
 						break
 					case sMINUS:
@@ -8258,7 +8259,7 @@ private cast(Map rtD, value, String dataType, String srcDataType=sNULL){
 			}
 			return !!value
 		case sTIME:
-			if("$value".isNumber() && value.toLong()<86400000L) return value
+			if("$value".isNumber() && value.toLong()<86400000L) return value.toLong()
 			Long d= srcDataType==sSTR ? stringToTime(value):value.toLong() // (Long)cast(rtD, value, sLONG)
 			Date t1=new Date(d)
 			Long t2=Math.round(((Integer)t1.hours*3600.0D+(Integer)t1.minutes*60.0D+(Integer)t1.seconds)*1000.0D)
@@ -8349,6 +8350,25 @@ private Long localTime(){ return now()} //utcToLocalTime()}
 
 private Long stringToTime(dateOrTimeOrString){ // this is convert to time
 	Long result
+	if("$dateOrTimeOrString".isNumber()){
+		Long tt=dateOrTimeOrString.toLong()
+		if(tt<86400000L){
+			result=getTimeToday(dateOrTimeOrString)
+			return result
+		}else{
+// deal with a time in sec (vs. ms)
+			Long span=365*24*60*60*2
+			Long nowInsecs=now()/1000L
+			Long secsMin=nowInsecs - span
+			Long secsMax=nowInsecs + span
+			if(tt>secsMin && tt<secsMax){
+				result=tt*1000L
+				return result
+			}
+		}
+		return tt
+	}
+
 	if(dateOrTimeOrString instanceof String){
 
 		try{
@@ -8423,14 +8443,17 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert to time
 				Date t1=new Date(time)
 				Integer hr=(Integer)t1.hours
 				Integer min=(Integer)t1.minutes
+				Integer sec=(Integer)t1.seconds
 				Boolean twelve= hr>=12
 				if(twelve && hasAM)hr -= 12
 				if(!twelve && hasPM)hr += 12
 				String str1="${hr}".toString()
 				String str2="${min}".toString()
+				String str3="${sec}".toString()
 				if(hr<10)str1=String.format('%02d', hr)
 				if(min<10)str2=String.format('%02d', min)
-				String str=str1+sCOLON+str2
+				if(sec<10)str3=String.format('%02d', sec)
+				String str=str1+sCOLON+str2+sCOLON+str3
 				time=timeToday(str, tz).getTime()
 			}
 			result=time
@@ -8445,23 +8468,6 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert to time
 	if(dateOrTimeOrString instanceof Date){
 		result=(Long)((Date)dateOrTimeOrString).getTime()
 		return result
-	}
-	if("$dateOrTimeOrString".isNumber()){
-		Long tt=dateOrTimeOrString.toLong()
-		if(tt<86400000L){
-			result=getTimeToday(dateOrTimeOrString)
-			return result
-		}else{
-// deal with a time in sec (vs. ms)
-			Long span=365*24*60*60*2
-			Long nowInsecs=now()/1000L
-			Long secsMin=nowInsecs - span
-			Long secsMax=nowInsecs + span
-			if(tt>secsMin && tt<secsMax){
-				result=tt*1000L
-				return result
-			}
-		}
 	}
 	return 0L
 }
