@@ -18,10 +18,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last Updated September 16, 2020 for Hubitat
+ * Last Updated October 15, 2020 for Hubitat
 */
 static String version(){ return "v0.3.110.20191009" }
-static String HEversion(){ return "v0.3.110.20200916_HE" }
+static String HEversion(){ return "v0.3.110.20201015_HE" }
 
 /******************************************************************************/
 /*** webCoRE DEFINITION														***/
@@ -2522,6 +2522,7 @@ String getDashboardUrl(){
 void refreshDevices(){
 	state.deviceVersion=now().toString()
 	atomicState.deviceVersion=(String)state.deviceVersion
+	clearParentPistonCache("refreshDevices") // force virtual device to update
 	clearBaseResult('refreshDevices')
 	//testLifx()
 }

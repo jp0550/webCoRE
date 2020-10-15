@@ -18,11 +18,11 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update September 28, 2020 for Hubitat
+ * Last update October 15, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
-static String HEversion(){ return 'v0.3.110.20200916_HE' }
+static String HEversion(){ return 'v0.3.110.20201015_HE' }
 
 /** webCoRE DEFINITION					**/
 
@@ -1118,12 +1118,18 @@ static void mb(){
 @Field static java.util.concurrent.Semaphore theLock16FLD=new java.util.concurrent.Semaphore(1)
 @Field static java.util.concurrent.Semaphore theLock17FLD=new java.util.concurrent.Semaphore(1)
 @Field static java.util.concurrent.Semaphore theLock18FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock19FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock20FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock21FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock22FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock23FLD=new java.util.concurrent.Semaphore(1)
+@Field static java.util.concurrent.Semaphore theLock24FLD=new java.util.concurrent.Semaphore(1)
 
 static Integer getSemaNum(String name){
-	if(name==sTCCC)return 16
-	if(name==sTSLF)return 17
-	if(name==sTGBL)return 18
-	Integer stripes=16
+	if(name==sTCCC)return 22
+	if(name==sTSLF)return 23
+	if(name==sTGBL)return 24
+	Integer stripes=22
 	if(name.isNumber()) return name.toInteger()%stripes
 	Integer hash=smear(name.hashCode())
 	return Math.abs(hash)%stripes
@@ -1151,6 +1157,12 @@ java.util.concurrent.Semaphore getSema(Integer snum){
 		case 16: return theLock16FLD
 		case 17: return theLock17FLD
 		case 18: return theLock18FLD
+		case 19: return theLock19FLD
+		case 20: return theLock20FLD
+		case 21: return theLock21FLD
+		case 22: return theLock22FLD
+		case 23: return theLock23FLD
+		case 24: return theLock24FLD
 		default: log.error "bad hash result $snum"
 			return null
 	}
@@ -1431,6 +1443,7 @@ void clearParentCache(String meth=sNULL){
 	getCacheLock(lockTyp)
 	theCacheFLD=[:] // all pistons reset their cache
 	theHashMapFLD=[:]
+	theVirtDevicesFLD=null
 	releaseCacheLock()
 
 	releaseTheLock(semName)
@@ -4238,8 +4251,7 @@ void ahttpRequestHandler(resp, Map callbackData){
 				if(!binary){
 					data=resp.data
 					//log.error "RESP ${data}"
-					if(data!=null && data instanceof Map){
-					}else{
+					if(data!=null && !(data instanceof Map)){
 						try{
 							data=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(resp.data)
 						}catch (all){
