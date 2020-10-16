@@ -4256,7 +4256,13 @@ void ahttpRequestHandler(resp, Map callbackData){
 							data= new groovy.json.JsonSlurper().parseText(resp.data)
 							json=resp.data
 						}catch (all){
-							data=resp.data
+							try{ // HE can return data base Base64
+								String decode=new String(resp.data.decodeBase64())
+								data= new groovy.json.JsonSlurper().parseText(decode)
+								json=decode
+							}catch (al1){
+								data=resp.data
+							}
 						}
 					}
 				}else{
