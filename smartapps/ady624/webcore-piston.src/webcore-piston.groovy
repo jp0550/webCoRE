@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 15, 2020 for Hubitat
+ * Last update October 16, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -4251,9 +4251,10 @@ void ahttpRequestHandler(resp, Map callbackData){
 				if(!binary){
 					data=resp.data
 					//log.error "RESP ${data}"
-					if(data!=null && !(data instanceof Map)){
+					if(data!=null && !(data instanceof Map) && !(data instanceof List)){
 						try{
-							data=(LinkedHashMap) new groovy.json.JsonSlurper().parseText(resp.data)
+							data= new groovy.json.JsonSlurper().parseText(resp.data)
+							json=resp.data
 						}catch (all){
 							data=resp.data
 						}
