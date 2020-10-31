@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update September 6, 2020 for Hubitat
+ * Last update October 26, 2020 for Hubitat
  */
 public static String version(){ return "v0.3.110.20191009" }
 public static String HEversion(){ return "v0.3.110.20200906_HE" }
@@ -48,6 +48,7 @@ preferences {
 import groovy.transform.Field
 
 @Field static final String sBLK=''
+@Field static final String sSPC=' '
 @Field static final String sCOLON=':'
 
 /******************************************************************************/
@@ -182,11 +183,11 @@ public void updateWeatherD(){
 			myZip = location.zipCode
 			break
 		case 'DarkSky':
-			myZip = location.latitude+','+location.longitude
+			myZip = location.latitude.toString()+','+location.longitude.toString()
 			break
 		case 'OpenWeatherMap':
-			myZip = location.latitude
-			myZip1 = location.longitude
+			myZip = location.latitude.toString().replace(sSPC, sBLK)
+			myZip1 = location.longitude.toString().replace(sSPC, sBLK)
 		}
 	}
 	if(myKey && myZip && weatherType){
@@ -851,6 +852,9 @@ private String getImgName(Integer wCode, is_day){
 
 // From Darksky.net driver for HE https://community.hubitat.com/t/release-darksky-net-weather-driver-no-pws-required/22699
 static String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean isNight=false){
+	String unk='unknown'
+	if(dcs==null) dcs=unk
+	if(icon==null) icon=unk
 	switch(icon){
 		case 'rain':
 		// rain=[Possible Light Rain, Light Rain, Rain, Heavy Rain, Drizzle, Light Rain and Breezy, Light Rain and Windy,
@@ -931,10 +935,10 @@ static String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean
 			}
 			break
 		case '':
-			icon = 'unknown'
+			icon = unk
 			break
 		default:
-			icon = 'unknown'
+			icon = unk
 	}
 	if(isNight) icon = 'nt_' + icon
 	return icon
@@ -943,13 +947,13 @@ static String getdsIconCode(String icon='unknown', String dcs='unknown', Boolean
 String getcondText(String wCode){
 	String code = wCode.contains('nt_') ? wCode.substring(3, wCode.size()-1) : wCode
 	//log.info("getImgName Input: wCode: " + code)
-	LUitem = LUTable.find{ it.ccode == code }
-	return (LUitem ? LUitem.ctext : sBLK)
+	Map LUitem = LUTable.find{ (String)it.ccode == code }
+	return (LUitem ? (String)LUitem.ctext : sBLK)
 }
 
 String getStdIcon(String code){
-	LUitem = LUTable.find{ it.ccode == code }
-	return (LUitem ? LUitem.stdIcon : sBLK)
+	Map LUitem = LUTable.find{ (String) it.ccode == code }
+	return (LUitem ? (String)LUitem.stdIcon : sBLK)
 }
 
 @Field final List<Map> LUTable = [

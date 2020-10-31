@@ -230,7 +230,7 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 		$scope.initialized = false;
 		$scope.loading = true;
 		if ($scope.piston) $scope.loading = true;
-		dataService.getPiston($scope.pistonId).then(function (response) {
+		dataService.getPiston($scope.pistonId, true).then(function (response) {
 			if ($scope.$$destroyed) return;
 			$scope.endpoint = data.endpoint + 'execute/' + $scope.pistonId + (si.accessToken ? '?access_token=' + si.accessToken : '');
 			try {
@@ -686,7 +686,7 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 		});
 	};
 
-	$scope.formatVariableValue = function(variable, name) {
+	$scope.formatVariableValue = nanomemoize(function(variable, name) {
 		if ((variable.v == null) && !!name && $scope.localVars) {
 			variable = $scope.copy(variable);
             variable.v = $scope.localVars[name];
@@ -709,7 +709,7 @@ config.controller('piston', ['$scope', '$rootScope', 'dataService', '$timeout', 
 			return angular.toJson(variable.v);
 		}
 		return variable.v;
-	}
+	});
 
 	$scope.deleteDialog = function() {
 		$scope.designer.dialog = ngDialog.open({

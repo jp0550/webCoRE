@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 16, 2020 for Hubitat
+ * Last update October 30, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -735,9 +735,11 @@ Map setup(LinkedHashMap data, chunks){
 
 	state.pep=piston.o?.pep ? true:false
 
-	if((String)data.n){
-		atomicState.svLabel=sNULL
-		app.updateLabel((String)data.n)
+	String lbl=(String)data.n
+	if(lbl){
+		state.svLabel=lbl
+		atomicState.svLabel=lbl
+		app.updateLabel(lbl)
 	}
 	state.schedules=[]
 	state.vars=(Map)state.vars ?: [:]
@@ -887,20 +889,22 @@ Map deletePiston(){
 private void checkLabel(Map rtD=null){
 	Boolean act=(Boolean)rtD.active
 	Boolean dis=!(Boolean)rtD.enabled
-	String appLbl=(String)app.label
-	String savedLabel=(String)atomicState.svLabel
-	if((act && !dis) && savedLabel!=sNULL){
-		app.updateLabel(savedLabel)
-		appLbl=savedLabel
-		rtD.svLabel=atomicState.svLabel=savedLabel=sNULL
+	String savedLabel=(String)rtD.svLabel
+	if(savedLabel==sNULL){
+		log.error "null label"
+		return
 	}
-	if((!act || dis) && savedLabel==sNULL){
-		rtD.svLabel=atomicState.svLabel=appLbl
-		String tstr=sBLK
-		if(!act) tstr='(Paused)'
-		if(dis) tstr='(Disabled) Kill switch is active'
-		String res=appLbl+" <span style='color:orange'>"+tstr+"</span>"
-		app.updateLabel(res)
+	String appLbl=savedLabel
+	if(savedLabel!=sNULL){
+		if(act && !dis){
+			app.updateLabel(savedLabel)
+		}
+		if(!act || dis){
+			String tstr='(Paused)'
+			if(act && dis) tstr='(Disabled) Kill switch is active'
+			String res=appLbl+" <span style='color:orange'>"+tstr+"</span>"
+			app.updateLabel(res)
+		}
 	}
 }
 
@@ -1360,18 +1364,26 @@ private LinkedHashMap<String,Object> getDSCache(String meth, Boolean Upd=true){
 				LinkedHashMap piston=recreatePiston()
 				state.pep=piston.o?.pep ? true:false
 			}
-			String ttt=(String)atomicState.svLabel
+			Integer bld=(Integer)state.build
+			String ttt=(String)state.svLabel
+			if(ttt==sNULL){
+				ttt=(String)app.label
+				if(bld>0){
+					state.svLabel=ttt
+					atomicState.svLabel=ttt
+				}
+			}
 			LinkedHashMap<String,Object> t1=[
 				id: appId,
 				logging: (Integer)state.logging!=null ? (Integer)state.logging:0,
-				svLabel: (String)state.svLabel,
-				name: ttt!=sNULL ? ttt:(String)app.label,
+				svLabel: ttt,
+				name: ttt,
 				active: (Boolean)state.active,
 				category: state.category ?: 0,
 				pep: (Boolean)state.pep,
 				created: (Long)state.created,
 				modified: (Long)state.modified,
-				build: (Integer)state.build,
+				build: bld,
 				author: (String)state.author,
 				bin: (String)state.bin,
 				logsToHE: (Boolean)settings.logsToHE,
@@ -4256,7 +4268,7 @@ void ahttpRequestHandler(resp, Map callbackData){
 							data= new groovy.json.JsonSlurper().parseText(resp.data)
 							json=resp.data
 						}catch (all){
-							try{ // HE can return data base Base64
+							try{ // HE can return data Base64
 								String decode=new String(resp.data.decodeBase64())
 								data= new groovy.json.JsonSlurper().parseText(decode)
 								json=decode
@@ -5792,23 +5804,44 @@ private getDeviceAttributeValue(Map rtD, device, String attributeName){
 	if(rtDEvN==attributeName && rtDEdID){
 		return rtD.event.value
 	}else{
-		switch (attributeName){
-		case '$status':
-			return device.getStatus()
-		case sORIENT:
-			return getThreeAxisOrientation(rtD.event && rtDEvN==sTHREAX && rtDEdID ? rtD.event.xyzValue : device.currentValue(sTHREAX, true))
-		case sAXISX:
-			return rtD.event!=null && rtDEvN==sTHREAX && rtDEdID ? rtD.event.xyzValue.x:device.currentValue(sTHREAX, true).x
-		case sAXISY:
-			return rtD.event!=null && rtDEvN==sTHREAX && rtDEdID ? rtD.event.xyzValue.y:device.currentValue(sTHREAX, true).y
-		case sAXISZ:
-			return rtD.event!=null && rtDEvN==sTHREAX && rtDEdID ? rtD.event.xyzValue.z:device.currentValue(sTHREAX, true).z
-		}
 		def result
-		try{
-			result=device.currentValue(attributeName, true)
-		}catch (all){
-			error "Error reading current value for $device.$attributeName:", rtD, -2, all
+		String msg="Error reading current value for ${device}.".toString()
+		String a='$status'
+		if(attributeName in [ a, sORIENT, sAXISX, sAXISY, sAXISZ ]){
+			switch (attributeName){
+			case a:
+				return device.getStatus()
+			case sORIENT:
+			case sAXISX:
+			case sAXISY:
+			case sAXISZ:
+				Map xyz
+				try{ xyz= rtDEvN==sTHREAX && rtDEdID && rtD.event.value ? rtD.event.value : null }catch (aa){ }
+				if(xyz==null){
+					try{
+						xyz=device.currentValue(sTHREAX, true)
+					}catch (al){
+						error msg+sTHREAX+sCOLON, rtD, -2, al
+						break
+					}
+				}
+				switch (attributeName){
+				case sORIENT:
+					return getThreeAxisOrientation(xyz)
+				case sAXISX:
+					return xyz.x
+				case sAXISY:
+					return xyz.y
+				case sAXISZ:
+					return xyz.z
+				}
+			}
+		}else{
+			try{
+				result=device.currentValue(attributeName, true)
+			}catch (all){
+				error msg+attributeName+sCOLON, rtD, -2, all
+			}
 		}
 		return result!=null ? result:sBLK
 	}
@@ -8365,7 +8398,7 @@ private Date utcToLocalDate(dateOrTimeOrString=null){ // this is really cast to 
 
 private Date localDate(){ return utcToLocalDate()}
 
-private Long localTime(){ return now()} //utcToLocalTime()}
+//private Long localTime(){ return now()} //utcToLocalTime()}
 
 private Long stringToTime(dateOrTimeOrString){ // this is convert to time
 	Long result
@@ -8948,6 +8981,8 @@ private static LinkedHashMap<String,LinkedHashMap> getSystemVariables(){
 		'$randomSaturation':[t:sINT, d:true],
 		'$randomHue':[t:sINT, d:true],
 		'$temperatureScale':[t:sSTR, d:true],
+		'$tzName':[t:sSTR, d:true],
+		'$tzOffset':[t:sINT, d:true],
 		'$version':[t:sSTR, d:true],
 		'$versionH':[t:sSTR, d:true]
 	]
@@ -8970,11 +9005,13 @@ private getSystemVariableValue(Map rtD, String name){
 	case '$mediaSize': return (rtD.mediaData!=null ? (Integer)rtD.mediaData.size():0)
 	case '$name': return (String)app.label
 	case '$state': return (String)rtD.state?.new
+	case '$tzName': return (String)location.timeZone.displayName
+	case '$tzOffset': return (Integer)location.timeZone.rawOffset
 	case '$version': return version()
 	case '$versionH': return HEversion()
+	case '$localNow': //return (Long)localTime()
 	case '$now':
 	case '$utc': return (Long)now()
-	case '$localNow': return (Long)localTime()
 	case '$hour': Integer h=(Integer)localDate().hours; return (h==0 ? 12:(h>12 ? h-12:h))
 	case '$hour24': return (Integer)localDate().hours
 	case '$minute': return (Integer)localDate().minutes
