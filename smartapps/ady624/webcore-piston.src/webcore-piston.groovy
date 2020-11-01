@@ -18,7 +18,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Last update October 30, 2020 for Hubitat
+ * Last update October 31, 2020 for Hubitat
 */
 
 static String version(){ return 'v0.3.110.20191009' }
@@ -8487,11 +8487,24 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert to time
 				hasMeridian=true
 				hasPM=true
 			}
-			if(hasMeridian)t0=t0[0..-3].trim()
+			Long time
+			if(hasMeridian) t0=t0[0..-3].trim()
 
-			Long time=timeToday(t0, tz).getTime()
+			if(t0.length() == 8){
+				try {
+					String tt=t0
+					time = (new Date()).parse('HH:mm:ss', tt).getTime()
+					time=getTimeToday(time)
+				} catch(all11) {
+				}
+			} else {
+				try {
+					time=timeToday(t0, tz).getTime()
+				} catch(all12) {
+				}
+			}
 
-			if(hasMeridian){
+			if(hasMeridian && time){
 				Date t1=new Date(time)
 				Integer hr=(Integer)t1.hours
 				Integer min=(Integer)t1.minutes
@@ -8505,10 +8518,11 @@ private Long stringToTime(dateOrTimeOrString){ // this is convert to time
 				if(hr<10)str1=String.format('%02d', hr)
 				if(min<10)str2=String.format('%02d', min)
 				if(sec<10)str3=String.format('%02d', sec)
-				String str=str1+sCOLON+str2+sCOLON+str3
+				String str=str1+sCOLON+str2
 				time=timeToday(str, tz).getTime()
+				if(sec != 0) time += sec*1000
 			}
-			result=time
+			result=time ?: 0L
 			return result
 		}catch (all5){
 		}
