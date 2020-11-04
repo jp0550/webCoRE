@@ -923,7 +923,7 @@ void config(Map data){ // creates a new piston
 }
 
 Map setBin(String bin){
-	if(bin==sNULL || (String)state.bin!=sNULL){
+	if(!bin || !!state.bin){
 		log.error 'setBin: bad bin'
 		return [:]
 	}
